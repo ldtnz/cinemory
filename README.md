@@ -31,6 +31,9 @@ Prisma + SQLite / [Turso](https://turso.tech) · Serwist (service worker).
   rows, fixing missing posters, and an edit mode for deleting titles.
 - **Single-user auth** — a 6-digit TOTP code from your authenticator app; no
   passwords, no accounts, no third-party sign-in.
+- **Setup wizard** — the first time you open the app it asks for a content
+  language/region and walks you through scanning a QR code into your
+  authenticator app. No secrets to generate or configure by hand.
 
 ## Choose how to run it
 
@@ -51,13 +54,14 @@ by whether `TURSO_DATABASE_URL` is set.
 ```bash
 git clone https://github.com/ldtnz/cinemory.git
 cd cinemory
-cp .env.example .env      # fill in TOTP_SECRET, SESSION_SECRET, TMDB_ACCESS_TOKEN
+cp .env.example .env      # fill in SESSION_SECRET, TMDB_ACCESS_TOKEN
 docker compose up -d --build
 ```
 
 The app is on http://localhost:3000. The database is a SQLite file on the
 `cinemory-data` volume, and the container applies the migrations on every
-start, so a fresh volume just works.
+start, so a fresh volume just works. The first request opens the setup
+wizard — pick a content language/region, then scan the QR code to finish.
 
 To update:
 
@@ -74,7 +78,7 @@ Node 22 or newer.
 git clone https://github.com/ldtnz/cinemory.git
 cd cinemory
 npm install
-cp .env.example .env      # fill in TOTP_SECRET, SESSION_SECRET, TMDB_ACCESS_TOKEN
+cp .env.example .env      # fill in SESSION_SECRET, TMDB_ACCESS_TOKEN
 
 npx prisma migrate deploy # creates prisma/dev.db with the schema
 npm run build
@@ -102,9 +106,10 @@ For development use `npm run dev` instead of `build` + `start`.
    ```
 
 3. **Deploy.** Import the repository on [vercel.com](https://vercel.com) and
-   add these environment variables to the project: `TOTP_SECRET`,
-   `SESSION_SECRET`, `TMDB_ACCESS_TOKEN`, `TURSO_DATABASE_URL`,
-   `TURSO_AUTH_TOKEN`. Deploy.
+   add these environment variables to the project: `SESSION_SECRET`,
+   `TMDB_ACCESS_TOKEN`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`. Deploy, then
+   open the app: the first visit opens the setup wizard, which stores its
+   own content language/region and TOTP secret in that Turso database.
 
 Whenever the schema changes, run `npm run db:migrate-turso` again before
 deploying — `prisma migrate deploy` talks to a SQLite file, not to Turso.
@@ -117,12 +122,9 @@ Every variable is documented in [`.env.example`](.env.example). In short:
 
 | Variable | Required | What it is |
 |---|---|---|
-| `TOTP_SECRET` | yes | Base32 secret shared with your authenticator app |
 | `SESSION_SECRET` | yes | random string used to sign the session cookie |
 | `TMDB_ACCESS_TOKEN` | yes* | TMDB v4 "API Read Access Token" |
 | `TMDB_API_KEY` | yes* | TMDB v3 "API Key" — the alternative to the token |
-| `TMDB_LANGUAGE` | no | language TMDB answers in (default `en-US`) |
-| `TMDB_REGION` | no | country for streaming availability (default `US`) |
 | `DATABASE_URL` | self-hosted | path to the SQLite file |
 | `TURSO_DATABASE_URL` | serverless | libSQL endpoint; when set, it wins over `DATABASE_URL` |
 | `TURSO_AUTH_TOKEN` | serverless | token for that database |
@@ -131,6 +133,13 @@ Every variable is documented in [`.env.example`](.env.example). In short:
 every TMDB call goes through the app's own API routes, so the key stays on the
 server.
 
+The TOTP secret and the content language/region are not environment variables
+at all — the setup wizard on first run stores them in the database. Only
+`SESSION_SECRET`, the key that signs the session cookie, stays outside the
+database: keeping it there means a leaked database alone cannot be used to
+forge a session, only to read the catalog and the (equally database-stored)
+TOTP secret.
+
 ### Getting the credentials
 
 **TMDB (free).** Create an account at
@@ -138,14 +147,6 @@ server.
 [Settings → API](https://www.themoviedb.org/settings/api) and request a
 "Developer" key for personal use. Copy the **API Read Access Token** into
 `TMDB_ACCESS_TOKEN` (or the shorter **API Key (v3 auth)** into `TMDB_API_KEY`).
-
-**TOTP_SECRET.** Generate a Base32 secret and add it to your authenticator app
-(1Password, Aegis, Google Authenticator…) as a manual entry — time-based,
-6 digits, 30 seconds:
-
-```bash
-node -e "const c=require('crypto');const a='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';console.log([...c.randomBytes(20)].map(b=>a[b%32]).join(''))"
-```
 
 **SESSION_SECRET.** Any long random string:
 
@@ -251,4 +252,6 @@ for posters. There is no analytics, no telemetry and no third-party account.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+[PolyForm Noncommercial License 1.0.0](LICENSE) — free to use, copy and
+modify for any noncommercial purpose. Not for resale, and please don't
+republish a copy or a fork under another name without crediting this project.

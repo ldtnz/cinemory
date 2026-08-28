@@ -1,7 +1,7 @@
 # Self-hosted Cinemory. Everything lives in this one container: the Next.js
 # server and a SQLite file on the "cinemory-data" volume.
 #
-#   cp .env.example .env     # then fill in TOTP_SECRET, SESSION_SECRET, TMDB_*
+#   cp .env.example .env     # then fill in SESSION_SECRET, TMDB_*
 #   docker compose up -d --build
 #
 # The app is then on http://localhost:3000

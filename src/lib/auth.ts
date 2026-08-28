@@ -89,6 +89,58 @@ export async function isValidOtpCode(enteredCode: string, base32Secret: string):
   return false;
 }
 
+/** A fresh random Base32 secret: 160 bits, the size TOTP apps expect. */
+export function generateTotpSecret(): string {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const bytes = crypto.getRandomValues(new Uint8Array(20));
+  let bits = "";
+  for (const b of bytes) bits += b.toString(2).padStart(8, "0");
+  let secret = "";
+  for (let i = 0; i + 5 <= bits.length; i += 5) {
+    secret += alphabet[parseInt(bits.slice(i, i + 5), 2)];
+  }
+  return secret;
+}
+
+/** otpauth:// URI for the setup QR code: scanning it fills in secret, issuer and period at once. */
+export function buildOtpauthUrl(secret: string): string {
+  const label = encodeURIComponent("Cinemory:owner");
+  return `otpauth://totp/${label}?secret=${secret}&issuer=Cinemory&digits=6&period=30`;
+}
+
+const SETUP_TOKEN_TTL_SECONDS = 10 * 60;
+
+/**
+ * Carries a freshly generated TOTP secret from "start setup" to "confirm
+ * setup" without writing it to the database first: only a code the user
+ * actually produced with their authenticator app earns that write. The token
+ * is signed with SESSION_SECRET (the same key that signs session cookies) and
+ * expires quickly, so a stale link cannot be replayed long after the fact.
+ */
+export async function createPendingTotpToken(
+  base32Secret: string,
+  sessionSecret: string,
+): Promise<string> {
+  const expiry = Math.floor(Date.now() / 1000) + SETUP_TOKEN_TTL_SECONDS;
+  const payload = `${expiry}.${base32Secret}`;
+  const signature = await hmacSha256(sessionSecret, payload);
+  return `${payload}.${signature}`;
+}
+
+/** Verifies and unwraps a pending-setup token. Null if invalid, tampered or expired. */
+export async function readPendingTotpToken(
+  token: string,
+  sessionSecret: string,
+): Promise<string | null> {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const [expiryStr, secret, signature] = parts;
+  const expiry = Number(expiryStr);
+  if (!Number.isFinite(expiry) || expiry < Math.floor(Date.now() / 1000)) return null;
+  const expectedSignature = await hmacSha256(sessionSecret, `${expiryStr}.${secret}`);
+  return expectedSignature === signature ? secret : null;
+}
+
 export async function createSessionCookie(sessionSecret: string): Promise<string> {
   const expiry = Math.floor(Date.now() / 1000) + SESSION_DURATION_SECONDS;
   const signature = await hmacSha256(sessionSecret, String(expiry));

@@ -32,7 +32,7 @@ const FORMAT_LABELS: Record<string, string> = {
   amazon: "Prime Video",
 };
 
-export default function ImportHistory() {
+export default function ImportHistory({ onImported }: { onImported?: () => void } = {}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File[]>([]);
   const [phase, setPhase] = useState<"idle" | "importing" | "enriching">("idle");
@@ -67,6 +67,9 @@ export default function ImportHistory() {
         setPhase("idle");
         return;
       }
+      // The titles are in the catalog from here on; posters and metadata
+      // still trickle in below, same as for any other import.
+      onImported?.();
 
       // Posters and metadata come afterwards, in batches: a single request for
       // hundreds of titles would blow past the serverless duration limit.
