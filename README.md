@@ -12,9 +12,8 @@ an app, with an offline fallback and cached posters.
 Prisma + SQLite / [Turso](https://turso.tech) · Serwist (service worker).
 
 <p align="center">
-  <img src="docs/screenshots/catalog.jpg" width="32%" alt="Catalog grid with posters, filters and search">
-  <img src="docs/screenshots/add-title.jpg" width="32%" alt="Adding a title: live TMDB search as you type">
-  <img src="docs/screenshots/edit-mode.jpg" width="32%" alt="Edit mode: season tracker and delete on each card">
+  <img src="docs/screenshots/catalog.jpg" width="49%" alt="Catalog grid with posters, filters and search">
+  <img src="docs/screenshots/add-title.jpg" width="49%" alt="Adding a title: live TMDB search as you type">
 </p>
 
 ---
