@@ -31,7 +31,7 @@ export default function NotFoundGate({ posterUrl }: { posterUrl: string[] }) {
       <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 p-3 opacity-90 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] sm:gap-4 sm:p-5">
         {posterUrl.map((url, i) => (
           <div key={i} className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2">
-            <Image src={url} alt="" fill sizes="190px" className="object-cover" />
+            <Image src={url} alt="" fill unoptimized sizes="190px" className="object-cover" />
           </div>
         ))}
       </div>

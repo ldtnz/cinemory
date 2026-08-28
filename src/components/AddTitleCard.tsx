@@ -224,6 +224,7 @@ export default function AddTitleCard({
                                     src={c.posterUrl}
                                     alt=""
                                     fill
+                                    unoptimized
                                     sizes="54px"
                                     className="object-cover"
                                   />
@@ -282,7 +283,7 @@ export default function AddTitleCard({
                     onClick={() => setChosenCandidate(null)}
                     className="text-xs font-medium text-muted hover:text-foreground"
                   >
-                    ← Cambia title
+                    ← Change title
                   </button>
 
                   <div className="flex gap-3">
@@ -292,6 +293,7 @@ export default function AddTitleCard({
                           src={chosenCandidate.posterUrl}
                           alt={chosenCandidate.title}
                           fill
+                          unoptimized
                           sizes="80px"
                           className="object-cover"
                         />

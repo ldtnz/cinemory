@@ -143,7 +143,7 @@ function GestisciItem({
                   title={`${c.title}${c.year ? ` (${c.year})` : ""}`}
                 >
                   {c.posterUrl ? (
-                    <Image src={c.posterUrl} alt={c.title} fill sizes="120px" className="object-cover" />
+                    <Image src={c.posterUrl} alt={c.title} fill unoptimized sizes="120px" className="object-cover" />
                   ) : (
                     <div className="flex h-full items-center justify-center p-1 text-center text-[10px] text-muted">
                       {c.title}

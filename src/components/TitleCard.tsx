@@ -99,6 +99,7 @@ function TitleCard({
             src={title.posterUrl}
             alt={title.title}
             fill
+            unoptimized
             sizes="(max-width: 640px) 30vw, (max-width: 1024px) 16vw, 10vw"
             className={`object-cover transition-opacity duration-300 ${
               loaded ? "opacity-100" : "opacity-0"
