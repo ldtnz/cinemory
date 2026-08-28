@@ -67,6 +67,9 @@ export default function ImportHistory({ onImported }: { onImported?: () => void 
         setPhase("idle");
         return;
       }
+      // The titles are in the catalog from here on; posters and metadata
+      // still trickle in below, same as for any other import.
+      onImported?.();
 
       // Posters and metadata come afterwards, in batches: a single request for
       // hundreds of titles would blow past the serverless duration limit.

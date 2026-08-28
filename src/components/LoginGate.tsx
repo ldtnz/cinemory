@@ -67,7 +67,7 @@ export default function LoginGate({
             type="submit"
             className="w-full rounded-2xl bg-foreground py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90"
           >
-            Entra
+            Sign in
           </button>
         </form>
       </div>

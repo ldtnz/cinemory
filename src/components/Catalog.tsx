@@ -5,6 +5,7 @@ import type { Title } from "@prisma/client";
 import FilterBar from "@/components/FilterBar";
 import TitleCard from "@/components/TitleCard";
 import AddTitleCard from "@/components/AddTitleCard";
+import ImportHistory from "@/components/ImportHistory";
 import { useEditMode } from "@/lib/edit-mode";
 
 const MAX_SHOWN = 1500;
@@ -100,6 +101,26 @@ export default function Catalog({ initialTitles }: { initialTitles: Title[] }) {
   }, [filtered, sort]);
 
   const shownTitles = titles.slice(0, MAX_SHOWN);
+
+  if (catalog.length === 0) {
+    return (
+      <main className="mx-auto w-full max-w-lg px-3 pb-16 pt-10 sm:px-5">
+        <div className="mb-6 text-center">
+          <h1 className="text-xl font-semibold tracking-tight">Welcome to Cinemory</h1>
+          <p className="mt-1.5 text-sm text-muted">
+            Your catalog is empty. Import your Netflix or Prime Video watch history to get
+            started.
+          </p>
+        </div>
+        {/* A full reload rather than router.refresh(): this component's
+            catalog state was seeded from initialTitles once, at mount, and
+            would not otherwise pick up the server's fresh data. Fine for a
+            transition that only ever happens once, going from an empty
+            catalog to a populated one. */}
+        <ImportHistory onImported={() => window.location.reload()} />
+      </main>
+    );
+  }
 
   return (
     <main className="w-full px-3 pb-16 pt-6 sm:px-5">
