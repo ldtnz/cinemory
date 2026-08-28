@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+:root {
+  --background: #09090a;
+  --surface: #131314;
+  --surface-2: #1c1c1e;
+  --foreground: #f2f2f3;
+  --muted: #8b8b90;
+  --accent: #6b7280;
+  --accent-2: #22c55e;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  color-scheme: dark;
+  overscroll-behavior-y: none;
+  /* No double-tap zoom and no automatic text resizing when the phone turns
+     to landscape. */
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  touch-action: manipulation;
+}
+
+/* Long-pressing a poster opens the iOS menu (Save Image, open full screen)
+   and lets it be dragged out: it is the touch equivalent of right-clicking,
+   which DisableContextMenu already blocks elsewhere. */
+img {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Scrollbars hidden everywhere, scrolling still works. */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* ---------------------------------------------------------------------
+   The app is portrait only.
+
+   The manifest declares "orientation: portrait" and OrientationLock tries the
+   Screen Orientation API: where they work (Android, installed PWA) the phone
+   stays locked and nothing else happens. iOS ignores both, so there the app
+   is covered by an overlay asking to turn the phone back.
+
+   Touch screens with a short viewport only: tablets and desktops are left
+   alone.
+   --------------------------------------------------------------------- */
+.landscape-notice {
+  display: none;
+}
+
+@media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  body {
+    overflow: hidden;
+  }
+
+  .landscape-notice {
+    display: flex;
+  }
+}

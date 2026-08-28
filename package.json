@@ -1,0 +1,46 @@
+{
+  "name": "cinemory",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "predev": "tsx scripts/sync-turso.ts",
+    "dev": "next dev",
+    "build": "next build --webpack",
+    "start": "next start",
+    "lint": "eslint",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:enrich": "tsx scripts/enrich-tmdb.ts",
+    "db:sync": "tsx scripts/sync-turso.ts",
+    "postinstall": "prisma generate",
+    "db:migrate-turso": "tsx scripts/migrate-turso.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.8.1",
+    "@prisma/adapter-libsql": "^5.22.0",
+    "@prisma/client": "^5.22.0",
+    "@serwist/next": "^9.5.12",
+    "lucide-react": "^1.33.0",
+    "next": "16.3.1",
+    "prisma": "^5.22.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "serwist": "^9.5.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "csv-parse": "^7.0.2",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.1",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.12",
+    "typescript": "^5"
+  },
+  "description": "A personal catalog for everything you watch on Netflix, Prime Video, Disney+ and at the cinema.",
+  "license": "MIT"
+}

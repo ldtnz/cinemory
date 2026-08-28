@@ -1,0 +1,52 @@
+// Prisma schema for the movie / TV series catalog.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite has no native enums in Prisma, so these are strings with a fixed set
+// of values:
+//   platform:  "Netflix" | "Amazon Prime Video" | "Disney+" | "Cinema"
+//   mediaType: "Movie" | "Series"
+//   status:    "Watched" | "To watch"
+
+model Title {
+  id            Int       @id @default(autoincrement())
+  title         String
+  searchTitle   String // normalized form used for search and de-duplication
+  platform      String
+  mediaType     String
+  status        String
+  lastWatchedAt DateTime?
+  // Series only: how many seasons exist (from TMDB) and how many have been
+  // watched (derived from the imported history, editable by hand afterwards).
+  totalSeasons   Int?
+  watchedSeasons Int?
+  inWatchlist    Boolean @default(false)
+  link           String?
+
+  // Enriched from TMDB
+  tmdbId      Int?
+  posterUrl   String?
+  backdropUrl String?
+  overview    String?
+  tmdbRating  Float?
+  year        Int?
+  genres      String? // comma-separated list
+
+  personalRating Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([platform])
+  @@index([mediaType])
+  @@index([status])
+  @@index([searchTitle])
+}

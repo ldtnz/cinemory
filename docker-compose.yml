@@ -1,0 +1,27 @@
+# Self-hosted Cinemory. Everything lives in this one container: the Next.js
+# server and a SQLite file on the "cinemory-data" volume.
+#
+#   cp .env.example .env     # then fill in TOTP_SECRET, SESSION_SECRET, TMDB_*
+#   docker compose up -d --build
+#
+# The app is then on http://localhost:3000
+
+services:
+  cinemory:
+    build: .
+    image: cinemory
+    container_name: cinemory
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # The database file on the volume below. Leave the TURSO_* variables out
+      # of .env for a self-hosted install: they would take precedence.
+      DATABASE_URL: "file:/app/data/cinemory.db"
+    env_file:
+      - .env
+    volumes:
+      - cinemory-data:/app/data
+
+volumes:
+  cinemory-data:
