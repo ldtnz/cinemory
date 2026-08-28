@@ -251,4 +251,5 @@ for posters. There is no analytics, no telemetry and no third-party account.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Free for personal use, modification included. Not for resale and not for
+rebranding — see [LICENSE](LICENSE) for the exact terms.

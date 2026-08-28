@@ -21,7 +21,6 @@ const prisma = new PrismaClient({
 
 const API_KEY = process.env.TMDB_API_KEY;
 const ACCESS_TOKEN = process.env.TMDB_ACCESS_TOKEN;
-const LANGUAGE = process.env.TMDB_LANGUAGE || "en-US";
 const FORCE = process.argv.includes("--force");
 const CONCURRENCY = 6;
 const IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
@@ -69,11 +68,12 @@ type TmdbResult = {
 async function searchWithQuery(
   query: string,
   endpoint: "movie" | "tv",
+  language: string,
 ): Promise<TmdbResult | null> {
-  for (const language of [LANGUAGE, "en-US"]) {
+  for (const lang of [language, "en-US"]) {
     const url = withKey(new URL(`https://api.themoviedb.org/3/search/${endpoint}`));
     url.searchParams.set("query", query);
-    url.searchParams.set("language", language);
+    url.searchParams.set("language", lang);
     url.searchParams.set("include_adult", "false");
 
     const res = await fetchWithRetry(url);
@@ -86,11 +86,15 @@ async function searchWithQuery(
   return null;
 }
 
-async function searchTmdb(title: string, mediaType: string): Promise<TmdbResult | null> {
+async function searchTmdb(
+  title: string,
+  mediaType: string,
+  language: string,
+): Promise<TmdbResult | null> {
   const endpoint = mediaType === "Series" ? "tv" : "movie";
   const query = cleanTitleForSearch(title);
 
-  const firstAttempt = await searchWithQuery(query, endpoint);
+  const firstAttempt = await searchWithQuery(query, endpoint, language);
   if (firstAttempt) return firstAttempt;
 
   // Fallback: some "orphan" episodes (watched only once, so they were not
@@ -101,8 +105,8 @@ async function searchTmdb(title: string, mediaType: string): Promise<TmdbResult 
     const prefix = cleanTitleForSearch(title.split(":")[0].trim());
     if (prefix && prefix !== query) {
       const prefixResult =
-        (await searchWithQuery(prefix, endpoint)) ??
-        (await searchWithQuery(prefix, endpoint === "movie" ? "tv" : "movie"));
+        (await searchWithQuery(prefix, endpoint, language)) ??
+        (await searchWithQuery(prefix, endpoint === "movie" ? "tv" : "movie", language));
       if (prefixResult) return prefixResult;
     }
   }
@@ -128,10 +132,10 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function genresByMediaType(mediaType: string): Promise<Map<number, string>> {
+async function genresByMediaType(mediaType: string, language: string): Promise<Map<number, string>> {
   const endpoint = mediaType === "Series" ? "tv" : "movie";
   const url = withKey(new URL(`https://api.themoviedb.org/3/genre/${endpoint}/list`));
-  url.searchParams.set("language", LANGUAGE);
+  url.searchParams.set("language", language);
   const res = await fetchWithRetry(url);
   const map = new Map<number, string>();
   if (!res) return map;
@@ -144,9 +148,10 @@ async function processTitle(
   t: Title,
   movieGenres: Map<number, string>,
   seriesGenres: Map<number, string>,
+  language: string,
 ): Promise<"found" | "not_found" | "error"> {
   try {
-    const result = await searchTmdb(t.title, t.mediaType);
+    const result = await searchTmdb(t.title, t.mediaType, language);
     if (!result) {
       await prisma.title.update({
         where: { id: t.id },
@@ -187,6 +192,9 @@ async function processTitle(
 }
 
 async function main() {
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  const language = settings?.language ?? "en-US";
+
   const where = FORCE ? {} : { tmdbId: null };
   const pending = await prisma.title.findMany({ where });
 
@@ -197,8 +205,8 @@ async function main() {
   }
 
   const [movieGenres, seriesGenres] = await Promise.all([
-    genresByMediaType("Movie"),
-    genresByMediaType("Series"),
+    genresByMediaType("Movie", language),
+    genresByMediaType("Series", language),
   ]);
 
   let found = 0;
@@ -212,7 +220,7 @@ async function main() {
     while (queue.length > 0) {
       const t = queue.pop();
       if (!t) break;
-      const outcome = await processTitle(t, movieGenres, seriesGenres);
+      const outcome = await processTitle(t, movieGenres, seriesGenres, language);
       if (outcome === "found") found++;
       else if (outcome === "not_found") notFound++;
       else errors++;

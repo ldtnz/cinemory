@@ -50,3 +50,21 @@ model Title {
   @@index([status])
   @@index([searchTitle])
 }
+
+// Single row (id fixed to 1) holding configuration set through the first-run
+// setup wizard instead of deploy-time environment variables: the TMDB content
+// language/region, and — once configured — the TOTP secret that gates login.
+//
+// SESSION_SECRET stays an environment variable on purpose: it signs the
+// session cookie, so keeping it out of the database it protects means a
+// leaked database alone cannot be used to forge a valid session, only to
+// read the catalog and the TOTP secret.
+model Settings {
+  id         Int      @id @default(1)
+  language   String   @default("en-US")
+  region     String   @default("US")
+  totpSecret String?
+  onboarded  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}

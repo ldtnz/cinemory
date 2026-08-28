@@ -8,13 +8,18 @@ import {
   isValidOtpCode,
   createSessionCookie,
 } from "@/lib/auth";
+import { getSettings } from "@/lib/settings";
 
 export async function POST(request: NextRequest) {
-  const totpSecret = process.env.TOTP_SECRET;
+  const settings = await getSettings();
+  const totpSecret = settings.totpSecret;
   const sessionSecret = process.env.SESSION_SECRET;
 
-  if (!totpSecret || !sessionSecret) {
-    return new NextResponse("Authentication is not configured.", { status: 500 });
+  if (!settings.onboarded || !totpSecret) {
+    return NextResponse.redirect(new URL("/", request.url), { status: 303 });
+  }
+  if (!sessionSecret) {
+    return new NextResponse("SESSION_SECRET is not configured.", { status: 500 });
   }
 
   const returnUrl = new URL("/", request.url);

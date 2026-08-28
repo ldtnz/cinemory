@@ -2,11 +2,13 @@
 // and the search route used by the settings page to link missing posters by
 // hand.
 //
-// The language sent to TMDB is configurable: set TMDB_LANGUAGE to get titles,
-// overviews and genres back in your own language (defaults to en-US).
+// The language sent to TMDB (titles, overviews, genre names) is the one
+// chosen in the setup wizard, read from the Settings row — see
+// src/lib/settings.ts.
+
+import { getSettings } from "@/lib/settings";
 
 const API_KEY = process.env.TMDB_API_KEY;
-const LANGUAGE = process.env.TMDB_LANGUAGE || "en-US";
 const ACCESS_TOKEN = process.env.TMDB_ACCESS_TOKEN;
 const IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
 const BACKDROP_BASE = "https://image.tmdb.org/t/p/w780";
@@ -56,11 +58,16 @@ export type TmdbCandidate = {
   genres: string | null;
 };
 
-let cacheGeneri: { film: Map<number, string>; series: Map<number, string> } | null = null;
+// Keyed by language, so a warm serverless instance picks up a language change
+// made later on the settings page instead of keeping the first one it saw.
+const genreCache = new Map<string, { film: Map<number, string>; series: Map<number, string> }>();
 
-async function genresByMediaType(endpoint: "movie" | "tv"): Promise<Map<number, string>> {
+async function genresByMediaType(
+  endpoint: "movie" | "tv",
+  language: string,
+): Promise<Map<number, string>> {
   const url = withKey(new URL(`https://api.themoviedb.org/3/genre/${endpoint}/list`));
-  url.searchParams.set("language", LANGUAGE);
+  url.searchParams.set("language", language);
   const res = await fetch(url, { headers: authHeaders() });
   const mappa = new Map<number, string>();
   if (!res.ok) return mappa;
@@ -69,12 +76,16 @@ async function genresByMediaType(endpoint: "movie" | "tv"): Promise<Map<number, 
   return mappa;
 }
 
-async function genreMaps() {
-  if (!cacheGeneri) {
-    const [film, series] = await Promise.all([genresByMediaType("movie"), genresByMediaType("tv")]);
-    cacheGeneri = { film, series };
-  }
-  return cacheGeneri;
+async function genreMaps(language: string) {
+  const cached = genreCache.get(language);
+  if (cached) return cached;
+  const [film, series] = await Promise.all([
+    genresByMediaType("movie", language),
+    genresByMediaType("tv", language),
+  ]);
+  const maps = { film, series };
+  genreCache.set(language, maps);
+  return maps;
 }
 
 function normalize(
@@ -108,7 +119,8 @@ function normalize(
 export async function searchTmdb(query: string): Promise<TmdbCandidate[]> {
   if (!isTmdbConfigured() || !query.trim()) return [];
 
-  const { film, series } = await genreMaps();
+  const language = (await getSettings()).language;
+  const { film, series } = await genreMaps(language);
 
   const [risFilm, risSerie] = await Promise.all([
     fetch(
@@ -116,7 +128,7 @@ export async function searchTmdb(query: string): Promise<TmdbCandidate[]> {
         (() => {
           const u = new URL("https://api.themoviedb.org/3/search/movie");
           u.searchParams.set("query", query);
-          u.searchParams.set("language", LANGUAGE);
+          u.searchParams.set("language", language);
           u.searchParams.set("include_adult", "false");
           return u;
         })(),
@@ -128,7 +140,7 @@ export async function searchTmdb(query: string): Promise<TmdbCandidate[]> {
         (() => {
           const u = new URL("https://api.themoviedb.org/3/search/tv");
           u.searchParams.set("query", query);
-          u.searchParams.set("language", LANGUAGE);
+          u.searchParams.set("language", language);
           u.searchParams.set("include_adult", "false");
           return u;
         })(),
@@ -175,13 +187,14 @@ async function firstResult(
   query: string,
   endpoint: "movie" | "tv",
   mappaGeneri: Map<number, string>,
+  language: string,
 ): Promise<TmdbCandidate | null> {
   // Configured language first, then English: some titles only exist on TMDB
   // under their original name.
-  for (const language of [LANGUAGE, "en-US"]) {
+  for (const lang of [language, "en-US"]) {
     const url = withKey(new URL(`https://api.themoviedb.org/3/search/${endpoint}`));
     url.searchParams.set("query", query);
-    url.searchParams.set("language", language);
+    url.searchParams.set("language", lang);
     url.searchParams.set("include_adult", "false");
 
     const res = await fetch(url, { headers: authHeaders() });
@@ -214,13 +227,14 @@ export async function findBestTmdbMatch(
 ): Promise<TmdbCandidate | null> {
   if (!isTmdbConfigured() || !title.trim()) return null;
 
-  const { film, series } = await genreMaps();
+  const language = (await getSettings()).language;
+  const { film, series } = await genreMaps(language);
   const endpoint = mediaType === "Series" ? "tv" : "movie";
   const genres = endpoint === "tv" ? series : film;
   const query = cleanTitleForSearch(title);
   if (!query) return null;
 
-  const diretto = await firstResult(query, endpoint, genres);
+  const diretto = await firstResult(query, endpoint, genres, language);
   if (diretto) return withSeasons(diretto);
 
   if (title.includes(":")) {
@@ -228,8 +242,8 @@ export async function findBestTmdbMatch(
     if (prefix && prefix !== query) {
       const otherEndpoint = endpoint === "movie" ? "tv" : "movie";
       const found =
-        (await firstResult(prefix, endpoint, genres)) ??
-        (await firstResult(prefix, otherEndpoint, otherEndpoint === "tv" ? series : film));
+        (await firstResult(prefix, endpoint, genres, language)) ??
+        (await firstResult(prefix, otherEndpoint, otherEndpoint === "tv" ? series : film, language));
       return found ? await withSeasons(found) : null;
     }
   }
@@ -251,8 +265,9 @@ export async function findBestTmdbMatch(
 export async function totalSeasonsFromTmdb(tmdbId: number): Promise<number | null> {
   if (!isTmdbConfigured() || !(tmdbId > 0)) return null;
 
+  const language = (await getSettings()).language;
   const url = withKey(new URL(`https://api.themoviedb.org/3/tv/${tmdbId}`));
-  url.searchParams.set("language", LANGUAGE);
+  url.searchParams.set("language", language);
 
   const res = await fetch(url, { headers: authHeaders() }).catch(() => null);
   if (!res?.ok) return null;

@@ -16,6 +16,10 @@
  * Year,Genres,Num Votes,Release Date,Directors). When that file is missing the
  * bundled ImdbRatings.example.csv sample is read instead.
  *
+ * Language and region come from the app's Settings row (set on first run or
+ * from the settings page), read from the local database like everything else
+ * this script touches.
+ *
  * Run with: npx tsx scripts/import-imdb.ts
  * Add --dry-run to print the report without writing to the database.
  */
@@ -35,9 +39,6 @@ const prisma = new PrismaClient({
 
 const API_KEY = process.env.TMDB_API_KEY;
 const ACCESS_TOKEN = process.env.TMDB_ACCESS_TOKEN;
-const LANGUAGE = process.env.TMDB_LANGUAGE || "en-US";
-// ISO 3166-1 country code used to look up streaming availability.
-const REGION = process.env.TMDB_REGION || "US";
 const DRY_RUN = process.argv.includes("--dry-run");
 const CONCURRENCY = 5;
 const IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
@@ -115,9 +116,9 @@ type ImdbRow = {
 
 type GenreMap = Map<number, string>;
 
-async function genresByMediaType(endpoint: "movie" | "tv"): Promise<GenreMap> {
+async function genresByMediaType(endpoint: "movie" | "tv", language: string): Promise<GenreMap> {
   const url = withKey(new URL(`https://api.themoviedb.org/3/genre/${endpoint}/list`));
-  url.searchParams.set("language", LANGUAGE);
+  url.searchParams.set("language", language);
   const res = await fetchWithRetry(url);
   const map: GenreMap = new Map();
   if (!res) return map;
@@ -141,10 +142,10 @@ type TmdbMatch = {
 };
 
 /** Looks the title up on TMDB by exact IMDb ID: no ambiguity about which one it is. */
-async function findByImdbId(imdbId: string): Promise<TmdbMatch | null> {
+async function findByImdbId(imdbId: string, language: string): Promise<TmdbMatch | null> {
   const url = withKey(new URL(`https://api.themoviedb.org/3/find/${imdbId}`));
   url.searchParams.set("external_source", "imdb_id");
-  url.searchParams.set("language", LANGUAGE);
+  url.searchParams.set("language", language);
   const res = await fetchWithRetry(url);
   if (!res) return null;
   const data = (await res.json()) as {
@@ -164,6 +165,7 @@ async function findByImdbId(imdbId: string): Promise<TmdbMatch | null> {
 async function streamingPlatform(
   tmdbId: number,
   mediaType: "movie" | "tv",
+  regionCode: string,
 ): Promise<string | null> {
   const url = withKey(
     new URL(`https://api.themoviedb.org/3/${mediaType}/${tmdbId}/watch/providers`),
@@ -173,7 +175,7 @@ async function streamingPlatform(
   const data = (await res.json()) as {
     results?: Record<string, { flatrate?: { provider_name: string }[] }>;
   };
-  const region = data.results?.[REGION];
+  const region = data.results?.[regionCode];
   const names = (region?.flatrate ?? []).map((p) => p.provider_name);
 
   if (names.some((n) => n === "Netflix")) return "Netflix";
@@ -183,6 +185,10 @@ async function streamingPlatform(
 }
 
 async function main() {
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  const language = settings?.language ?? "en-US";
+  const region = settings?.region ?? "US";
+
   if (!fs.existsSync(CSV_PATH)) {
     console.error(`File not found: ${OWN_CSV}`);
     process.exit(1);
@@ -246,8 +252,8 @@ async function main() {
   }
 
   const [movieGenres, seriesGenres] = await Promise.all([
-    genresByMediaType("movie"),
-    genresByMediaType("tv"),
+    genresByMediaType("movie", language),
+    genresByMediaType("tv", language),
   ]);
 
   type Outcome = {
@@ -270,9 +276,9 @@ async function main() {
       let match: TmdbMatch | null = null;
       let platform = "Cinema";
       try {
-        match = await findByImdbId(row.Const);
+        match = await findByImdbId(row.Const, language);
         if (match) {
-          const fromStreaming = await streamingPlatform(match.id, match.mediaType);
+          const fromStreaming = await streamingPlatform(match.id, match.mediaType, region);
           if (fromStreaming) platform = fromStreaming;
         }
       } catch (e) {

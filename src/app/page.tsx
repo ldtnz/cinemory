@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import Catalog from "@/components/Catalog";
 import LoginGate from "@/components/LoginGate";
+import SetupWizard from "@/components/SetupWizard";
 import { isAuthenticated } from "@/lib/auth";
+import { needsSetup } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,16 @@ export default async function Home({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
+
+  if (await needsSetup()) {
+    const preview = await prisma.title.findMany({
+      where: { posterUrl: { not: null } },
+      select: { posterUrl: true },
+      orderBy: { lastWatchedAt: "desc" },
+      take: 60,
+    });
+    return <SetupWizard posterUrl={preview.map((t) => t.posterUrl as string)} />;
+  }
 
   if (!(await isAuthenticated())) {
     const preview = await prisma.title.findMany({

@@ -3,19 +3,26 @@ import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { isAuthenticated } from "@/lib/auth";
+import { getSettings, needsSetup } from "@/lib/settings";
 import { isTmdbConfigured } from "@/lib/tmdb";
 import { mergeSummary } from "@/lib/seasons";
 import MissingPostersPanel from "@/components/MissingPostersPanel";
 import ImportHistory from "@/components/ImportHistory";
 import EditModeToggle from "@/components/EditModeToggle";
 import SeriesSeasons from "@/components/SeriesSeasons";
+import PreferencesEditor from "@/components/PreferencesEditor";
 
 export const dynamic = "force-dynamic";
 
-export default async function GestisciPage() {
+export default async function SettingsPage() {
+  if (await needsSetup()) {
+    redirect("/");
+  }
   if (!(await isAuthenticated())) {
     redirect("/");
   }
+
+  const settings = await getSettings();
 
   const seriesWithoutSeasons = await prisma.title.count({
     where: { mediaType: "Series", totalSeasons: null, tmdbId: { gt: 0 } },
@@ -51,6 +58,8 @@ export default async function GestisciPage() {
           Settings
         </h1>
       </div>
+
+      <PreferencesEditor initialLanguage={settings.language} initialRegion={settings.region} />
 
       {!isTmdbConfigured() ? (
         <p className="rounded-2xl bg-surface p-4 text-sm text-red-400">

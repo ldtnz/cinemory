@@ -32,7 +32,7 @@ const FORMAT_LABELS: Record<string, string> = {
   amazon: "Prime Video",
 };
 
-export default function ImportHistory() {
+export default function ImportHistory({ onImported }: { onImported?: () => void } = {}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File[]>([]);
   const [phase, setPhase] = useState<"idle" | "importing" | "enriching">("idle");
