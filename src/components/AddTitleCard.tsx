@@ -165,7 +165,7 @@ export default function AddTitleCard({
           <Plus className="h-5 w-5" strokeWidth={1.8} />
         </div>
         <span className="px-2 text-center text-[11px] font-medium leading-tight">
-          Aggiungi title
+          Add title
         </span>
       </button>
 
@@ -173,7 +173,7 @@ export default function AddTitleCard({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm">
           <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-surface shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]">
             <div className="flex items-center justify-between border-b border-white/5 p-4">
-              <h2 className="text-sm font-semibold">Aggiungi title</h2>
+              <h2 className="text-sm font-semibold">Add title</h2>
               <button
                 type="button"
                 onClick={close}
