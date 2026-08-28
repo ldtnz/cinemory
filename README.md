@@ -252,6 +252,7 @@ for posters. There is no analytics, no telemetry and no third-party account.
 
 ## License
 
-[PolyForm Noncommercial License 1.0.0](LICENSE) — free to use, copy and
-modify for any noncommercial purpose. Not for resale, and please don't
-republish a copy or a fork under another name without crediting this project.
+[GNU AGPLv3](LICENSE) — free to use, copy and modify. If you distribute a
+modified version, or run one as a network service, you must make that
+version's source available to your users under the same license: see the
+license text for the exact terms.
