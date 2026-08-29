@@ -1,5 +1,8 @@
 # Cinemory
 
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPLv3-blue.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/ldtnz/cinemory?style=flat)](https://github.com/ldtnz/cinemory/stargazers)
+
 A personal catalog for everything you have watched on Netflix, Prime Video,
 Disney+ or at the cinema. Import your streaming history, browse and filter it,
 track how many seasons of a series you have got through, and let
@@ -10,6 +13,12 @@ an app, with an offline fallback and cached posters.
 
 **Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 ·
 Prisma + SQLite / [Turso](https://turso.tech) · Serwist (service worker).
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fldtnz%2Fcinemory&env=TMDB_ACCESS_TOKEN,SESSION_SECRET,TURSO_DATABASE_URL,TURSO_AUTH_TOKEN&envDescription=See%20the%20README%20for%20how%20to%20get%20each%20value&envLink=https%3A%2F%2Fgithub.com%2Fldtnz%2Fcinemory%23environment-variables&project-name=cinemory&repository-name=cinemory)
+
+No `TOTP_SECRET` to generate up front: sign-in is set up from the app itself
+on first run — see [Getting the credentials](#getting-the-credentials) below
+for how to get the values Vercel will ask for.
 
 <p align="center">
   <img src="docs/screenshots/catalog.jpg" width="49%" alt="Catalog grid with posters, filters and search">
