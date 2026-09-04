@@ -172,7 +172,7 @@ export default function FilterBar({
   const BUTTON_WIDTH = 36;
   const GAP = 8;
   const MAX_TITLE_WIDTH = 176; // 11rem
-  const mobileRowFixedSpace = BUTTON_WIDTH * 2 + GAP * 3; // search button + filters button + 3 gaps
+  const mobileRowFixedSpace = BUTTON_WIDTH * 3 + GAP * 4; // search + filters + settings buttons, 4 gaps
   const expandedInputWidth = Math.max(0, mobileRowWidth - mobileRowFixedSpace);
   const collapsedTitleWidth = Math.min(
     MAX_TITLE_WIDTH,
@@ -395,6 +395,15 @@ export default function FilterBar({
                 <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-accent-2" aria-hidden />
               )}
             </button>
+
+            <Link
+              href="/settings"
+              aria-label="Settings"
+              title="Settings"
+              className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-surface text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+            >
+              <Settings className="h-4 w-4" strokeWidth={1.8} />
+            </Link>
           </div>
         </div>
       </div>
