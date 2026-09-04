@@ -146,7 +146,9 @@ function TitleCard({
           onClick={requestDelete}
           aria-label={`Delete ${title.title}`}
           title={`Delete ${title.title}`}
-          className="absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-red-500 text-white shadow-[0_2px_10px_rgba(0,0,0,0.6)] transition-colors hover:bg-red-400"
+          // Touch has no hover, but the right-click/long-press menu (Edit
+          // and Delete, wired below) works there regardless of edit mode.
+          className="absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-red-500 text-white opacity-0 shadow-[0_2px_10px_rgba(0,0,0,0.6)] transition-opacity duration-150 hover:bg-red-400 group-hover:opacity-100 focus-visible:opacity-100"
         >
           <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
