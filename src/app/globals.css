@@ -37,6 +37,18 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
   touch-action: manipulation;
+  /* No text highlighting: it reads as a native app, not a web page. Form
+     fields are exempted below, so typing and selecting what you typed still
+     works normally. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* Long-pressing a poster opens the iOS menu (Save Image, open full screen)

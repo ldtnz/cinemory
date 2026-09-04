@@ -4,6 +4,9 @@ import Image from "next/image";
 import { memo, useState } from "react";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import type { Title } from "@prisma/client";
+import { setEditMode } from "@/lib/edit-mode";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import TitleContextMenu from "@/components/TitleContextMenu";
 
 function MissingPosterIcon() {
   return (
@@ -58,6 +61,13 @@ function TitleCard({
   onSeasons?: (title: Title, watchedSeasons: number) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  function requestDelete() {
+    setConfirmingDelete(true);
+  }
+
   const platformStyle = PLATFORM_STYLES[title.platform] ?? {
     color: "text-muted",
     label: title.platform,
@@ -85,7 +95,14 @@ function TitleCard({
     .join(" · ");
 
   return (
-    <div className="group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2">
+    <div
+      className="group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2"
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setMenuPos({ x: e.clientX, y: e.clientY });
+      }}
+    >
       {title.posterUrl ? (
         <>
           {/* pulsing skeleton until the poster has loaded */}
@@ -126,9 +143,9 @@ function TitleCard({
       {editing && (
         <button
           type="button"
-          onClick={() => onRemove?.(title)}
-          aria-label={`Elimina ${title.title}`}
-          title={`Elimina ${title.title}`}
+          onClick={requestDelete}
+          aria-label={`Delete ${title.title}`}
+          title={`Delete ${title.title}`}
           className="absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-red-500 text-white shadow-[0_2px_10px_rgba(0,0,0,0.6)] transition-colors hover:bg-red-400"
         >
           <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
@@ -182,6 +199,31 @@ function TitleCard({
             <p className="mt-0.5 text-[10px] text-neutral-400">{seasonsLabel}</p>
           )}
         </div>
+      )}
+
+      {menuPos && (
+        <TitleContextMenu
+          x={menuPos.x}
+          y={menuPos.y}
+          editing={editing}
+          onToggleEdit={() => setEditMode(!editing)}
+          onDelete={requestDelete}
+          onClose={() => setMenuPos(null)}
+        />
+      )}
+
+      {confirmingDelete && (
+        <ConfirmDialog
+          title="Delete this title?"
+          description={`"${title.title}" will be removed from your catalog. This cannot be undone.`}
+          confirmLabel="Delete"
+          danger
+          onConfirm={() => {
+            setConfirmingDelete(false);
+            onRemove?.(title);
+          }}
+          onCancel={() => setConfirmingDelete(false)}
+        />
       )}
     </div>
   );

@@ -35,9 +35,9 @@ export default function Catalog({ initialTitles }: { initialTitles: Title[] }) {
 
   // Stable, otherwise TitleCard's memo would be pointless: a fresh function
   // on every render would re-render every card.
+  // TitleCard already confirms with the user (ConfirmDialog) before calling
+  // this, from both the trash button and the context menu.
   const remove = useCallback(async (title: Title) => {
-    if (!window.confirm(`Delete "${title.title}" from the catalog?`)) return;
-
     const res = await fetch(`/api/titles/${title.id}`, { method: "DELETE" });
     if (!res.ok) {
       window.alert("Could not delete the title.");
