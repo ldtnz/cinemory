@@ -171,7 +171,11 @@ export default function AddTitleCard({
 
       {open && mounted && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm">
-          <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-surface shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]">
+          <div
+            className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-surface shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] transition-[max-width] duration-200 ${
+              chosenCandidate ? "max-w-md" : "max-w-3xl"
+            }`}
+          >
             <div className="flex items-center justify-between border-b border-white/5 p-4">
               <h2 className="text-sm font-semibold">Add title</h2>
               <button
@@ -197,7 +201,7 @@ export default function AddTitleCard({
 
                   {error && <p className="text-xs text-red-400">{error}</p>}
 
-                  {searching && <p className="text-xs text-muted">Cerco su TMDB...</p>}
+                  {searching && <p className="text-xs text-muted">Searching TMDB...</p>}
 
                   {!searching && results.length === 0 && (
                     <p className="text-xs text-muted">
@@ -277,7 +281,7 @@ export default function AddTitleCard({
                   )}
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-5 py-1">
                   <button
                     type="button"
                     onClick={() => setChosenCandidate(null)}
@@ -286,22 +290,24 @@ export default function AddTitleCard({
                     ← Change title
                   </button>
 
-                  <div className="flex gap-3">
-                    <div className="relative h-28 w-20 flex-none overflow-hidden rounded-lg bg-surface-2">
+                  <div className="flex gap-4">
+                    <div className="relative h-36 w-24 flex-none overflow-hidden rounded-xl bg-surface-2 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]">
                       {chosenCandidate.posterUrl ? (
                         <Image
                           src={chosenCandidate.posterUrl}
                           alt={chosenCandidate.title}
                           fill
                           unoptimized
-                          sizes="80px"
+                          sizes="96px"
                           className="object-cover"
                         />
                       ) : null}
                     </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{chosenCandidate.title}</p>
-                      <p className="text-xs text-muted">
+                    <div className="min-w-0 self-center">
+                      <p className="line-clamp-2 text-base font-semibold leading-snug">
+                        {chosenCandidate.title}
+                      </p>
+                      <p className="mt-1 text-xs text-muted">
                         {[chosenCandidate.mediaType, chosenCandidate.year].filter(Boolean).join(" · ")}
                       </p>
                     </div>
@@ -340,7 +346,7 @@ export default function AddTitleCard({
                     disabled={!platform || saving}
                     className="w-full rounded-2xl bg-foreground py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
-                    {saving ? "Aggiunta in corso..." : "Add to catalog"}
+                    {saving ? "Adding..." : "Add to catalog"}
                   </button>
                 </div>
               )}

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Pencil, Trash2 } from "lucide-react";
 
-const MENU_WIDTH = 176; // matches the w-44 below
+const MENU_WIDTH = 152;
 
 /**
  * The custom right-click / long-press menu for a catalog card. Same DOM
@@ -68,7 +68,7 @@ export default function TitleContextMenu({
       ref={ref}
       role="menu"
       style={{ left: position.left, top: position.top, width: MENU_WIDTH }}
-      className={`fixed z-50 w-44 overflow-hidden rounded-2xl border border-white/10 bg-surface/95 py-1.5 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] backdrop-blur transition-opacity ${
+      className={`fixed z-50 flex flex-col gap-0.5 rounded-2xl border border-white/10 bg-surface/95 p-1.5 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] backdrop-blur transition-opacity ${
         position.visible ? "opacity-100" : "opacity-0"
       }`}
     >
@@ -79,9 +79,9 @@ export default function TitleContextMenu({
           onToggleEdit();
           onClose();
         }}
-        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-foreground hover:bg-white/5"
+        className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm text-foreground hover:bg-white/5"
       >
-        <Pencil className="h-4 w-4 flex-none text-muted" strokeWidth={1.8} />
+        <Pencil className="h-3.5 w-3.5 flex-none text-muted" strokeWidth={1.8} />
         {editing ? "Exit edit mode" : "Edit"}
       </button>
       <button
@@ -91,9 +91,9 @@ export default function TitleContextMenu({
           onDelete();
           onClose();
         }}
-        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-red-400 hover:bg-red-500/10"
+        className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm text-red-400 hover:bg-red-500/10"
       >
-        <Trash2 className="h-4 w-4 flex-none" strokeWidth={1.8} />
+        <Trash2 className="h-3.5 w-3.5 flex-none" strokeWidth={1.8} />
         Delete
       </button>
     </div>,
