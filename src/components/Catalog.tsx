@@ -142,7 +142,7 @@ export default function Catalog({ initialTitles }: { initialTitles: Title[] }) {
           No titles match these filters.
         </p>
       ) : (
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] sm:gap-4">
+        <div className="title-grid grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] sm:gap-4">
           {deferredQ.trim() && (
             <AddTitleCard initialQuery={deferredQ.trim()} onAdded={handleAdded} />
           )}

@@ -130,6 +130,7 @@ export default function FilterBar({
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [mounted, setMounted] = useState(false);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
+  const desktopSearchInputRef = useRef<HTMLInputElement>(null);
   const mobileRowRef = useRef<HTMLDivElement>(null);
   const [mobileRowWidth, setMobileRowWidth] = useState(0);
 
@@ -192,6 +193,30 @@ export default function FilterBar({
     }
   }, [searchExpanded]);
 
+  // Tab jumps straight to the search field, like a keyboard shortcut, rather
+  // than following the normal tab order. It only fires when nothing else is
+  // deliberately focused (typing in a field, a button, a menu, a dialog) so
+  // it never hijacks focus that is already going somewhere on purpose.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Tab" || e.altKey || e.ctrlKey || e.metaKey) return;
+      const active = document.activeElement;
+      if (active && active !== document.body && active !== document.documentElement) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) return;
+
+      if (window.innerWidth < 640) {
+        e.preventDefault();
+        if (!searchExpanded) setSearchExpanded(true);
+        else mobileSearchInputRef.current?.focus();
+        return;
+      }
+      e.preventDefault();
+      desktopSearchInputRef.current?.focus();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [searchExpanded]);
+
   return (
     <div className="sticky top-0 z-10 -mx-3 mb-6 space-y-3 bg-background/95 px-3 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-5 sm:px-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -236,6 +261,7 @@ export default function FilterBar({
                 <SearchIcon />
               </span>
               <input
+                ref={desktopSearchInputRef}
                 type="search"
                 value={q}
                 onChange={(e) => onQChange(e.target.value)}

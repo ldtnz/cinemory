@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { memo, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import type { Title } from "@prisma/client";
 import { setEditMode } from "@/lib/edit-mode";
@@ -63,9 +63,51 @@ function TitleCard({
   const [loaded, setLoaded] = useState(false);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // Tapping a poster on touch shows the details overlay that desktop gets on
+  // hover, then hides it again after a few seconds — touch has no hover.
+  const [tapDetailsVisible, setTapDetailsVisible] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const tapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+    };
+  }, []);
 
   function requestDelete() {
     setConfirmingDelete(true);
+  }
+
+  // Dims and blurs every other card in the grid so the one under the cursor
+  // stands out, without re-rendering the rest of the (up to 1500-card) grid:
+  // toggled directly on the DOM rather than through React state.
+  function openContextMenu(x: number, y: number) {
+    const card = cardRef.current;
+    const grid = card?.closest<HTMLElement>(".title-grid");
+    if (grid && card) {
+      grid
+        .querySelectorAll(".title-card--context-target")
+        .forEach((el) => el.classList.remove("title-card--context-target"));
+      grid.classList.add("title-grid--context-open");
+      card.classList.add("title-card--context-target");
+    }
+    setMenuPos({ x, y });
+  }
+
+  function closeContextMenu() {
+    const card = cardRef.current;
+    const grid = card?.closest<HTMLElement>(".title-grid");
+    grid?.classList.remove("title-grid--context-open");
+    card?.classList.remove("title-card--context-target");
+    setMenuPos(null);
+  }
+
+  function handleTap() {
+    if (!title.posterUrl) return;
+    setTapDetailsVisible(true);
+    if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+    tapTimeoutRef.current = setTimeout(() => setTapDetailsVisible(false), 5000);
   }
 
   const platformStyle = PLATFORM_STYLES[title.platform] ?? {
@@ -96,12 +138,14 @@ function TitleCard({
 
   return (
     <div
-      className="group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2"
+      ref={cardRef}
+      className="title-card group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2"
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        setMenuPos({ x: e.clientX, y: e.clientY });
+        openContextMenu(e.clientX, e.clientY);
       }}
+      onClick={handleTap}
     >
       {title.posterUrl ? (
         <>
@@ -143,7 +187,10 @@ function TitleCard({
       {editing && (
         <button
           type="button"
-          onClick={requestDelete}
+          onClick={(e) => {
+            e.stopPropagation();
+            requestDelete();
+          }}
           aria-label={`Delete ${title.title}`}
           title={`Delete ${title.title}`}
           // Touch has no hover, but the right-click/long-press menu (Edit
@@ -158,7 +205,10 @@ function TitleCard({
         <div className="absolute inset-x-1.5 bottom-1.5 z-10 flex items-center justify-between rounded-lg bg-black/85 px-1 py-1 backdrop-blur-sm">
           <button
             type="button"
-            onClick={() => onSeasons?.(title, Math.max(0, (title.watchedSeasons ?? 0) - 1))}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSeasons?.(title, Math.max(0, (title.watchedSeasons ?? 0) - 1));
+            }}
             disabled={(title.watchedSeasons ?? 0) <= 0}
             aria-label={`One season fewer for ${title.title}`}
             className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-white/10 text-white disabled:opacity-30"
@@ -171,7 +221,10 @@ function TitleCard({
           </span>
           <button
             type="button"
-            onClick={() => onSeasons?.(title, (title.watchedSeasons ?? 0) + 1)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSeasons?.(title, (title.watchedSeasons ?? 0) + 1);
+            }}
             aria-label={`One season more for ${title.title}`}
             className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-white/10 text-white"
           >
@@ -182,7 +235,11 @@ function TitleCard({
 
       {/* details overlay, shown on hover (always when there is no poster: the title is already displayed above) */}
       {title.posterUrl && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 rounded-b-2xl bg-gradient-to-t from-black/95 via-black/70 to-transparent p-2.5 pt-7 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+        <div
+          className={`pointer-events-none absolute inset-x-0 bottom-0 rounded-b-2xl bg-gradient-to-t from-black/95 via-black/70 to-transparent p-2.5 pt-7 opacity-0 transition-opacity duration-150 group-hover:opacity-100 ${
+            tapDetailsVisible ? "opacity-100" : ""
+          }`}
+        >
           <p className="line-clamp-2 text-[11px] font-medium leading-tight text-white">
             {title.title}
           </p>
@@ -210,7 +267,7 @@ function TitleCard({
           editing={editing}
           onToggleEdit={() => setEditMode(!editing)}
           onDelete={requestDelete}
-          onClose={() => setMenuPos(null)}
+          onClose={closeContextMenu}
         />
       )}
 

@@ -61,6 +61,18 @@ img {
   user-select: none;
 }
 
+/* While a card's context menu (right-click / long-press) is open, every
+   other card in its grid dims and blurs so the targeted one stands out.
+   Toggled by TitleCard directly on the DOM (see TitleCard.tsx) rather than
+   through React state, so opening a menu never re-renders the whole grid. */
+.title-grid.title-grid--context-open > .title-card {
+  filter: blur(5px) brightness(0.55);
+  transition: filter 200ms ease;
+}
+.title-grid.title-grid--context-open > .title-card.title-card--context-target {
+  filter: none;
+}
+
 /* Scrollbars hidden everywhere, scrolling still works. */
 * {
   scrollbar-width: none;
