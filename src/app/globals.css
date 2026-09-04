@@ -68,9 +68,18 @@ img {
 .title-grid.title-grid--context-open > .title-card {
   filter: blur(5px) brightness(0.55);
   transition: filter 200ms ease;
+  /* Hovering a blurred card while the menu is open must not steal its
+     own details overlay into view — only the targeted card shows one. */
+  pointer-events: none;
 }
 .title-grid.title-grid--context-open > .title-card.title-card--context-target {
   filter: none;
+  pointer-events: auto;
+}
+/* Pinned open regardless of hover: the menu itself sits over the card (it is
+   portalled to the body), so the mouse is on the menu, not the poster. */
+.title-grid.title-grid--context-open > .title-card.title-card--context-target .title-card__details {
+  opacity: 1;
 }
 
 /* Scrollbars hidden everywhere, scrolling still works. */

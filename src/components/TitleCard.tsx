@@ -236,7 +236,7 @@ function TitleCard({
       {/* details overlay, shown on hover (always when there is no poster: the title is already displayed above) */}
       {title.posterUrl && (
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-0 rounded-b-2xl bg-gradient-to-t from-black/95 via-black/70 to-transparent p-2.5 pt-7 opacity-0 transition-opacity duration-150 group-hover:opacity-100 ${
+          className={`title-card__details pointer-events-none absolute inset-x-0 bottom-0 rounded-b-2xl bg-gradient-to-t from-black/95 via-black/70 to-transparent p-2.5 pt-7 opacity-0 transition-opacity duration-150 group-hover:opacity-100 ${
             tapDetailsVisible ? "opacity-100" : ""
           }`}
         >
