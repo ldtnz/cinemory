@@ -61,6 +61,13 @@ img {
   user-select: none;
 }
 
+/* The poster <img> inside is pointer-events: none (see TitleCard.tsx) so the
+   card itself is the real long-press target on touch — it needs the same
+   callout suppression the img would otherwise have had. */
+.title-card {
+  -webkit-touch-callout: none;
+}
+
 /* While a card's context menu (right-click / long-press) is open, every
    other card in its grid dims and blurs so the targeted one stands out.
    Toggled by TitleCard directly on the DOM (see TitleCard.tsx) rather than

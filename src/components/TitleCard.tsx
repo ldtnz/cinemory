@@ -135,7 +135,6 @@ function TitleCard({
     if (e.pointerType !== "touch") return;
     longPressStartRef.current = { x: e.clientX, y: e.clientY };
     longPressFiredRef.current = false;
-    e.currentTarget.setPointerCapture(e.pointerId);
     clearLongPressTimer();
     const cx = e.clientX;
     const cy = e.clientY;
@@ -158,6 +157,14 @@ function TitleCard({
     if (e.pointerType !== "touch") return;
     clearLongPressTimer();
     longPressStartRef.current = null;
+    // Defensive: release capture if the browser implicitly granted it for
+    // this touch, so it can never carry over and interfere with the very
+    // next tap (e.g. on a button inside the menu this long-press opened).
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // Not captured — nothing to release.
+    }
   }
 
   const platformStyle = PLATFORM_STYLES[title.platform] ?? {
@@ -232,7 +239,13 @@ function TitleCard({
             fill
             unoptimized
             sizes="(max-width: 640px) 30vw, (max-width: 1024px) 16vw, 10vw"
-            className={`object-cover transition-opacity duration-300 ${
+            // pointer-events-none: iOS Safari runs its own long-press
+            // gesture recognizer on <img> elements (deciding whether to show
+            // its native Save Image sheet) before it hands touch events to
+            // the page, adding several seconds of delay. Taking the <img>
+            // out of hit-testing means the touch lands on this div instead,
+            // which has no such recognizer.
+            className={`pointer-events-none object-cover transition-opacity duration-300 ${
               loaded ? "opacity-100" : "opacity-0"
             }`}
             priority={priority}
