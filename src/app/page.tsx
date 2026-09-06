@@ -4,6 +4,7 @@ import LoginGate from "@/components/LoginGate";
 import SetupWizard from "@/components/SetupWizard";
 import { isAuthenticated } from "@/lib/auth";
 import { needsSetup } from "@/lib/settings";
+import { getStoredRecommendations, isAnthropicConfigured } from "@/lib/recommendations";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,10 @@ export default async function Home({
   const titles = await prisma.title.findMany({
     orderBy: [{ lastWatchedAt: "desc" }, { title: "asc" }],
   });
+  // Gated on the key being configured now, not just on a cached row
+  // existing: removing ANTHROPIC_API_KEY should hide the feature outright,
+  // even if a previous run left recommendations in the database.
+  const recommendations = isAnthropicConfigured() ? await getStoredRecommendations() : null;
 
-  return <Catalog initialTitles={titles} />;
+  return <Catalog initialTitles={titles} recommendations={recommendations?.titles ?? []} />;
 }

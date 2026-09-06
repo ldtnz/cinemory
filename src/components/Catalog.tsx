@@ -6,11 +6,19 @@ import FilterBar from "@/components/FilterBar";
 import TitleCard from "@/components/TitleCard";
 import AddTitleCard from "@/components/AddTitleCard";
 import ImportHistory from "@/components/ImportHistory";
+import RecommendationsCard from "@/components/RecommendationsCard";
+import type { EnrichedRecommendation } from "@/lib/recommendations";
 import { useEditMode } from "@/lib/edit-mode";
 
 const MAX_SHOWN = 1500;
 
-export default function Catalog({ initialTitles }: { initialTitles: Title[] }) {
+export default function Catalog({
+  initialTitles,
+  recommendations = [],
+}: {
+  initialTitles: Title[];
+  recommendations?: EnrichedRecommendation[];
+}) {
   // The catalog lives in component state (not just as a prop) so new titles
   // can be added without reloading the page.
   const [catalog, setCatalog] = useState(initialTitles);
@@ -145,6 +153,11 @@ export default function Catalog({ initialTitles }: { initialTitles: Title[] }) {
         <div className="title-grid grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] sm:gap-4">
           {deferredQ.trim() && (
             <AddTitleCard initialQuery={deferredQ.trim()} onAdded={handleAdded} />
+          )}
+          {/* Only in the unfiltered default view — a taste-based suggestion
+              tile would be out of place mixed into filtered/search results. */}
+          {!platform && !mediaType && !deferredQ.trim() && (
+            <RecommendationsCard titles={recommendations} />
           )}
           {shownTitles.map((t, i) => (
             <TitleCard

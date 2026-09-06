@@ -6,11 +6,18 @@ import { isAuthenticated } from "@/lib/auth";
 import { getSettings, needsSetup } from "@/lib/settings";
 import { isTmdbConfigured } from "@/lib/tmdb";
 import { mergeSummary } from "@/lib/seasons";
+import {
+  isAnthropicConfigured,
+  getStoredRecommendations,
+  canRefreshNow,
+  nextRefreshAt,
+} from "@/lib/recommendations";
 import MissingPostersPanel from "@/components/MissingPostersPanel";
 import ImportHistory from "@/components/ImportHistory";
 import EditModeToggle from "@/components/EditModeToggle";
 import SeriesSeasons from "@/components/SeriesSeasons";
 import PreferencesEditor from "@/components/PreferencesEditor";
+import RecommendationsPanel from "@/components/RecommendationsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +35,7 @@ export default async function SettingsPage() {
     where: { mediaType: "Series", totalSeasons: null, tmdbId: { gt: 0 } },
   });
   const toMerge = await mergeSummary();
+  const storedRecommendations = await getStoredRecommendations();
 
   const missing = await prisma.title.findMany({
     where: {
@@ -60,6 +68,17 @@ export default async function SettingsPage() {
       </div>
 
       <PreferencesEditor initialLanguage={settings.language} initialRegion={settings.region} />
+
+      {isAnthropicConfigured() && (
+        <RecommendationsPanel
+          initialTitles={storedRecommendations?.titles ?? []}
+          initialGeneratedAt={storedRecommendations?.generatedAt ?? null}
+          initialCanRefresh={canRefreshNow(storedRecommendations?.generatedAt ?? null)}
+          initialNextRefreshAt={
+            storedRecommendations ? nextRefreshAt(storedRecommendations.generatedAt).toISOString() : null
+          }
+        />
+      )}
 
       {!isTmdbConfigured() ? (
         <p className="rounded-2xl bg-surface p-4 text-sm text-red-400">

@@ -68,3 +68,13 @@ model Settings {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
+
+// Single row (id fixed to 1) caching the latest AI-generated "what to watch
+// next" suggestions. Refreshing costs a Claude API call, so the app always
+// serves this cached copy and only calls the model again after the cooldown
+// enforced in src/lib/recommendations.ts.
+model Recommendation {
+  id          Int      @id @default(1)
+  titles      String // JSON array of enriched recommendation objects
+  generatedAt DateTime @default(now())
+}

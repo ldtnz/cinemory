@@ -144,6 +144,7 @@ Every variable is documented in [`.env.example`](.env.example). In short:
 | `SESSION_SECRET` | yes | random string used to sign the session cookie |
 | `TMDB_ACCESS_TOKEN` | yes* | TMDB v4 "API Read Access Token" |
 | `TMDB_API_KEY` | yes* | TMDB v3 "API Key" — the alternative to the token |
+| `ANTHROPIC_API_KEY` | no | enables the AI "what to watch next" recommendations |
 | `DATABASE_URL` | self-hosted | path to the SQLite file |
 | `TURSO_DATABASE_URL` | serverless | libSQL endpoint; when set, it wins over `DATABASE_URL` |
 | `TURSO_AUTH_TOKEN` | serverless | token for that database |
@@ -172,6 +173,13 @@ TOTP secret.
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
+
+**Claude API (optional).** Create a key at
+[console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
+and set `ANTHROPIC_API_KEY`. Without it the recommendations panel on the
+settings page is simply hidden. A refresh is capped to once every 24 hours
+server-side regardless of how often the button is pressed, so the running
+cost stays a few cents a month.
 
 ---
 
