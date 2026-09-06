@@ -127,12 +127,31 @@ export default function FilterBar({
   onSortChange: (v: string) => void;
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [desktopFilterOpen, setDesktopFilterOpen] = useState(false);
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [mounted, setMounted] = useState(false);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const desktopSearchInputRef = useRef<HTMLInputElement>(null);
+  const desktopFilterRef = useRef<HTMLDivElement>(null);
   const mobileRowRef = useRef<HTMLDivElement>(null);
   const [mobileRowWidth, setMobileRowWidth] = useState(0);
+
+  // Close the desktop filter dropdown on an outside click or Escape.
+  useEffect(() => {
+    if (!desktopFilterOpen) return;
+    function onPointerDown(e: MouseEvent) {
+      if (!desktopFilterRef.current?.contains(e.target as Node)) setDesktopFilterOpen(false);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setDesktopFilterOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [desktopFilterOpen]);
 
   // Width of the mobile row, measured so the title and the search field can
   // animate with a transition on "width" in pixels: reliable across browsers,
@@ -242,12 +261,6 @@ export default function FilterBar({
         <div className="hidden sm:flex sm:flex-col sm:gap-3 lg:flex-row lg:items-center">
           <div className="flex flex-wrap items-center gap-3">
             <FilterGroup
-              label="Platform"
-              options={PLATFORMS}
-              value={platform}
-              onChange={onPlatformChange}
-            />
-            <FilterGroup
               label="Type"
               options={MEDIA_TYPES}
               value={mediaType}
@@ -280,21 +293,70 @@ export default function FilterBar({
               )}
             </div>
 
-            <div className="relative h-9">
-              <select
-                value={sort}
-                onChange={(e) => onSortChange(e.target.value)}
-                className="h-9 appearance-none rounded-xl bg-surface pl-3 pr-8 text-sm text-foreground outline-none"
+            <div ref={desktopFilterRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setDesktopFilterOpen((v) => !v)}
+                aria-label="Filter and sort"
+                title="Filter and sort"
+                className="relative flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-surface text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
               >
-                {SORT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-              <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2">
-                <ChevronIcon />
-              </span>
+                <SlidersHorizontal className="h-4 w-4" strokeWidth={1.8} />
+                {platform && (
+                  <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-accent-2" aria-hidden />
+                )}
+              </button>
+
+              {desktopFilterOpen && (
+                <div className="absolute right-0 top-full z-20 mt-2 w-56 space-y-4 rounded-2xl border border-white/10 bg-surface p-4 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]">
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
+                      Platform
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {PLATFORMS.map((opt) => {
+                        const active = platform === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => onPlatformChange(active ? "" : opt.value)}
+                            className={`rounded-lg px-2.5 py-1.5 text-xs font-medium leading-none transition-colors ${
+                              active
+                                ? "bg-foreground text-background"
+                                : "bg-surface-2 text-muted hover:text-foreground"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
+                      Sort by
+                    </span>
+                    <div className="relative h-9">
+                      <select
+                        value={sort}
+                        onChange={(e) => onSortChange(e.target.value)}
+                        className="h-9 w-full appearance-none rounded-xl bg-surface-2 pl-3 pr-8 text-sm text-foreground outline-none"
+                      >
+                        {SORT_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2">
+                        <ChevronIcon />
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <Link
