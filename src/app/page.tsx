@@ -4,7 +4,11 @@ import LoginGate from "@/components/LoginGate";
 import SetupWizard from "@/components/SetupWizard";
 import { isAuthenticated } from "@/lib/auth";
 import { needsSetup } from "@/lib/settings";
-import { getStoredRecommendations, isAnthropicConfigured } from "@/lib/recommendations";
+import {
+  getStoredRecommendations,
+  isAnthropicConfigured,
+  ensureFreshRecommendationsInBackground,
+} from "@/lib/recommendations";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +58,10 @@ export default async function Home({
   // existing: removing ANTHROPIC_API_KEY should hide the feature outright,
   // even if a previous run left recommendations in the database.
   const recommendations = isAnthropicConfigured() ? await getStoredRecommendations() : null;
+  // If it's missing or older than the refresh interval, this schedules a
+  // fresh generation to run after the response is sent — this request still
+  // renders with whatever is cached now, the new batch lands for next time.
+  ensureFreshRecommendationsInBackground(recommendations);
 
   return <Catalog initialTitles={titles} recommendations={recommendations?.titles ?? []} />;
 }

@@ -6,6 +6,8 @@ import {
   canRefreshNow,
   nextRefreshAt,
   generateRecommendations,
+  claimGenerationLock,
+  releaseGenerationLock,
 } from "@/lib/recommendations";
 
 export async function GET() {
@@ -22,9 +24,11 @@ export async function GET() {
   });
 }
 
-// Never called on page load — only from the explicit "Generate" button in
-// Settings. The cooldown is re-checked here, not just reflected in the UI:
-// this is what actually caps how often the Claude API gets called.
+// Recommendations also refresh automatically (see
+// ensureFreshRecommendationsInBackground, called from the home page) — this
+// is only for an early manual refresh from Settings. The interval is
+// re-checked here, not just reflected in the UI, and the same lock the
+// automatic refresh uses guards against both calling Claude at once.
 export async function POST() {
   if (!(await isAuthenticated())) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
@@ -44,6 +48,20 @@ export async function POST() {
     });
   }
 
+  const claimed = await claimGenerationLock();
+  if (!claimed) {
+    // The automatic background refresh (or another request) already has
+    // this — report whatever is current instead of racing it.
+    const latest = await getStoredRecommendations();
+    return NextResponse.json({
+      titles: latest?.titles ?? [],
+      generatedAt: latest?.generatedAt ?? null,
+      canRefresh: false,
+      nextRefreshAt: latest ? nextRefreshAt(latest.generatedAt).toISOString() : null,
+      skipped: true,
+    });
+  }
+
   try {
     const fresh = await generateRecommendations();
     return NextResponse.json({
@@ -55,5 +73,7 @@ export async function POST() {
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Could not generate recommendations." }, { status: 500 });
+  } finally {
+    await releaseGenerationLock();
   }
 }

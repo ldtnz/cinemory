@@ -3,8 +3,9 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { Play, X } from "lucide-react";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
+import TrailerModal from "@/components/TrailerModal";
 
 export default function RecommendationsModal({
   titles,
@@ -14,6 +15,9 @@ export default function RecommendationsModal({
   onClose: () => void;
 }) {
   const [mounted, setMounted] = useState(false);
+  // Set while a trailer is open; closing it clears this and returns to the
+  // list rather than closing the whole modal.
+  const [trailerFor, setTrailerFor] = useState<EnrichedRecommendation | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -21,11 +25,13 @@ export default function RecommendationsModal({
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      // While a trailer is open, its own Escape handler closes just that —
+      // this one would otherwise also fire and close the whole list.
+      if (e.key === "Escape" && !trailerFor) onClose();
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [onClose, trailerFor]);
 
   useEffect(() => {
     const original = document.body.style.overflow;
@@ -59,43 +65,68 @@ export default function RecommendationsModal({
         </div>
 
         <ul className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-4">
-          {titles.map((rec) => (
-            <li key={rec.tmdbId} className="flex gap-3 rounded-2xl bg-surface-2 p-2.5">
-              <div className="relative h-24 w-16 flex-none overflow-hidden rounded-lg bg-surface">
-                {rec.posterUrl && (
-                  <Image
-                    src={rec.posterUrl}
-                    alt={rec.title}
-                    fill
-                    unoptimized
-                    sizes="64px"
-                    className="object-cover"
-                  />
-                )}
-              </div>
-              <div className="min-w-0 flex-1 space-y-1 py-0.5">
-                <p className="text-sm font-medium text-foreground">{rec.title}</p>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
-                  <span>{rec.mediaType}</span>
-                  {rec.year && (
-                    <>
-                      <span aria-hidden>·</span>
-                      <span>{rec.year}</span>
-                    </>
-                  )}
-                  {rec.tmdbRating ? (
-                    <>
-                      <span aria-hidden>·</span>
-                      <span className="text-amber-400">★ {rec.tmdbRating.toFixed(1)}</span>
-                    </>
-                  ) : null}
-                </div>
-                <p className="text-[11px] leading-snug text-muted/80">{rec.reason}</p>
-              </div>
-            </li>
-          ))}
+          {titles.map((rec) => {
+            const hasTrailer = Boolean(rec.trailerKey);
+            return (
+              <li key={rec.tmdbId}>
+                <button
+                  type="button"
+                  onClick={() => hasTrailer && setTrailerFor(rec)}
+                  disabled={!hasTrailer}
+                  className={`flex w-full gap-3 rounded-2xl bg-surface-2 p-2.5 text-left ${
+                    hasTrailer ? "transition-colors hover:bg-surface-2/70" : "cursor-default"
+                  }`}
+                >
+                  <div className="relative h-24 w-16 flex-none overflow-hidden rounded-lg bg-surface">
+                    {rec.posterUrl && (
+                      <Image
+                        src={rec.posterUrl}
+                        alt={rec.title}
+                        fill
+                        unoptimized
+                        sizes="64px"
+                        className="object-cover"
+                      />
+                    )}
+                    {hasTrailer && (
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/30">
+                        <Play className="h-5 w-5 fill-white text-white" strokeWidth={0} />
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1 py-0.5">
+                    <p className="text-sm font-medium text-foreground">{rec.title}</p>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
+                      <span>{rec.mediaType}</span>
+                      {rec.year && (
+                        <>
+                          <span aria-hidden>·</span>
+                          <span>{rec.year}</span>
+                        </>
+                      )}
+                      {rec.tmdbRating ? (
+                        <>
+                          <span aria-hidden>·</span>
+                          <span className="text-amber-400">★ {rec.tmdbRating.toFixed(1)}</span>
+                        </>
+                      ) : null}
+                    </div>
+                    <p className="text-[11px] leading-snug text-muted/80">{rec.reason}</p>
+                  </div>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </div>
+
+      {trailerFor?.trailerKey && (
+        <TrailerModal
+          trailerKey={trailerFor.trailerKey}
+          title={trailerFor.title}
+          onClose={() => setTrailerFor(null)}
+        />
+      )}
     </div>,
     document.body,
   );

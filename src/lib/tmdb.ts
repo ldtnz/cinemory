@@ -286,3 +286,33 @@ export async function totalSeasonsFromTmdb(tmdbId: number): Promise<number | nul
     ? data.number_of_seasons
     : null;
 }
+
+type TmdbVideo = { key: string; site: string; type: string; official?: boolean };
+
+/** The YouTube key of the best trailer TMDB has for a title, or null. Tries
+ *  the configured language first, then English: many trailers are only
+ *  tagged under one or the other. */
+export async function getTrailerKey(
+  tmdbId: number,
+  mediaType: "Movie" | "Series",
+): Promise<string | null> {
+  if (!isTmdbConfigured() || !(tmdbId > 0)) return null;
+
+  const language = (await getSettings()).language;
+  const endpoint = mediaType === "Series" ? "tv" : "movie";
+
+  for (const lang of [language, "en-US"]) {
+    const url = withKey(new URL(`https://api.themoviedb.org/3/${endpoint}/${tmdbId}/videos`));
+    url.searchParams.set("language", lang);
+    const res = await fetch(url, { headers: authHeaders() }).catch(() => null);
+    if (!res?.ok) continue;
+    const data = (await res.json().catch(() => null)) as { results?: TmdbVideo[] } | null;
+    const videos = data?.results ?? [];
+    const trailer =
+      videos.find((v) => v.site === "YouTube" && v.type === "Trailer" && v.official) ??
+      videos.find((v) => v.site === "YouTube" && v.type === "Trailer") ??
+      videos.find((v) => v.site === "YouTube" && v.type === "Teaser");
+    if (trailer) return trailer.key;
+  }
+  return null;
+}

@@ -65,16 +65,24 @@ model Settings {
   region     String   @default("US")
   totpSecret String?
   onboarded  Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  // A simple mutex for the AI recommendations refresh (src/lib/
+  // recommendations.ts): set to "now" while a generation is in flight, so
+  // an automatic background refresh and a manual click never both call
+  // Claude at once. A lock older than a few minutes is treated as abandoned.
+  recommendationsLockedAt DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 }
 
-// Single row (id fixed to 1) caching the latest AI-generated "what to watch
-// next" suggestions. Refreshing costs a Claude API call, so the app always
-// serves this cached copy and only calls the model again after the cooldown
-// enforced in src/lib/recommendations.ts.
+// Every AI-generated "what to watch next" batch, kept as a permanent
+// history rather than overwritten — the app always reads the most recent
+// row. A new row only ever appears through the automatic 5-day refresh (or
+// an early manual one) in src/lib/recommendations.ts, gated by the lock
+// above so refreshing never costs more than one Claude call at a time.
 model Recommendation {
-  id          Int      @id @default(1)
+  id          Int      @id @default(autoincrement())
   titles      String // JSON array of enriched recommendation objects
   generatedAt DateTime @default(now())
+
+  @@index([generatedAt])
 }

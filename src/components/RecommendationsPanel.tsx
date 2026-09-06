@@ -4,9 +4,15 @@ import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
 
-/** Hours left, rounded up, until the next refresh is allowed. */
-function hoursUntil(iso: string): number {
-  return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / (60 * 60 * 1000)));
+/** Time left until the next refresh, rounded up to the nearest day (or
+ *  reported in hours when under a day). */
+function timeUntil(iso: string): string {
+  const ms = Math.max(0, new Date(iso).getTime() - Date.now());
+  const hours = Math.ceil(ms / (60 * 60 * 1000));
+  if (hours <= 0) return "";
+  if (hours < 24) return hours === 1 ? "1 hour" : `${hours} hours`;
+  const days = Math.ceil(hours / 24);
+  return days === 1 ? "1 day" : `${days} days`;
 }
 
 export default function RecommendationsPanel({
@@ -54,7 +60,7 @@ export default function RecommendationsPanel({
     }
   }
 
-  const wait = !canRefresh && nextRefreshAt ? hoursUntil(nextRefreshAt) : 0;
+  const wait = !canRefresh && nextRefreshAt ? timeUntil(nextRefreshAt) : "";
 
   return (
     <section className="mb-8 rounded-2xl bg-surface p-4">
@@ -65,9 +71,9 @@ export default function RecommendationsPanel({
       <p className="mt-1 mb-4 text-xs text-muted">
         {generatedAt
           ? `Last generated ${new Date(generatedAt).toLocaleString()}. `
-          : "Not generated yet. "}
-        Claude suggests what to watch next based on your catalog. Refreshes at
-        most once every 24 hours to keep API costs minimal.
+          : "Not generated yet — the first batch appears automatically on your next visit. "}
+        Claude suggests what to watch next based on your catalog and refreshes
+        itself every 5 days; use this button only to force an early refresh.
       </p>
 
       {error && <p className="mb-3 text-xs text-red-400">{error}</p>}
@@ -85,10 +91,8 @@ export default function RecommendationsPanel({
             : "Refresh recommendations"}
       </button>
 
-      {wait > 0 && !loading && (
-        <p className="mt-2 text-[11px] text-muted">
-          Next refresh available in {wait === 1 ? "1 hour" : `${wait} hours`}.
-        </p>
+      {wait && !loading && (
+        <p className="mt-2 text-[11px] text-muted">Next automatic refresh available in {wait}.</p>
       )}
     </section>
   );

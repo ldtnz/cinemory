@@ -1,17 +1,22 @@
 // AI-generated "what to watch next" suggestions, backed by Claude.
 //
 // Cost control is the whole point of this file: a fresh call only ever
-// happens through generateRecommendations(), gated by the cooldown below and
-// enforced server-side in the API route (never just in the UI) — repeat
-// views always serve the cached row instead.
+// happens through generateRecommendations(), gated by the interval below and
+// a DB-backed lock (claimGenerationLock) so an automatic background refresh
+// and a manual click can never both call Claude at once. Every generation is
+// kept (a new Recommendation row), never overwritten, so there is a history.
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { findBestTmdbMatch, isTmdbConfigured } from "@/lib/tmdb";
+import { getSettings } from "@/lib/settings";
+import { findBestTmdbMatch, getTrailerKey, isTmdbConfigured } from "@/lib/tmdb";
 
-const RECOMMENDATION_ID = 1;
-export const COOLDOWN_HOURS = 24;
+export const REFRESH_INTERVAL_DAYS = 5;
+// How long a claimed lock is honored before being treated as abandoned (the
+// request that took it crashed or timed out mid-generation) and re-claimable.
+const LOCK_STALE_MINUTES = 10;
 const RECOMMENDATION_COUNT = 8;
 
 export type EnrichedRecommendation = {
@@ -23,6 +28,8 @@ export type EnrichedRecommendation = {
   posterUrl: string | null;
   tmdbRating: number | null;
   genres: string | null;
+  /** YouTube video id for the trailer, if TMDB has one. */
+  trailerKey: string | null;
 };
 
 export type RecommendationsState = {
@@ -40,7 +47,7 @@ export function isAnthropicConfigured(): boolean {
 // Turso deploys need to run it by hand; see scripts/migrate-turso.ts).
 export async function getStoredRecommendations(): Promise<RecommendationsState | null> {
   try {
-    const row = await prisma.recommendation.findUnique({ where: { id: RECOMMENDATION_ID } });
+    const row = await prisma.recommendation.findFirst({ orderBy: { generatedAt: "desc" } });
     if (!row) return null;
     return { titles: JSON.parse(row.titles) as EnrichedRecommendation[], generatedAt: row.generatedAt.toISOString() };
   } catch (err) {
@@ -52,13 +59,69 @@ export async function getStoredRecommendations(): Promise<RecommendationsState |
   }
 }
 
+/** The full history of past generations, most recent first. */
+export async function getRecommendationHistory(): Promise<RecommendationsState[]> {
+  const rows = await prisma.recommendation.findMany({ orderBy: { generatedAt: "desc" } });
+  return rows.map((row) => ({
+    titles: JSON.parse(row.titles) as EnrichedRecommendation[],
+    generatedAt: row.generatedAt.toISOString(),
+  }));
+}
+
 export function nextRefreshAt(generatedAt: string): Date {
-  return new Date(new Date(generatedAt).getTime() + COOLDOWN_HOURS * 60 * 60 * 1000);
+  return new Date(new Date(generatedAt).getTime() + REFRESH_INTERVAL_DAYS * 24 * 60 * 60 * 1000);
 }
 
 export function canRefreshNow(generatedAt: string | null): boolean {
   if (!generatedAt) return true;
   return Date.now() >= nextRefreshAt(generatedAt).getTime();
+}
+
+/**
+ * Claims the right to generate a fresh batch right now, using the Settings
+ * row's recommendationsLockedAt as a simple mutex. Returns false if someone
+ * else holds a live lock, so callers should skip generating rather than
+ * race it. A lock older than LOCK_STALE_MINUTES is treated as abandoned.
+ */
+export async function claimGenerationLock(): Promise<boolean> {
+  await getSettings(); // ensures the singleton row exists before the claim
+  const staleBefore = new Date(Date.now() - LOCK_STALE_MINUTES * 60 * 1000);
+  const result = await prisma.settings.updateMany({
+    where: {
+      id: 1,
+      OR: [{ recommendationsLockedAt: null }, { recommendationsLockedAt: { lt: staleBefore } }],
+    },
+    data: { recommendationsLockedAt: new Date() },
+  });
+  return result.count === 1;
+}
+
+export async function releaseGenerationLock(): Promise<void> {
+  await prisma.settings.update({ where: { id: 1 }, data: { recommendationsLockedAt: null } }).catch(() => {});
+}
+
+/**
+ * Called on every home-page load. If the latest batch is missing or older
+ * than REFRESH_INTERVAL_DAYS, schedules a fresh generation to run *after*
+ * the response is sent (next/server's after()) — this request still renders
+ * with whatever is cached, and the new batch is ready for the next visit.
+ * Never throws: a failed background refresh should never surface to a user.
+ */
+export function ensureFreshRecommendationsInBackground(current: RecommendationsState | null): void {
+  if (!isAnthropicConfigured()) return;
+  if (current && !canRefreshNow(current.generatedAt)) return;
+
+  after(async () => {
+    const claimed = await claimGenerationLock().catch(() => false);
+    if (!claimed) return; // another request (manual or automatic) is already on it
+    try {
+      await generateRecommendations();
+    } catch (err) {
+      console.error("Automatic recommendations refresh failed:", err);
+    } finally {
+      await releaseGenerationLock();
+    }
+  });
 }
 
 const RecommendationSchema = z.object({
@@ -145,6 +208,9 @@ export async function generateRecommendations(): Promise<RecommendationsState> {
   const enriched = await Promise.all(
     parsed.recommendations.map(async (rec): Promise<EnrichedRecommendation> => {
       const match = isTmdbConfigured() ? await findBestTmdbMatch(rec.title, rec.mediaType) : null;
+      // Fetched once here rather than on click, so opening a trailer later
+      // never costs an extra request — it's just serving cached history.
+      const trailerKey = match ? await getTrailerKey(match.tmdbId, rec.mediaType) : null;
       return {
         title: rec.title,
         year: match?.year ?? rec.year,
@@ -154,6 +220,7 @@ export async function generateRecommendations(): Promise<RecommendationsState> {
         posterUrl: match?.posterUrl ?? null,
         tmdbRating: match?.tmdbRating ?? null,
         genres: match?.genres ?? null,
+        trailerKey,
       };
     }),
   );
@@ -164,10 +231,8 @@ export async function generateRecommendations(): Promise<RecommendationsState> {
   const confirmed = enriched.filter((r) => r.tmdbId !== null);
 
   const generatedAt = new Date();
-  await prisma.recommendation.upsert({
-    where: { id: RECOMMENDATION_ID },
-    update: { titles: JSON.stringify(confirmed), generatedAt },
-    create: { id: RECOMMENDATION_ID, titles: JSON.stringify(confirmed), generatedAt },
+  await prisma.recommendation.create({
+    data: { titles: JSON.stringify(confirmed), generatedAt },
   });
 
   return { titles: confirmed, generatedAt: generatedAt.toISOString() };

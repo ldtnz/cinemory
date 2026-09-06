@@ -177,9 +177,11 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 **Claude API (optional).** Create a key at
 [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
 and set `ANTHROPIC_API_KEY`. Without it the recommendations panel on the
-settings page is simply hidden. A refresh is capped to once every 24 hours
-server-side regardless of how often the button is pressed, so the running
-cost stays a few cents a month.
+settings page is simply hidden. Recommendations refresh themselves
+automatically every 5 days (no manual step needed) and every batch is kept
+as history; a refresh — automatic or an early manual one from the settings
+page — is capped server-side to once per 5-day window, so the running cost
+stays a few cents a month.
 
 ---
 
