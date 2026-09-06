@@ -12,6 +12,9 @@ A personal catalog for everything you have watched on Netflix, Prime Video,
 Disney+ or at the cinema. Import your streaming history, browse and filter it,
 track how many seasons of a series you have got through, and let
 [TMDB](https://www.themoviedb.org) fill in posters, ratings, genres and years.
+Optionally, [Claude](https://www.anthropic.com/claude) looks at your catalog
+and suggests what to watch next, refreshing itself automatically every few
+days.
 
 It is an installable PWA: add it to your phone's home screen and it opens like
 an app, with an offline fallback and cached posters.
@@ -46,6 +49,10 @@ for how to get the values Vercel will ask for.
   you watched it on.
 - **TMDB enrichment** — posters, backdrops, overviews, ratings, genres, years,
   season counts.
+- **AI recommendations** *(optional)* — Claude suggests titles to watch next
+  based on your catalog, refreshing itself automatically every 5 days (every
+  batch kept as history); click one to watch its trailer. Off by default,
+  enabled by setting `ANTHROPIC_API_KEY`.
 - **Maintenance** — a settings page for importing, merging series split across
   rows, fixing missing posters, and an edit mode for deleting titles.
 - **Single-user auth** — a 6-digit TOTP code from your authenticator app; no
