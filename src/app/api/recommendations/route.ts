@@ -48,21 +48,22 @@ export async function POST() {
     });
   }
 
-  const claimed = await claimGenerationLock();
-  if (!claimed) {
-    // The automatic background refresh (or another request) already has
-    // this — report whatever is current instead of racing it.
-    const latest = await getStoredRecommendations();
-    return NextResponse.json({
-      titles: latest?.titles ?? [],
-      generatedAt: latest?.generatedAt ?? null,
-      canRefresh: false,
-      nextRefreshAt: latest ? nextRefreshAt(latest.generatedAt).toISOString() : null,
-      skipped: true,
-    });
-  }
-
+  let claimed = false;
   try {
+    claimed = await claimGenerationLock();
+    if (!claimed) {
+      // The automatic background refresh (or another request) already has
+      // this — report whatever is current instead of racing it.
+      const latest = await getStoredRecommendations();
+      return NextResponse.json({
+        titles: latest?.titles ?? [],
+        generatedAt: latest?.generatedAt ?? null,
+        canRefresh: false,
+        nextRefreshAt: latest ? nextRefreshAt(latest.generatedAt).toISOString() : null,
+        skipped: true,
+      });
+    }
+
     const fresh = await generateRecommendations();
     return NextResponse.json({
       titles: fresh.titles,
@@ -74,6 +75,6 @@ export async function POST() {
     console.error(err);
     return NextResponse.json({ error: "Could not generate recommendations." }, { status: 500 });
   } finally {
-    await releaseGenerationLock();
+    if (claimed) await releaseGenerationLock();
   }
 }
