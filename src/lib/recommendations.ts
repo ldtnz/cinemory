@@ -34,10 +34,22 @@ export function isAnthropicConfigured(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY);
 }
 
+// Called from the home page on every load, so a DB problem here must never
+// take the whole page down with it — most likely cause is the migration for
+// the Recommendation table not having been applied yet (self-hosted and
+// Turso deploys need to run it by hand; see scripts/migrate-turso.ts).
 export async function getStoredRecommendations(): Promise<RecommendationsState | null> {
-  const row = await prisma.recommendation.findUnique({ where: { id: RECOMMENDATION_ID } });
-  if (!row) return null;
-  return { titles: JSON.parse(row.titles) as EnrichedRecommendation[], generatedAt: row.generatedAt.toISOString() };
+  try {
+    const row = await prisma.recommendation.findUnique({ where: { id: RECOMMENDATION_ID } });
+    if (!row) return null;
+    return { titles: JSON.parse(row.titles) as EnrichedRecommendation[], generatedAt: row.generatedAt.toISOString() };
+  } catch (err) {
+    console.error(
+      "Could not read stored recommendations — has the Recommendation table migration been applied?",
+      err,
+    );
+    return null;
+  }
 }
 
 export function nextRefreshAt(generatedAt: string): Date {
