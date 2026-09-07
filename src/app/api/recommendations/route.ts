@@ -24,28 +24,17 @@ export async function GET() {
   });
 }
 
-// Recommendations also refresh automatically (see
-// ensureFreshRecommendationsInBackground, called from the home page) — this
-// is only for an early manual refresh from Settings. The interval is
-// re-checked here, not just reflected in the UI, and the same lock the
-// automatic refresh uses guards against both calling Claude at once.
+// Recommendations also refresh automatically every REFRESH_INTERVAL_DAYS
+// (see ensureFreshRecommendationsInBackground, called from the home page).
+// This route is the manual "force a refresh now" action from Settings — it
+// deliberately does NOT check the interval, only the lock below, so it
+// always calls Claude unless a refresh is already in flight.
 export async function POST() {
   if (!(await isAuthenticated())) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
   }
   if (!isAnthropicConfigured()) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY is not configured." }, { status: 500 });
-  }
-
-  const stored = await getStoredRecommendations();
-  if (stored && !canRefreshNow(stored.generatedAt)) {
-    return NextResponse.json({
-      titles: stored.titles,
-      generatedAt: stored.generatedAt,
-      canRefresh: false,
-      nextRefreshAt: nextRefreshAt(stored.generatedAt).toISOString(),
-      skipped: true,
-    });
   }
 
   let claimed = false;

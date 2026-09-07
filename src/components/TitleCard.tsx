@@ -8,6 +8,7 @@ import type { Title } from "@prisma/client";
 import { setEditMode } from "@/lib/edit-mode";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import TitleContextMenu from "@/components/TitleContextMenu";
+import TrailerModal from "@/components/TrailerModal";
 
 function MissingPosterIcon() {
   return (
@@ -64,6 +65,7 @@ function TitleCard({
   const [loaded, setLoaded] = useState(false);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [trailer, setTrailer] = useState<{ loading: boolean; key: string | null } | null>(null);
   // Tapping a poster on touch shows the details overlay that desktop gets on
   // hover, then hides it again after a few seconds — touch has no hover.
   const [tapDetailsVisible, setTapDetailsVisible] = useState(false);
@@ -92,6 +94,21 @@ function TitleCard({
 
   function requestDelete() {
     setConfirmingDelete(true);
+  }
+
+  async function openTrailer() {
+    setTrailer({ loading: true, key: null });
+    try {
+      const params = new URLSearchParams({
+        tmdbId: String(title.tmdbId),
+        mediaType: title.mediaType,
+      });
+      const res = await fetch(`/api/trailer?${params}`);
+      const data = (await res.json()) as { trailerKey?: string | null };
+      setTrailer({ loading: false, key: res.ok ? (data.trailerKey ?? null) : null });
+    } catch {
+      setTrailer({ loading: false, key: null });
+    }
   }
 
   // Dims and blurs every other card in the grid so the one under the cursor
@@ -348,6 +365,8 @@ function TitleCard({
           x={menuPos.x}
           y={menuPos.y}
           editing={editing}
+          hasTrailerSource={Boolean(title.tmdbId && title.tmdbId > 0)}
+          onTrailer={openTrailer}
           onToggleEdit={() => setEditMode(!editing)}
           onDelete={requestDelete}
           onClose={closeContextMenu}
@@ -365,6 +384,15 @@ function TitleCard({
             onRemove?.(title);
           }}
           onCancel={() => setConfirmingDelete(false)}
+        />
+      )}
+
+      {trailer && (
+        <TrailerModal
+          title={title.title}
+          trailerKey={trailer.key}
+          loading={trailer.loading}
+          onClose={() => setTrailer(null)}
         />
       )}
     </div>

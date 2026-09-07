@@ -4,14 +4,19 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
-/** Rendered only as a child of an already-mounted modal (RecommendationsModal),
- *  so document.body is always available here — no separate mount gate needed. */
+/** Rendered only from a post-hydration event (a click), never during the
+ *  initial render, so document.body is always available here — no separate
+ *  mount gate needed. Used both from the catalog's context menu (trailerKey
+ *  fetched on demand, so starts null while loading) and from the AI
+ *  recommendations list (trailerKey already known, loading omitted). */
 export default function TrailerModal({
   trailerKey,
+  loading = false,
   title,
   onClose,
 }: {
-  trailerKey: string;
+  trailerKey: string | null;
+  loading?: boolean;
   title: string;
   onClose: () => void;
 }) {
@@ -40,14 +45,20 @@ export default function TrailerModal({
             <X className="h-4 w-4" strokeWidth={1.8} />
           </button>
         </div>
-        <div className="aspect-video w-full overflow-hidden rounded-2xl bg-black">
-          <iframe
-            src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1`}
-            title={`${title} trailer`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="h-full w-full"
-          />
+        <div className="flex aspect-video w-full items-center justify-center overflow-hidden rounded-2xl bg-black">
+          {loading ? (
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+          ) : trailerKey ? (
+            <iframe
+              src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1`}
+              title={`${title} trailer`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="h-full w-full"
+            />
+          ) : (
+            <p className="px-6 text-center text-sm text-white/60">No trailer available for this title.</p>
+          )}
         </div>
       </div>
     </div>,

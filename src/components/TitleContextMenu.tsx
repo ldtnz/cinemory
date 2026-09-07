@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Pencil, Trash2 } from "lucide-react";
+import { Clapperboard, Pencil, Trash2 } from "lucide-react";
 
 const MENU_WIDTH = 152;
 
@@ -16,6 +16,8 @@ export default function TitleContextMenu({
   x,
   y,
   editing,
+  hasTrailerSource,
+  onTrailer,
   onToggleEdit,
   onDelete,
   onClose,
@@ -23,6 +25,9 @@ export default function TitleContextMenu({
   x: number;
   y: number;
   editing: boolean;
+  /** Whether this title is matched to TMDB, so a trailer lookup is worth offering. */
+  hasTrailerSource: boolean;
+  onTrailer: () => void;
   onToggleEdit: () => void;
   onDelete: () => void;
   onClose: () => void;
@@ -72,6 +77,20 @@ export default function TitleContextMenu({
         position.visible ? "opacity-100" : "opacity-0"
       }`}
     >
+      {hasTrailerSource && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            onTrailer();
+            onClose();
+          }}
+          className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm text-foreground hover:bg-white/5"
+        >
+          <Clapperboard className="h-3.5 w-3.5 flex-none text-muted" strokeWidth={1.8} />
+          Trailer
+        </button>
+      )}
       <button
         type="button"
         role="menuitem"

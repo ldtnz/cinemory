@@ -73,7 +73,7 @@ export default function RecommendationsPanel({
           ? `Last generated ${new Date(generatedAt).toLocaleString()}. `
           : "Not generated yet — the first batch appears automatically on your next visit. "}
         Claude suggests what to watch next based on your catalog and refreshes
-        itself every 5 days; use this button only to force an early refresh.
+        itself every 5 days — this button forces a fresh one right away.
       </p>
 
       {error && <p className="mb-3 text-xs text-red-400">{error}</p>}
@@ -81,18 +81,18 @@ export default function RecommendationsPanel({
       <button
         type="button"
         onClick={generate}
-        disabled={loading || !canRefresh}
+        disabled={loading}
         className="rounded-xl bg-foreground px-4 py-2 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
       >
         {loading
           ? "Generating..."
           : titles.length === 0
             ? "Generate recommendations"
-            : "Refresh recommendations"}
+            : "Force refresh now"}
       </button>
 
       {wait && !loading && (
-        <p className="mt-2 text-[11px] text-muted">Next automatic refresh available in {wait}.</p>
+        <p className="mt-2 text-[11px] text-muted">Next automatic refresh in {wait}.</p>
       )}
     </section>
   );
