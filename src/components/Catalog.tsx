@@ -1,13 +1,17 @@
 "use client";
 
-import { useCallback, useDeferredValue, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { Title } from "@prisma/client";
 import FilterBar from "@/components/FilterBar";
 import TitleCard from "@/components/TitleCard";
 import AddTitleCard from "@/components/AddTitleCard";
+import DiscoverCard from "@/components/DiscoverCard";
 import ImportHistory from "@/components/ImportHistory";
 import RecommendationsCard from "@/components/RecommendationsCard";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
+import type { TmdbCandidate } from "@/lib/tmdb";
+import { normalizeTitle } from "@/lib/title-key";
+import type { WatchMode } from "@/lib/watch-mode";
 import { useEditMode } from "@/lib/edit-mode";
 
 const MAX_SHOWN = 1500;
@@ -31,15 +35,68 @@ export default function Catalog({
   // follow "deferredQ", which React updates at a lower priority. Letters
   // therefore appear immediately even while the list is still redrawing.
   const deferredQ = useDeferredValue(q);
+  const [mode, setMode] = useState<WatchMode>("watched");
   const [platform, setPlatform] = useState("");
   const [mediaType, setMediaType] = useState("");
   const [sort, setSort] = useState("recent");
+
+  // Searching the watchlist searches TMDB, not the catalog: the point there
+  // is to find something new to add, not to filter what is already saved.
+  const [discovered, setDiscovered] = useState<TmdbCandidate[]>([]);
+  const [discoveredFor, setDiscoveredFor] = useState<string | null>(null);
+  const [discoverError, setDiscoverError] = useState<string | null>(null);
 
   const editing = useEditMode();
 
   function handleAdded(added: Title) {
     setCatalog((prev) => [added, ...prev]);
   }
+
+  const discoverQuery = mode === "watchlist" ? deferredQ.trim() : "";
+
+  // Same shape as AddTitleCard's search: debounced, each round cancelling the
+  // previous one, and every setState inside the timeout rather than in the
+  // effect body so a slow response can never overwrite a newer one.
+  useEffect(() => {
+    if (mode !== "watchlist") return;
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const timeout = setTimeout(async () => {
+      if (!discoverQuery) {
+        setDiscovered([]);
+        setDiscoverError(null);
+        setDiscoveredFor("");
+        return;
+      }
+      try {
+        const res = await fetch(
+          `/api/tmdb-search?perType=20&q=${encodeURIComponent(discoverQuery)}`,
+          { signal: controller.signal },
+        );
+        if (!res.ok) throw new Error();
+        const data = (await res.json()) as { results: TmdbCandidate[] };
+        if (cancelled) return;
+        setDiscovered(data.results);
+        setDiscoverError(null);
+      } catch {
+        if (!cancelled) {
+          setDiscovered([]);
+          setDiscoverError("Search failed.");
+        }
+      } finally {
+        // On error too: without this it would say "Searching..." forever.
+        if (!cancelled) setDiscoveredFor(discoverQuery);
+      }
+    }, discoverQuery ? 350 : 0);
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearTimeout(timeout);
+    };
+  }, [mode, discoverQuery]);
 
   // Stable, otherwise TitleCard's memo would be pointless: a fresh function
   // on every render would re-render every card.
@@ -76,12 +133,49 @@ export default function Catalog({
   const filtered = useMemo(() => {
     const query = deferredQ.trim().toLowerCase();
     return catalog.filter((t) => {
+      if (t.inWatchlist !== (mode === "watchlist")) return false;
       if (platform && t.platform !== platform) return false;
       if (mediaType && t.mediaType !== mediaType) return false;
-      if (query && !t.searchTitle.includes(query)) return false;
+      // In watchlist mode the query drives the TMDB search below instead of
+      // filtering the saved list, so it is deliberately ignored here.
+      if (mode === "watched" && query && !t.searchTitle.includes(query)) return false;
       return true;
     });
-  }, [catalog, deferredQ, platform, mediaType]);
+  }, [catalog, deferredQ, mode, platform, mediaType]);
+
+  // What is already watched must not come back as something to add. Matched
+  // on TMDB id where there is one, and on the normalized title otherwise —
+  // imported rows that never got a TMDB match still count as watched.
+  const watchedKeys = useMemo(() => {
+    const tmdbIds = new Set<number>();
+    const titleKeys = new Set<string>();
+    for (const t of catalog) {
+      if (t.inWatchlist) continue;
+      if (t.tmdbId && t.tmdbId > 0) tmdbIds.add(t.tmdbId);
+      titleKeys.add(t.searchTitle);
+    }
+    return { tmdbIds, titleKeys };
+  }, [catalog]);
+
+  const watchlistKeys = useMemo(() => {
+    const tmdbIds = new Set<number>();
+    for (const t of catalog) {
+      if (t.inWatchlist && t.tmdbId && t.tmdbId > 0) tmdbIds.add(t.tmdbId);
+    }
+    return tmdbIds;
+  }, [catalog]);
+
+  const discoverResults = useMemo(
+    () =>
+      discovered.filter(
+        (c) =>
+          !watchedKeys.tmdbIds.has(c.tmdbId) &&
+          !watchedKeys.titleKeys.has(normalizeTitle(c.title)),
+      ),
+    [discovered, watchedKeys],
+  );
+
+  const discovering = discoverQuery !== "" && discoveredFor !== discoverQuery;
 
   const titles = useMemo(() => {
     const arr = [...filtered];
@@ -99,9 +193,11 @@ export default function Catalog({
         break;
       case "recent":
       default:
+        // Watchlist entries have never been watched, so for those this falls
+        // back to when they were added — most recently saved first.
         arr.sort((a, b) => {
-          const dateB = b.lastWatchedAt ? new Date(b.lastWatchedAt).getTime() : 0;
-          const dateA = a.lastWatchedAt ? new Date(a.lastWatchedAt).getTime() : 0;
+          const dateB = new Date(b.lastWatchedAt ?? b.createdAt).getTime();
+          const dateA = new Date(a.lastWatchedAt ?? a.createdAt).getTime();
           return dateB - dateA || a.title.localeCompare(b.title);
         });
     }
@@ -109,6 +205,13 @@ export default function Catalog({
   }, [filtered, sort]);
 
   const shownTitles = titles.slice(0, MAX_SHOWN);
+  // With a query, the watchlist grid becomes TMDB results to add rather than
+  // the saved list.
+  const discoverMode = mode === "watchlist" && discoverQuery !== "";
+  const modeTotal = useMemo(
+    () => catalog.filter((t) => t.inWatchlist === (mode === "watchlist")).length,
+    [catalog, mode],
+  );
 
   if (catalog.length === 0) {
     return (
@@ -133,10 +236,19 @@ export default function Catalog({
   return (
     <main className="w-full px-3 pb-16 pt-6 sm:px-5">
       <FilterBar
-        total={catalog.length}
+        total={modeTotal}
         filteredTotal={titles.length}
+        countLabel={
+          discoverMode
+            ? discovering
+              ? "Searching TMDB..."
+              : `${discoverResults.length} to add`
+            : undefined
+        }
         q={q}
         onQChange={setQ}
+        mode={mode}
+        onModeChange={setMode}
         platform={platform}
         onPlatformChange={setPlatform}
         mediaType={mediaType}
@@ -145,9 +257,35 @@ export default function Catalog({
         onSortChange={setSort}
       />
 
-      {shownTitles.length === 0 && !deferredQ.trim() ? (
+      {discoverMode ? (
+        discovering && discoverResults.length === 0 ? (
+          <p className="mt-16 text-center text-muted">Searching TMDB...</p>
+        ) : discoverError ? (
+          <p className="mt-16 text-center text-muted">{discoverError}</p>
+        ) : discoverResults.length === 0 ? (
+          <p className="mt-16 text-center text-muted">
+            {discovered.length > 0
+              ? "Everything matching this search is already in your watched list."
+              : "No results. Try another title."}
+          </p>
+        ) : (
+          <div className="title-grid grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] sm:gap-4">
+            {discoverResults.map((c, i) => (
+              <DiscoverCard
+                key={`${c.mediaType}-${c.tmdbId}`}
+                candidate={c}
+                alreadyOnWatchlist={watchlistKeys.has(c.tmdbId)}
+                priority={i < 12}
+                onAdded={handleAdded}
+              />
+            ))}
+          </div>
+        )
+      ) : shownTitles.length === 0 && !deferredQ.trim() ? (
         <p className="mt-16 text-center text-muted">
-          No titles match these filters.
+          {mode === "watchlist"
+            ? "Nothing to watch yet. Search for a title to add it here."
+            : "No titles match these filters."}
         </p>
       ) : (
         <div className="title-grid grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] sm:gap-4">
@@ -156,7 +294,7 @@ export default function Catalog({
           )}
           {/* Only in the unfiltered default view — a taste-based suggestion
               tile would be out of place mixed into filtered/search results. */}
-          {!platform && !mediaType && !deferredQ.trim() && (
+          {mode === "watched" && !platform && !mediaType && !deferredQ.trim() && (
             <RecommendationsCard titles={recommendations} />
           )}
           {shownTitles.map((t, i) => (
@@ -172,7 +310,7 @@ export default function Catalog({
         </div>
       )}
 
-      {titles.length > shownTitles.length && (
+      {!discoverMode && titles.length > shownTitles.length && (
         <p className="mt-8 text-center text-xs text-muted">
           Showing the first {shownTitles.length} of {titles.length} results.
           Refine your search to narrow it down.

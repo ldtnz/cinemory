@@ -115,8 +115,10 @@ function normalize(
   };
 }
 
-/** Searches TMDB as both movie and series, returning the results interleaved. */
-export async function searchTmdb(query: string): Promise<TmdbCandidate[]> {
+/** Searches TMDB as both movie and series, returning the results interleaved.
+ *  `perType` caps how many of each are kept: the add-title modal wants a short
+ *  list, the watchlist discovery grid wants as many as TMDB returns. */
+export async function searchTmdb(query: string, perType = 6): Promise<TmdbCandidate[]> {
   if (!isTmdbConfigured() || !query.trim()) return [];
 
   const language = (await getSettings()).language;
@@ -155,10 +157,10 @@ export async function searchTmdb(query: string): Promise<TmdbCandidate[]> {
   ]);
 
   const movieCandidates = (dataFilm.results ?? [])
-    .slice(0, 6)
+    .slice(0, perType)
     .map((r) => normalize(r, "Movie", film));
   const seriesCandidates = (dataSerie.results ?? [])
-    .slice(0, 6)
+    .slice(0, perType)
     .map((r) => normalize(r, "Series", series));
 
   // Interleave movies and series instead of listing them in two blocks.

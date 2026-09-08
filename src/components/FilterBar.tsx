@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Settings, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { WATCH_MODES, type WatchMode } from "@/lib/watch-mode";
 
 const PLATFORMS: { value: string; label: string }[] = [
   { value: "Netflix", label: "Netflix" },
@@ -64,6 +65,47 @@ function ChevronIcon() {
   );
 }
 
+/** The Watched / To watch switch. Not a filter like the others: it picks
+ *  which half of the catalog the whole page is about, so it reads as a
+ *  segmented control rather than a toggleable chip. */
+function WatchModeSwitch({
+  mode,
+  onModeChange,
+  className = "",
+}: {
+  mode: WatchMode;
+  onModeChange: (m: WatchMode) => void;
+  className?: string;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Watched or to watch"
+      className={`flex h-9 items-center gap-1 rounded-xl bg-surface p-1 ${className}`}
+    >
+      {WATCH_MODES.map((opt) => {
+        const active = mode === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onModeChange(opt.value)}
+            className={`flex-1 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-medium leading-none transition-colors ${
+              active
+                ? "bg-foreground text-background"
+                : "text-muted hover:bg-surface-2 hover:text-foreground"
+            }`}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function FilterGroup({
   label,
   options,
@@ -108,17 +150,25 @@ export default function FilterBar({
   filteredTotal,
   q,
   onQChange,
+  mode,
+  onModeChange,
   platform,
   onPlatformChange,
   mediaType,
   onMediaTypeChange,
   sort,
   onSortChange,
+  countLabel,
 }: {
   total: number;
   filteredTotal: number;
+  /** Replaces the "x of y titles" line when that phrasing does not fit —
+   *  the watchlist search lists TMDB results, not a slice of the catalog. */
+  countLabel?: string;
   q: string;
   onQChange: (v: string) => void;
+  mode: WatchMode;
+  onModeChange: (m: WatchMode) => void;
   platform: string;
   onPlatformChange: (v: string) => void;
   mediaType: string;
@@ -252,14 +302,15 @@ export default function FilterBar({
             Cinemory
           </h1>
           <p className="text-xs text-muted">
-            {filteredTotal.toLocaleString()} of{" "}
-            {total.toLocaleString()} titles
+            {countLabel ??
+              `${filteredTotal.toLocaleString()} of ${total.toLocaleString()} titles`}
           </p>
         </div>
 
         {/* Desktop: tutto in row */}
         <div className="hidden sm:flex sm:flex-col sm:gap-3 lg:flex-row lg:items-center">
           <div className="flex flex-wrap items-center gap-3">
+            <WatchModeSwitch mode={mode} onModeChange={onModeChange} />
             <FilterGroup
               label="Type"
               options={MEDIA_TYPES}
@@ -396,8 +447,8 @@ export default function FilterBar({
               Cinemory
             </h1>
             <p className="truncate text-[11px] text-muted">
-              {filteredTotal.toLocaleString()} of{" "}
-              {total.toLocaleString()} titles
+              {countLabel ??
+                `${filteredTotal.toLocaleString()} of ${total.toLocaleString()} titles`}
             </p>
           </div>
 
@@ -468,6 +519,11 @@ export default function FilterBar({
             </Link>
           </div>
         </div>
+
+        {/* Mobile: the switch gets its own row. The row above is already at
+            its width budget (title + three 36px buttons), and an unlabelled
+            icon toggle would not say which half of the catalog it shows. */}
+        <WatchModeSwitch mode={mode} onModeChange={onModeChange} className="w-full sm:hidden" />
       </div>
 
       {filtersOpen && mounted && createPortal(

@@ -8,14 +8,11 @@
  */
 import { parse } from "csv-parse/sync";
 
-/** Normalizes a title for search and de-duplication (lowercase, no accents). */
-export function normalizeTitle(title: string): string {
-  return title
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim();
-}
+// Re-exported so the existing importers of this module keep working; it lives
+// in its own file because the client needs it too and must not pull in the
+// CSV parser above. See src/lib/title-key.ts.
+export { normalizeTitle } from "@/lib/title-key";
+import { normalizeTitle } from "@/lib/title-key";
 
 export type HistoryRow = {
   title: string;

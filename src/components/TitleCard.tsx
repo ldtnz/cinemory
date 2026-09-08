@@ -351,9 +351,12 @@ function TitleCard({
               </span>
             ) : null}
           </div>
-          <p className={`mt-0.5 text-[10px] font-semibold ${platformColor}`}>
-            {platformLabel}
-          </p>
+          {/* Watchlist entries have no platform yet — nothing to show. */}
+          {platformLabel && (
+            <p className={`mt-0.5 text-[10px] font-semibold ${platformColor}`}>
+              {platformLabel}
+            </p>
+          )}
           {seasonsLabel && (
             <p className="mt-0.5 text-[10px] text-neutral-400">{seasonsLabel}</p>
           )}

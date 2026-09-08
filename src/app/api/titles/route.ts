@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { TmdbCandidate } from "@/lib/tmdb";
+import { normalizeTitle } from "@/lib/title-key";
 
 // Valid platforms: the same four used by the catalog filter.
 const PIATTAFORME_VALIDE = ["Netflix", "Amazon Prime Video", "Disney+", "Cinema"];
@@ -9,15 +10,10 @@ const PIATTAFORME_VALIDE = ["Netflix", "Amazon Prime Video", "Disney+", "Cinema"
 type CorpoRichiesta = {
   candidate: TmdbCandidate;
   platform: string;
+  /** Adds it as "to watch" instead of "watched": no platform yet, since the
+   *  point is that it has not been watched anywhere. */
+  watchlist?: boolean;
 };
-
-function normalize(title: string): string {
-  return title
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim();
-}
 
 /** Creates a new catalog entry from a TMDB candidate picked by the user (used
  * by the "Add title" card when a search finds no match in the existing
@@ -31,12 +27,16 @@ export async function POST(request: NextRequest) {
   if (!body || !body.candidate || !body.candidate.title) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
-  if (!PIATTAFORME_VALIDE.includes(body.platform)) {
+  const watchlist = body.watchlist === true;
+  if (!watchlist && !PIATTAFORME_VALIDE.includes(body.platform)) {
     return NextResponse.json({ error: "Invalid platform." }, { status: 400 });
   }
 
-  const { candidate, platform } = body;
-  const searchTitle = normalize(candidate.title);
+  const { candidate } = body;
+  // Watchlist entries have no platform yet — it is only known once it has
+  // actually been watched somewhere.
+  const platform = watchlist ? "" : body.platform;
+  const searchTitle = normalizeTitle(candidate.title);
 
   // No duplicates: same normalised name, or same work on TMDB (the user picked
   // that exact candidate, so the id is trustworthy). -1 is the conventional
@@ -56,7 +56,9 @@ export async function POST(request: NextRequest) {
   if (existing) {
     return NextResponse.json(
       {
-        error: `"${existing.title}" e' gia' in catalogo (${existing.platform}).`,
+        error: existing.platform
+          ? `"${existing.title}" is already in the catalog (${existing.platform}).`
+          : `"${existing.title}" is already on your watchlist.`,
         existing,
       },
       { status: 409 },
@@ -69,8 +71,11 @@ export async function POST(request: NextRequest) {
       searchTitle,
       platform,
       mediaType: candidate.mediaType,
-      status: "Watched",
-      lastWatchedAt: new Date(),
+      // inWatchlist is what every query filters on; status mirrors it for
+      // readability and is written together with it, never separately.
+      status: watchlist ? "To watch" : "Watched",
+      inWatchlist: watchlist,
+      lastWatchedAt: watchlist ? null : new Date(),
       tmdbId: candidate.tmdbId,
       posterUrl: candidate.posterUrl,
       backdropUrl: candidate.backdropUrl,
