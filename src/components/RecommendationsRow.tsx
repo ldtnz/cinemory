@@ -74,7 +74,7 @@ function Tile({
           disabled={dismissing}
           aria-label={`Not interested in ${rec.title}`}
           title="Not interested"
-          className="absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-black/70 text-white transition-colors hover:bg-black/85 disabled:cursor-default"
+          className="absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-black/70 text-white opacity-0 transition-opacity duration-150 hover:bg-black/85 group-hover:opacity-100 focus-visible:opacity-100 disabled:cursor-default"
         >
           {dismissing ? (
             <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/25 border-t-white" />
@@ -90,8 +90,10 @@ function Tile({
           aria-label={
             done ? `${rec.title} is on your watchlist` : `Add ${rec.title} to your watchlist`
           }
-          className={`absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-lg text-white transition-colors disabled:cursor-default ${
-            done ? "bg-accent-2/25" : "bg-black/70 hover:bg-black/85"
+          className={`absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-lg text-white transition-opacity duration-150 focus-visible:opacity-100 disabled:cursor-default ${
+            done
+              ? "bg-accent-2/25 opacity-100"
+              : "bg-black/70 opacity-0 hover:bg-black/85 group-hover:opacity-100"
           }`}
         >
           {done ? (
