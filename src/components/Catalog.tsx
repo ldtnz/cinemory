@@ -130,6 +130,24 @@ export default function Catalog({
     );
   }, []);
 
+  // Moves a watchlist entry into the watched half. The platform comes from
+  // the dialog: it is the one thing a "to watch" row has no value for yet.
+  const markWatched = useCallback(async (title: Title, platform: string) => {
+    const res = await fetch(`/api/titles/${title.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markWatched: { platform } }),
+    });
+    if (!res.ok) {
+      window.alert("Could not mark the title as watched.");
+      return;
+    }
+    const { title: updated } = (await res.json()) as { title: Title };
+    // The row stays in the catalog, it just changes half: the grid filters on
+    // inWatchlist, so it leaves the watchlist and appears under Watched.
+    setCatalog((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+  }, []);
+
   const filtered = useMemo(() => {
     const query = deferredQ.trim().toLowerCase();
     return catalog.filter((t) => {
@@ -307,6 +325,7 @@ export default function Catalog({
               editing={editing}
               onRemove={remove}
               onSeasons={changeSeasons}
+              onMarkWatched={markWatched}
             />
           ))}
         </div>

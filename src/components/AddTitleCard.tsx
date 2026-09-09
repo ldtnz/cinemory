@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { Plus, X } from "lucide-react";
 import type { Title } from "@prisma/client";
 import type { TmdbCandidate } from "@/lib/tmdb";
+import { PLATFORMS } from "@/lib/platforms";
 
 /** "2022-03-01" -> "1 March 2022". Empty string when TMDB has no date. */
 function formatReleaseDate(iso: string | null): string {
@@ -18,13 +19,6 @@ function formatReleaseDate(iso: string | null): string {
     year: "numeric",
   }).format(d);
 }
-
-const PLATFORMS: { value: string; label: string }[] = [
-  { value: "Netflix", label: "Netflix" },
-  { value: "Amazon Prime Video", label: "Prime Video" },
-  { value: "Disney+", label: "Disney+" },
-  { value: "Cinema", label: "Cinema" },
-];
 
 export default function AddTitleCard({
   initialQuery,

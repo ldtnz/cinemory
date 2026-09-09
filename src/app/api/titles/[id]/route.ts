@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isValidPlatform } from "@/lib/platforms";
 
 /** Removes a title from the catalog (edit mode, enabled in settings). */
 export async function DELETE(
@@ -24,7 +25,13 @@ export async function DELETE(
   return NextResponse.json({ eliminato: id });
 }
 
-/** Updates the watched seasons of a series (the +/- controls in edit mode). */
+/**
+ * Two edits, told apart by the body:
+ *  - { markWatched: { platform } } moves a watchlist entry into the watched
+ *    half, recording where it was finally watched.
+ *  - { watchedSeasons } updates a series' progress (the +/- controls in
+ *    edit mode).
+ */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -39,8 +46,33 @@ export async function PATCH(
   }
 
   const body = (await request.json().catch(() => null)) as
-    | { watchedSeasons?: number | null }
+    | { watchedSeasons?: number | null; markWatched?: { platform?: string } }
     | null;
+
+  if (body?.markWatched) {
+    const { platform } = body.markWatched;
+    if (!isValidPlatform(platform)) {
+      return NextResponse.json({ error: "Invalid platform." }, { status: 400 });
+    }
+    // Applies to movies and series alike, unlike the seasons path below.
+    const updated = await prisma.title.updateMany({
+      where: { id },
+      // inWatchlist and status are always written together — see
+      // src/lib/watch-mode.ts.
+      data: {
+        inWatchlist: false,
+        status: "Watched",
+        platform,
+        lastWatchedAt: new Date(),
+      },
+    });
+    if (updated.count === 0) {
+      return NextResponse.json({ error: "Title not found." }, { status: 404 });
+    }
+    const title = await prisma.title.findUnique({ where: { id } });
+    return NextResponse.json({ title });
+  }
+
   const value = body?.watchedSeasons;
   if (value !== null && !Number.isInteger(value)) {
     return NextResponse.json({ error: "Invalid watchedSeasons value." }, { status: 400 });
@@ -62,7 +94,7 @@ export async function PATCH(
 
   // Zero means "none watched", i.e. nothing to display.
   // The ceiling is the known total: you cannot watch more seasons than
-  // ne esistano.
+  // there are.
   let watchedSeasons: number | null = value ?? null;
   if (watchedSeasons !== null) {
     if (watchedSeasons < 0) watchedSeasons = 0;

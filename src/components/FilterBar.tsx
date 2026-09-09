@@ -6,13 +6,8 @@ import { Settings, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { WATCH_MODES, type WatchMode } from "@/lib/watch-mode";
+import { PLATFORMS } from "@/lib/platforms";
 
-const PLATFORMS: { value: string; label: string }[] = [
-  { value: "Netflix", label: "Netflix" },
-  { value: "Amazon Prime Video", label: "Prime Video" },
-  { value: "Disney+", label: "Disney+" },
-  { value: "Cinema", label: "Cinema" },
-];
 const MEDIA_TYPES: { value: string; label: string }[] = [
   { value: "Movie", label: "Movie" },
   { value: "Series", label: "Series" },

@@ -8,6 +8,7 @@ import type { Title } from "@prisma/client";
 import { setEditMode } from "@/lib/edit-mode";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import TitleContextMenu from "@/components/TitleContextMenu";
+import MarkWatchedDialog from "@/components/MarkWatchedDialog";
 import TrailerModal from "@/components/TrailerModal";
 
 function MissingPosterIcon() {
@@ -53,6 +54,7 @@ function TitleCard({
   editing = false,
   onRemove,
   onSeasons,
+  onMarkWatched,
 }: {
   title: Title;
   /** true for the first cards above the fold, avoids the Next/Image LCP warning */
@@ -61,10 +63,13 @@ function TitleCard({
   editing?: boolean;
   onRemove?: (title: Title) => void;
   onSeasons?: (title: Title, watchedSeasons: number) => void;
+  /** Moves a watchlist entry into the watched half, on the chosen platform. */
+  onMarkWatched?: (title: Title, platform: string) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [markingWatched, setMarkingWatched] = useState(false);
   const [trailer, setTrailer] = useState<{ loading: boolean; key: string | null } | null>(null);
   // Tapping a poster on touch shows the details overlay that desktop gets on
   // hover, then hides it again after a few seconds — touch has no hover.
@@ -369,7 +374,9 @@ function TitleCard({
           y={menuPos.y}
           editing={editing}
           hasTrailerSource={Boolean(title.tmdbId && title.tmdbId > 0)}
+          onWatchlist={title.inWatchlist}
           onTrailer={openTrailer}
+          onMarkWatched={() => setMarkingWatched(true)}
           onToggleEdit={() => setEditMode(!editing)}
           onDelete={requestDelete}
           onClose={closeContextMenu}
@@ -387,6 +394,17 @@ function TitleCard({
             onRemove?.(title);
           }}
           onCancel={() => setConfirmingDelete(false)}
+        />
+      )}
+
+      {markingWatched && (
+        <MarkWatchedDialog
+          title={title}
+          onConfirm={(platform) => {
+            setMarkingWatched(false);
+            onMarkWatched?.(title, platform);
+          }}
+          onCancel={() => setMarkingWatched(false)}
         />
       )}
 

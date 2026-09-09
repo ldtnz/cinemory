@@ -3,9 +3,7 @@ import { isAuthenticated } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import { normalizeTitle } from "@/lib/title-key";
-
-// Valid platforms: the same four used by the catalog filter.
-const PIATTAFORME_VALIDE = ["Netflix", "Amazon Prime Video", "Disney+", "Cinema"];
+import { isValidPlatform } from "@/lib/platforms";
 
 type CorpoRichiesta = {
   candidate: TmdbCandidate;
@@ -28,7 +26,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
   const watchlist = body.watchlist === true;
-  if (!watchlist && !PIATTAFORME_VALIDE.includes(body.platform)) {
+  if (!watchlist && !isValidPlatform(body.platform)) {
     return NextResponse.json({ error: "Invalid platform." }, { status: 400 });
   }
 
