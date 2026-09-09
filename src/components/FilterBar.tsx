@@ -6,7 +6,7 @@ import { BarChart3, Settings, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { WATCH_MODES, type WatchMode } from "@/lib/watch-mode";
-import { PLATFORMS } from "@/lib/platforms";
+import PlatformPicker from "@/components/PlatformPicker";
 
 const MEDIA_TYPES: { value: string; label: string }[] = [
   { value: "Movie", label: "Movie" },
@@ -382,25 +382,7 @@ export default function FilterBar({
                     <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
                       Platform
                     </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {PLATFORMS.map((opt) => {
-                        const active = platform === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => onPlatformChange(active ? "" : opt.value)}
-                            className={`rounded-lg px-2.5 py-1.5 text-xs font-medium leading-none transition-colors ${
-                              active
-                                ? "bg-foreground text-background"
-                                : "bg-surface-2 text-muted hover:text-foreground"
-                            }`}
-                          >
-                            {opt.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <PlatformPicker value={platform} onChange={onPlatformChange} clearable />
                   </div>
 
                   <div className="space-y-2">
@@ -592,25 +574,7 @@ export default function FilterBar({
               <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
                 Platform
               </span>
-              <div className="flex flex-wrap gap-1.5">
-                {PLATFORMS.map((opt) => {
-                  const active = platform === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => onPlatformChange(active ? "" : opt.value)}
-                      className={`rounded-lg px-3 py-2 text-xs font-medium leading-none transition-colors ${
-                        active
-                          ? "bg-foreground text-background"
-                          : "bg-surface-2 text-muted hover:text-foreground"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
+              <PlatformPicker value={platform} onChange={onPlatformChange} clearable />
             </div>
 
             <div className="space-y-2">

@@ -48,10 +48,17 @@ const PLATFORM_STYLES: Record<string, { color: string; label: string }> = {
   "Apple TV+": { color: "text-zinc-300", label: "Apple TV+" },
   Max: { color: "text-purple-400", label: "Max" },
   "Paramount+": { color: "text-indigo-400", label: "Paramount+" },
+  Peacock: { color: "text-fuchsia-400", label: "Peacock" },
+  Hulu: { color: "text-lime-400", label: "Hulu" },
+  YouTube: { color: "text-rose-400", label: "YouTube" },
+  Crunchyroll: { color: "text-yellow-400", label: "Crunchyroll" },
   "Sky / NOW": { color: "text-cyan-400", label: "Sky / NOW" },
   RaiPlay: { color: "text-orange-400", label: "RaiPlay" },
   "Mediaset Infinity": { color: "text-pink-400", label: "Mediaset Infinity" },
+  TIMvision: { color: "text-teal-400", label: "TIMvision" },
+  "Rakuten TV": { color: "text-emerald-400", label: "Rakuten TV" },
   Cinema: { color: "text-amber-400", label: "Cinema" },
+  TV: { color: "text-slate-400", label: "TV broadcast" },
   Unknown: { color: "text-neutral-500", label: "Not sure" },
 };
 

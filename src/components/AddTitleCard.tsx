@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { Check, Plus, X } from "lucide-react";
 import type { Title } from "@prisma/client";
 import type { TmdbCandidate } from "@/lib/tmdb";
-import { PLATFORMS } from "@/lib/platforms";
+import PlatformPicker from "@/components/PlatformPicker";
 
 /** "2022-03-01" -> "1 March 2022". Empty string when TMDB has no date. */
 function formatReleaseDate(iso: string | null): string {
@@ -472,25 +472,7 @@ export default function AddTitleCard({
                     <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
                       Where did you watch {selectedList.length === 1 ? "it" : "them"}?
                     </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {PLATFORMS.map((opt) => {
-                        const active = platform === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => setPlatform(opt.value)}
-                            className={`rounded-lg px-3 py-2 text-xs font-medium leading-none transition-colors ${
-                              active
-                                ? "bg-foreground text-background"
-                                : "bg-surface-2 text-muted hover:text-foreground"
-                            }`}
-                          >
-                            {opt.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <PlatformPicker value={platform} onChange={setPlatform} />
                     {selectedList.length > 1 && (
                       <p className="text-[11px] text-muted/80">
                         Applies to all {selectedList.length} titles. Add a different-platform

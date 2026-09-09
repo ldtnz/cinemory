@@ -19,10 +19,17 @@ export const PLATFORMS: { value: string; label: string }[] = [
   { value: "Apple TV+", label: "Apple TV+" },
   { value: "Max", label: "Max" },
   { value: "Paramount+", label: "Paramount+" },
+  { value: "Peacock", label: "Peacock" },
+  { value: "Hulu", label: "Hulu" },
+  { value: "YouTube", label: "YouTube" },
+  { value: "Crunchyroll", label: "Crunchyroll" },
   { value: "Sky / NOW", label: "Sky / NOW" },
   { value: "RaiPlay", label: "RaiPlay" },
   { value: "Mediaset Infinity", label: "Mediaset Infinity" },
+  { value: "TIMvision", label: "TIMvision" },
+  { value: "Rakuten TV", label: "Rakuten TV" },
   { value: "Cinema", label: "Cinema" },
+  { value: "TV", label: "TV broadcast" },
   { value: "Unknown", label: "Not sure" },
 ];
 

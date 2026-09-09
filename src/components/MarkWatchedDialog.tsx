@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Title } from "@prisma/client";
-import { PLATFORMS } from "@/lib/platforms";
+import PlatformPicker from "@/components/PlatformPicker";
 
 /** Moving a title off the watchlist needs one more thing than a plain
  *  confirmation: where it was watched. Watchlist entries carry no platform,
@@ -66,25 +66,7 @@ export default function MarkWatchedDialog({
           <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
             Where did you watch it?
           </span>
-          <div className="flex flex-wrap gap-1.5">
-            {PLATFORMS.map((opt) => {
-              const active = platform === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setPlatform(opt.value)}
-                  className={`rounded-lg px-3 py-2 text-xs font-medium leading-none transition-colors ${
-                    active
-                      ? "bg-foreground text-background"
-                      : "bg-surface-2 text-muted hover:text-foreground"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
+          <PlatformPicker value={platform} onChange={setPlatform} />
         </div>
 
         <div className="flex items-center gap-2">
