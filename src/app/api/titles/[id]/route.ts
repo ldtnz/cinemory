@@ -80,7 +80,7 @@ export async function PATCH(
 
   const existing = await prisma.title.findUnique({
     where: { id },
-    select: { mediaType: true, totalSeasons: true },
+    select: { mediaType: true, totalSeasons: true, inWatchlist: true },
   });
   if (!existing) {
     return NextResponse.json({ error: "Title not found." }, { status: 404 });
@@ -88,6 +88,15 @@ export async function PATCH(
   if (existing.mediaType !== "Series") {
     return NextResponse.json(
       { error: "Seasons only apply to series." },
+      { status: 400 },
+    );
+  }
+  // A watchlist entry has not been watched at all yet — nothing to record
+  // partial progress on. The UI already hides the control; this rejects a
+  // direct call too.
+  if (existing.inWatchlist) {
+    return NextResponse.json(
+      { error: "Cannot set watched seasons for a title still on the watchlist." },
       { status: 400 },
     );
   }

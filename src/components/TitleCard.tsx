@@ -306,7 +306,10 @@ function TitleCard({
         </button>
       )}
 
-      {editing && title.mediaType === "Series" && (
+      {/* Not on the watchlist: nothing has been watched yet, so there is no
+          season progress to adjust — only how many are already out (TMDB),
+          which isn't user-editable. */}
+      {editing && title.mediaType === "Series" && !title.inWatchlist && (
         <div className="absolute inset-x-1.5 bottom-1.5 z-10 flex items-center justify-between rounded-lg bg-black/85 px-1 py-1 backdrop-blur-sm">
           <button
             type="button"
