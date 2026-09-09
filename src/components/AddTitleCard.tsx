@@ -1,9 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Plus, X } from "lucide-react";
+import { Check, Plus, X } from "lucide-react";
 import type { Title } from "@prisma/client";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import { PLATFORMS } from "@/lib/platforms";
@@ -20,6 +20,20 @@ function formatReleaseDate(iso: string | null): string {
   }).format(d);
 }
 
+function candidateKey(c: TmdbCandidate): string {
+  return `${c.mediaType}-${c.tmdbId}`;
+}
+
+type ItemStatus = "adding" | "added" | "duplicate" | "error";
+
+/**
+ * The search here is one-off by nature — a franchise like Lord of the Rings
+ * or The Hobbit turns up several results for the same query — so picking one
+ * result used to mean closing the picker and re-typing the same near-
+ * identical title to add the next one. Results are now multi-select: check
+ * several, choose one platform for all of them (they were usually watched on
+ * the same one), and they go in together.
+ */
 export default function AddTitleCard({
   initialQuery,
   onAdded,
@@ -37,13 +51,33 @@ export default function AddTitleCard({
   // that is not true yet.
   const [searchedQuery, setSearchedQuery] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [chosenCandidate, setChosenCandidate] = useState<TmdbCandidate | null>(null);
+  const [step, setStep] = useState<"search" | "confirm">("search");
+  // Keyed by candidateKey() rather than held as a list, so a title stays
+  // selected across a query edit even though `results` swaps out from under
+  // it — picking from "the hobbit" and then also from "lord of the rings"
+  // in the same session is exactly the case this exists for.
+  const [selected, setSelected] = useState<Map<string, TmdbCandidate>>(new Map());
+  const [itemStatus, setItemStatus] = useState<Map<string, ItemStatus>>(new Map());
   const [platform, setPlatform] = useState("");
   const [saving, setSaving] = useState(false);
+  // Read from the auto-close timer below, which fires after this render has
+  // moved on — a plain closure over `open`/`step` would see whatever they
+  // were when confirmBatch() was called, not whether the user has since hit
+  // "Back to results" or closed the picker themselves.
+  const openRef = useRef(open);
+  const stepRef = useRef(step);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
+
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
 
   // Lock scrolling of the page underneath while the modal is open.
   useEffect(() => {
@@ -58,9 +92,10 @@ export default function AddTitleCard({
   // Automatic search: it fires on open with the catalog query and on every
   // edit of the field, with no button to press. The debounce avoids one TMDB
   // request per keystroke, and each round cancels the previous one so a slow
-  // response cannot overwrite a newer one.
+  // response cannot overwrite a newer one. Paused during the confirm step —
+  // nothing on screen there depends on it.
   useEffect(() => {
-    if (!open || chosenCandidate) return;
+    if (!open || step !== "search") return;
 
     const q = query.trim();
     let cancelled = false;
@@ -95,12 +130,14 @@ export default function AddTitleCard({
       controller.abort();
       clearTimeout(timeout);
     };
-  }, [open, chosenCandidate, query]);
+  }, [open, step, query]);
 
   function openModal() {
     setQuery(initialQuery);
     setSearchedQuery(null);
-    setChosenCandidate(null);
+    setStep("search");
+    setSelected(new Map());
+    setItemStatus(new Map());
     setPlatform("");
     setError(null);
     setOpen(true);
@@ -111,42 +148,96 @@ export default function AddTitleCard({
     setOpen(false);
   }
 
-  async function confirm() {
-    if (!chosenCandidate || !platform) return;
+  function toggleSelect(c: TmdbCandidate) {
+    const key = candidateKey(c);
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (next.has(key)) next.delete(key);
+      else next.set(key, c);
+      return next;
+    });
+  }
+
+  function removeSelected(key: string) {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      next.delete(key);
+      return next;
+    });
+  }
+
+  /**
+   * Submits everything selected that isn't already resolved — on the first
+   * call that's the whole batch, on a retry after a partial failure it's
+   * only the ones that failed, since "added" and "duplicate" are terminal.
+   * Each title POSTs independently so one failure or one duplicate never
+   * blocks the rest of the batch.
+   */
+  async function confirmBatch() {
+    const toSubmit = [...selected.entries()].filter(([key]) => {
+      const status = itemStatus.get(key);
+      return status !== "added" && status !== "duplicate";
+    });
+    if (toSubmit.length === 0 || !platform) return;
+
     setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/titles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ candidate: chosenCandidate, platform }),
-      });
-      if (res.status === 409) {
-        // Already in the catalog: the server message names the title and the
-        // platform, so it reads as information rather than a failure.
-        const data = (await res.json().catch(() => null)) as { error?: string } | null;
-        setError(data?.error ?? "Title already in the catalog.");
-        return;
-      }
-      if (!res.ok) throw new Error();
-      const data = (await res.json()) as { title: Title & { lastWatchedAt: string | null; createdAt: string; updatedAt: string } };
-      const createdTitle: Title = {
-        ...data.title,
-        lastWatchedAt: data.title.lastWatchedAt ? new Date(data.title.lastWatchedAt) : null,
-        createdAt: new Date(data.title.createdAt),
-        updatedAt: new Date(data.title.updatedAt),
-      };
-      onAdded(createdTitle);
-      setOpen(false);
-    } catch {
-      setError("Could not add the title.");
-    } finally {
-      setSaving(false);
+    setItemStatus((prev) => {
+      const next = new Map(prev);
+      for (const [key] of toSubmit) next.set(key, "adding");
+      return next;
+    });
+
+    const outcomes = await Promise.all(
+      toSubmit.map(async ([key, candidate]): Promise<[string, ItemStatus]> => {
+        try {
+          const res = await fetch("/api/titles", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ candidate, platform }),
+          });
+          // Already in the catalog: not a failure, the outcome wanted is
+          // already true, so it is marked resolved rather than retried.
+          if (res.status === 409) return [key, "duplicate"];
+          if (!res.ok) throw new Error();
+          const data = (await res.json()) as {
+            title: Title & { lastWatchedAt: string | null; createdAt: string; updatedAt: string };
+          };
+          onAdded({
+            ...data.title,
+            lastWatchedAt: data.title.lastWatchedAt ? new Date(data.title.lastWatchedAt) : null,
+            createdAt: new Date(data.title.createdAt),
+            updatedAt: new Date(data.title.updatedAt),
+          });
+          return [key, "added"];
+        } catch {
+          return [key, "error"];
+        }
+      }),
+    );
+
+    setItemStatus((prev) => {
+      const next = new Map(prev);
+      for (const [key, status] of outcomes) next.set(key, status);
+      return next;
+    });
+    setSaving(false);
+
+    if (!outcomes.some(([, status]) => status === "error")) {
+      // Nothing left needing a retry: give the checkmarks a beat to register
+      // before the picker disappears out from under them — but only close if
+      // the user is still where this batch left them, not if they have since
+      // gone back to search for more or closed it themselves.
+      window.setTimeout(() => {
+        if (openRef.current && stepRef.current === "confirm") setOpen(false);
+      }, 700);
     }
   }
 
   const trimmedQuery = query.trim();
   const searching = trimmedQuery !== "" && searchedQuery !== trimmedQuery;
+  const selectedList = [...selected.entries()];
+  const failedCount = selectedList.filter(([key]) => itemStatus.get(key) === "error").length;
+  const isRetry = selectedList.some(([key]) => itemStatus.has(key));
 
   return (
     <>
@@ -167,7 +258,7 @@ export default function AddTitleCard({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm">
           <div
             className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-surface shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] transition-[max-width] duration-200 ${
-              chosenCandidate ? "max-w-md" : "max-w-3xl"
+              step === "confirm" ? "max-w-lg" : "max-w-3xl"
             }`}
           >
             <div className="flex items-center justify-between border-b border-white/5 p-4">
@@ -183,7 +274,7 @@ export default function AddTitleCard({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              {!chosenCandidate ? (
+              {step === "search" ? (
                 <div className="space-y-3">
                   <input
                     value={query}
@@ -192,6 +283,21 @@ export default function AddTitleCard({
                     placeholder="Title to search on TMDB"
                     className="h-10 w-full rounded-xl bg-surface-2 px-3 text-base text-foreground outline-none focus:ring-2 focus:ring-white/20 sm:text-sm"
                   />
+
+                  {selected.size > 0 && (
+                    <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2">
+                      <span className="text-xs font-medium text-foreground">
+                        {selected.size} {selected.size === 1 ? "title" : "titles"} selected
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setStep("confirm")}
+                        className="rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition-opacity hover:opacity-90"
+                      >
+                        Continue
+                      </button>
+                    </div>
+                  )}
 
                   {error && <p className="text-xs text-red-400">{error}</p>}
 
@@ -209,12 +315,17 @@ export default function AddTitleCard({
                     <ul className="space-y-2">
                       {results.map((c) => {
                         const data = formatReleaseDate(c.dataUscita);
+                        const key = candidateKey(c);
+                        const isSelected = selected.has(key);
                         return (
-                          <li key={`${c.mediaType}-${c.tmdbId}`}>
+                          <li key={key}>
                             <button
                               type="button"
-                              onClick={() => setChosenCandidate(c)}
-                              className="flex w-full gap-3 rounded-2xl bg-surface-2 p-2.5 text-left outline-none ring-white/40 transition-colors hover:bg-surface-2/70 hover:ring-2"
+                              onClick={() => toggleSelect(c)}
+                              aria-pressed={isSelected}
+                              className={`flex w-full gap-3 rounded-2xl p-2.5 text-left outline-none ring-white/40 transition-colors hover:bg-surface-2/70 hover:ring-2 ${
+                                isSelected ? "bg-surface-2 ring-2 ring-accent-2/60" : "bg-surface-2"
+                              }`}
                             >
                               <div className="relative h-[81px] w-[54px] flex-none overflow-hidden rounded-lg bg-surface">
                                 {c.posterUrl ? (
@@ -231,6 +342,17 @@ export default function AddTitleCard({
                                     no poster
                                   </div>
                                 )}
+                                {/* Checkbox affordance: makes it read as
+                                    "select", not "open", at a glance. */}
+                                <span
+                                  className={`absolute left-1 top-1 flex h-4 w-4 items-center justify-center rounded-full border ${
+                                    isSelected
+                                      ? "border-accent-2 bg-accent-2 text-background"
+                                      : "border-white/40 bg-black/40"
+                                  }`}
+                                >
+                                  {isSelected && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
+                                </span>
                               </div>
 
                               <div className="min-w-0 flex-1 space-y-1 py-0.5">
@@ -278,38 +400,75 @@ export default function AddTitleCard({
                 <div className="space-y-5 py-1">
                   <button
                     type="button"
-                    onClick={() => setChosenCandidate(null)}
+                    onClick={() => setStep("search")}
                     className="text-xs font-medium text-muted hover:text-foreground"
                   >
-                    ← Change title
+                    ← Back to results
                   </button>
 
-                  <div className="flex gap-4">
-                    <div className="relative h-36 w-24 flex-none overflow-hidden rounded-xl bg-surface-2 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]">
-                      {chosenCandidate.posterUrl ? (
-                        <Image
-                          src={chosenCandidate.posterUrl}
-                          alt={chosenCandidate.title}
-                          fill
-                          unoptimized
-                          sizes="96px"
-                          className="object-cover"
-                        />
-                      ) : null}
-                    </div>
-                    <div className="min-w-0 self-center">
-                      <p className="line-clamp-2 text-base font-semibold leading-snug">
-                        {chosenCandidate.title}
-                      </p>
-                      <p className="mt-1 text-xs text-muted">
-                        {[chosenCandidate.mediaType, chosenCandidate.year].filter(Boolean).join(" · ")}
-                      </p>
-                    </div>
-                  </div>
+                  <ul className="space-y-2">
+                    {selectedList.map(([key, c]) => {
+                      const status = itemStatus.get(key);
+                      return (
+                        <li
+                          key={key}
+                          className="flex items-center gap-3 rounded-2xl bg-surface-2 p-2.5"
+                        >
+                          <div className="relative h-16 w-11 flex-none overflow-hidden rounded-lg bg-surface">
+                            {c.posterUrl && (
+                              <Image
+                                src={c.posterUrl}
+                                alt=""
+                                fill
+                                unoptimized
+                                sizes="44px"
+                                className="object-cover"
+                              />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="line-clamp-1 text-sm font-medium text-foreground">
+                              {c.title}
+                            </p>
+                            <p className="text-xs text-muted">
+                              {[c.mediaType, c.year].filter(Boolean).join(" · ")}
+                            </p>
+                          </div>
+
+                          {status === "adding" && (
+                            <span className="h-4 w-4 flex-none animate-spin rounded-full border-2 border-white/25 border-t-white" />
+                          )}
+                          {status === "added" && (
+                            <Check className="h-4 w-4 flex-none text-accent-2" strokeWidth={2.4} />
+                          )}
+                          {status === "duplicate" && (
+                            <span className="flex-none text-[10px] font-medium text-muted">
+                              Already in catalog
+                            </span>
+                          )}
+                          {status === "error" && (
+                            <span className="flex-none text-[10px] font-medium text-red-400">
+                              Failed
+                            </span>
+                          )}
+                          {(!status || status === "error") && !saving && (
+                            <button
+                              type="button"
+                              onClick={() => removeSelected(key)}
+                              aria-label={`Remove ${c.title}`}
+                              className="flex h-6 w-6 flex-none items-center justify-center rounded-md text-muted hover:bg-white/5 hover:text-foreground"
+                            >
+                              <X className="h-3.5 w-3.5" strokeWidth={1.8} />
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
 
                   <div className="space-y-2">
                     <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
-                      Where did you watch it?
+                      Where did you watch {selectedList.length === 1 ? "it" : "them"}?
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {PLATFORMS.map((opt) => {
@@ -330,17 +489,34 @@ export default function AddTitleCard({
                         );
                       })}
                     </div>
+                    {selectedList.length > 1 && (
+                      <p className="text-[11px] text-muted/80">
+                        Applies to all {selectedList.length} titles. Add a different-platform
+                        batch separately.
+                      </p>
+                    )}
                   </div>
 
-                  {error && <p className="text-xs text-red-400">{error}</p>}
+                  {failedCount > 0 && (
+                    <p className="text-xs text-red-400">
+                      {failedCount} could not be added. Try again below.
+                    </p>
+                  )}
 
                   <button
                     type="button"
-                    onClick={confirm}
-                    disabled={!platform || saving}
+                    onClick={confirmBatch}
+                    disabled={!platform || saving || selectedList.every(([key]) => {
+                      const status = itemStatus.get(key);
+                      return status === "added" || status === "duplicate";
+                    })}
                     className="w-full rounded-2xl bg-foreground py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
-                    {saving ? "Adding..." : "Add to catalog"}
+                    {saving
+                      ? "Adding..."
+                      : isRetry
+                        ? `Retry ${failedCount || selectedList.length}`
+                        : `Add ${selectedList.length} to catalog`}
                   </button>
                 </div>
               )}
