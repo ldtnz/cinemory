@@ -234,7 +234,9 @@ export default function Catalog({
   }
 
   return (
-    <main className="w-full px-3 pb-16 pt-6 sm:px-5">
+    // Extra bottom room on mobile: the Watched / To watch pill floats over
+    // the bottom of the viewport there and would otherwise cover the last row.
+    <main className="w-full px-3 pb-28 pt-6 sm:px-5 sm:pb-16">
       <FilterBar
         total={modeTotal}
         filteredTotal={titles.length}

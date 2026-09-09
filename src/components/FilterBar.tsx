@@ -67,21 +67,27 @@ function ChevronIcon() {
 
 /** The Watched / To watch switch. Not a filter like the others: it picks
  *  which half of the catalog the whole page is about, so it reads as a
- *  segmented control rather than a toggleable chip. */
+ *  segmented control rather than a toggleable chip.
+ *
+ *  `label` is for the desktop row, where it sits among labelled filter
+ *  groups and needs the same signposting; the floating mobile pill is a
+ *  control on its own and reads fine without it. */
 function WatchModeSwitch({
   mode,
   onModeChange,
+  label,
   className = "",
 }: {
   mode: WatchMode;
   onModeChange: (m: WatchMode) => void;
+  label?: string;
   className?: string;
 }) {
-  return (
+  const tablist = (
     <div
       role="tablist"
       aria-label="Watched or to watch"
-      className={`flex h-9 items-center gap-1 rounded-xl bg-surface p-1 ${className}`}
+      className={`flex h-9 items-center gap-1 rounded-xl p-1 ${className}`}
     >
       {WATCH_MODES.map((opt) => {
         const active = mode === opt.value;
@@ -102,6 +108,17 @@ function WatchModeSwitch({
           </button>
         );
       })}
+    </div>
+  );
+
+  if (!label) return tablist;
+
+  return (
+    <div className="flex h-9 items-center gap-2">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
+        {label}
+      </span>
+      {tablist}
     </div>
   );
 }
@@ -310,7 +327,12 @@ export default function FilterBar({
         {/* Desktop: tutto in row */}
         <div className="hidden sm:flex sm:flex-col sm:gap-3 lg:flex-row lg:items-center">
           <div className="flex flex-wrap items-center gap-3">
-            <WatchModeSwitch mode={mode} onModeChange={onModeChange} />
+            <WatchModeSwitch
+              mode={mode}
+              onModeChange={onModeChange}
+              label="Status"
+              className="bg-surface"
+            />
             <FilterGroup
               label="Type"
               options={MEDIA_TYPES}
@@ -520,11 +542,22 @@ export default function FilterBar({
           </div>
         </div>
 
-        {/* Mobile: the switch gets its own row. The row above is already at
-            its width budget (title + three 36px buttons), and an unlabelled
-            icon toggle would not say which half of the catalog it shows. */}
-        <WatchModeSwitch mode={mode} onModeChange={onModeChange} className="w-full sm:hidden" />
       </div>
+
+      {/* Mobile: a pill floating just above the bottom of the viewport
+          instead of a row in the header. Portalled for the same reason as
+          the modal below — the sticky header's backdrop-blur would otherwise
+          be the containing block for anything "fixed" inside it. */}
+      {mounted && createPortal(
+        <div className="fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex justify-center px-3 sm:hidden">
+          <WatchModeSwitch
+            mode={mode}
+            onModeChange={onModeChange}
+            className="border border-white/10 bg-surface/95 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.85)] backdrop-blur"
+          />
+        </div>,
+        document.body,
+      )}
 
       {filtersOpen && mounted && createPortal(
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/70 backdrop-blur-sm sm:hidden">
