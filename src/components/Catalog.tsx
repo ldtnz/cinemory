@@ -27,6 +27,10 @@ export default function Catalog({
   // The catalog lives in component state (not just as a prop) so new titles
   // can be added without reloading the page.
   const [catalog, setCatalog] = useState(initialTitles);
+  // Same reason: a "not interested" needs to remove a title from what's
+  // shown right away, in both the strip and the modal at once — both read
+  // from this one array.
+  const [recs, setRecs] = useState(recommendations);
 
   // Filters and sorting live in component state only, not in the URL, so the
   // address stays "/" instead of filling up with parameters like
@@ -45,6 +49,13 @@ export default function Catalog({
 
   function handleAdded(added: Title) {
     setCatalog((prev) => [added, ...prev]);
+  }
+
+  // The POST already happened by the time this is called — see
+  // useDismissRecommendation. Matched the same way recommendationKey()
+  // would, but simply by identity: `rec` is the exact object from `recs`.
+  function handleDismissed(rec: EnrichedRecommendation) {
+    setRecs((prev) => prev.filter((r) => r !== rec));
   }
 
   // Searching the watchlist searches TMDB, not the catalog: the point there
@@ -251,10 +262,11 @@ export default function Catalog({
           still empty — which is exactly when it is most useful. */}
       {mode === "watchlist" && !discoverMode && !platform && !mediaType && (
         <RecommendationsRow
-          titles={recommendations}
+          titles={recs}
           savedTmdbIds={savedKeys.tmdbIds}
           savedTitleKeys={savedKeys.titleKeys}
           onAdded={handleAdded}
+          onDismissed={handleDismissed}
         />
       )}
 
@@ -297,10 +309,11 @@ export default function Catalog({
               tile would be out of place mixed into filtered/search results. */}
           {mode === "watched" && !platform && !mediaType && !deferredQ.trim() && (
             <RecommendationsCard
-              titles={recommendations}
+              titles={recs}
               savedTmdbIds={savedKeys.tmdbIds}
               savedTitleKeys={savedKeys.titleKeys}
               onAdded={handleAdded}
+              onDismissed={handleDismissed}
             />
           )}
           {shownTitles.map((t, i) => (

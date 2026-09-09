@@ -12,6 +12,7 @@ import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import { findBestTmdbMatch, getTrailerKey, isTmdbConfigured } from "@/lib/tmdb";
+import { recommendationKey } from "@/lib/recommendation-candidate";
 
 export const REFRESH_INTERVAL_DAYS = 5;
 // How long a claimed lock is honored before being treated as abandoned (the
@@ -47,21 +48,57 @@ export function isAnthropicConfigured(): boolean {
 }
 
 // Called from the home page on every load, so a DB problem here must never
-// take the whole page down with it — most likely cause is the migration for
-// the Recommendation table not having been applied yet (self-hosted and
-// Turso deploys need to run it by hand; see scripts/migrate-turso.ts).
+// take the whole page down with it — most likely cause is a migration for
+// the Recommendation or DismissedRecommendation table not having been
+// applied yet (self-hosted and Turso deploys need to run it by hand; see
+// scripts/migrate-turso.ts).
 export async function getStoredRecommendations(): Promise<RecommendationsState | null> {
   try {
     const row = await prisma.recommendation.findFirst({ orderBy: { generatedAt: "desc" } });
     if (!row) return null;
-    return { titles: JSON.parse(row.titles) as EnrichedRecommendation[], generatedAt: row.generatedAt.toISOString() };
+    const titles = JSON.parse(row.titles) as EnrichedRecommendation[];
+    // Dismissed since this batch was generated: filtered out of what is
+    // shown rather than waiting for the next 5-day regeneration, so "not
+    // interested" takes effect immediately, on every page that reads this.
+    const dismissed = await getDismissedKeys();
+    return {
+      titles: titles.filter((t) => !dismissed.has(recommendationKey(t))),
+      generatedAt: row.generatedAt.toISOString(),
+    };
   } catch (err) {
     console.error(
-      "Could not read stored recommendations — has the Recommendation table migration been applied?",
+      "Could not read stored recommendations — have the Recommendation / " +
+        "DismissedRecommendation table migrations been applied?",
       err,
     );
     return null;
   }
+}
+
+/** Every "not interested" the user has ever said, keyed the same way
+ *  recommendations are. */
+async function getDismissedKeys(): Promise<Set<string>> {
+  const rows = await prisma.dismissedRecommendation.findMany({ select: { key: true } });
+  return new Set(rows.map((r) => r.key));
+}
+
+/**
+ * Marks a recommendation as "not interested" — kept forever, not per-batch,
+ * so it stays excluded from what is shown (via getStoredRecommendations)
+ * and from every future generation prompt. Idempotent: dismissing the same
+ * title twice is a no-op, not an error.
+ */
+export async function dismissRecommendation(rec: {
+  tmdbId: number | null;
+  title: string;
+  mediaType: string;
+}): Promise<void> {
+  const key = recommendationKey(rec);
+  await prisma.dismissedRecommendation.upsert({
+    where: { key },
+    create: { key, title: rec.title, mediaType: rec.mediaType },
+    update: {},
+  });
 }
 
 /** The full history of past generations, most recent first. */
@@ -175,8 +212,18 @@ async function buildCatalogSummary() {
     .slice(0, 20)
     .map((t) => t.title);
   const allTitles = titles.map((t) => t.title);
+  // Capped: an unbounded "never suggest any of these" list would eventually
+  // crowd out the rest of the prompt, and the most recent dismissals are the
+  // ones most likely to still be fresh in memory anyway.
+  const notInterested = (
+    await prisma.dismissedRecommendation.findMany({
+      select: { title: true },
+      orderBy: { dismissedAt: "desc" },
+      take: 100,
+    })
+  ).map((d) => d.title);
 
-  return { topGenres, topPlatforms, recentlyWatched, highlyRated, allTitles };
+  return { topGenres, topPlatforms, recentlyWatched, highlyRated, allTitles, notInterested };
 }
 
 export async function generateRecommendations(): Promise<RecommendationsState> {
@@ -192,7 +239,8 @@ export async function generateRecommendations(): Promise<RecommendationsState> {
       "You recommend movies and TV series for someone to watch next, based on " +
       "their watch history. Only suggest real, well-known titles that actually " +
       "exist — never invent one. Never suggest a title already in their " +
-      "catalog. Keep each reason to one short, specific sentence.",
+      "catalog, or one they have already said they are not interested in. " +
+      "Keep each reason to one short, specific sentence.",
     messages: [
       {
         role: "user",
@@ -202,6 +250,7 @@ export async function generateRecommendations(): Promise<RecommendationsState> {
           `Recently watched: ${summary.recentlyWatched.join("; ") || "none"}`,
           `Rated highly by them: ${summary.highlyRated.join("; ") || "none"}`,
           `Already in their catalog — do not recommend any of these: ${summary.allTitles.join("; ") || "none"}`,
+          `They said "not interested" to these — do not recommend them again either: ${summary.notInterested.join("; ") || "none"}`,
           `Suggest exactly ${RECOMMENDATION_COUNT} movies or TV series they would likely enjoy next.`,
         ].join("\n\n"),
       },
@@ -234,8 +283,13 @@ export async function generateRecommendations(): Promise<RecommendationsState> {
 
   // Titles TMDB could not confirm are dropped rather than shown without a
   // poster: for a discovery feature, a wrong or missing match is worse than
-  // one suggestion fewer.
-  const confirmed = enriched.filter((r) => r.tmdbId !== null);
+  // one suggestion fewer. A dismissed title slipping past the prompt
+  // instruction is dropped here too — belt and suspenders, same as
+  // getStoredRecommendations() filtering the read side.
+  const dismissed = await getDismissedKeys();
+  const confirmed = enriched.filter(
+    (r) => r.tmdbId !== null && !dismissed.has(recommendationKey(r)),
+  );
 
   const generatedAt = new Date();
   await prisma.recommendation.create({

@@ -57,10 +57,12 @@ for how to get the values Vercel will ask for.
 - **AI recommendations** *(optional)* — Claude suggests titles to watch next
   based on your catalog, refreshing itself automatically every 5 days (every
   batch kept as history); click one to watch its trailer. In "To watch" they
-  appear as a strip you can add from in one click. Off by default, enabled by
+  appear as a strip you can add from in one click, and "not interested" on any
+  of them keeps it out of every future batch. Off by default, enabled by
   setting `ANTHROPIC_API_KEY`.
 - **Maintenance** — a settings page for importing, merging series split across
-  rows, fixing missing posters, and an edit mode for deleting titles.
+  rows, fixing missing posters, exporting the whole catalog as JSON, and an
+  edit mode for deleting titles.
 - **Single-user auth** — a 6-digit TOTP code from your authenticator app; no
   passwords, no accounts, no third-party sign-in.
 - **Setup wizard** — the first time you open the app it asks for a content

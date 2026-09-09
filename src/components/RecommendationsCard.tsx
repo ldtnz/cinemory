@@ -21,6 +21,7 @@ export default function RecommendationsCard({
   savedTmdbIds,
   savedTitleKeys,
   onAdded,
+  onDismissed,
 }: {
   titles: EnrichedRecommendation[];
   /** TMDB ids already in the catalog, watched or waiting — passed through to
@@ -29,6 +30,7 @@ export default function RecommendationsCard({
   savedTmdbIds: Set<number>;
   savedTitleKeys: Set<string>;
   onAdded: (title: Title) => void;
+  onDismissed: (rec: EnrichedRecommendation) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [chunkIndex, setChunkIndex] = useState(0);
@@ -100,6 +102,7 @@ export default function RecommendationsCard({
           titles={titles}
           onClose={() => setOpen(false)}
           onAdded={onAdded}
+          onDismissed={onDismissed}
           savedTmdbIds={savedTmdbIds}
           savedTitleKeys={savedTitleKeys}
         />

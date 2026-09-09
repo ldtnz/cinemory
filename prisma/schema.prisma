@@ -86,3 +86,17 @@ model Recommendation {
 
   @@index([generatedAt])
 }
+
+// A recommendation the user said "not interested" to. Kept forever (not
+// per-batch): read on every "which of the stored batch are still worth
+// showing" check, and folded into the prompt on the next generation so
+// Claude stops re-suggesting it. `key` is recommendationKey() from
+// src/lib/recommendation-candidate.ts — a TMDB id when Claude's pick was
+// confirmed against TMDB, the normalized title otherwise.
+model DismissedRecommendation {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  title       String
+  mediaType   String
+  dismissedAt DateTime @default(now())
+}

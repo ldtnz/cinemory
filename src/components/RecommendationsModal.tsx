@@ -3,12 +3,13 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, Play, Plus, X } from "lucide-react";
+import { Check, Play, Plus, ThumbsDown, X } from "lucide-react";
 import type { Title } from "@prisma/client";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
 import { recommendationToCandidate } from "@/lib/recommendation-candidate";
 import { normalizeTitle } from "@/lib/title-key";
 import { useAddToWatchlist } from "@/lib/use-add-to-watchlist";
+import { useDismissRecommendation } from "@/lib/use-dismiss-recommendation";
 import TrailerModal from "@/components/TrailerModal";
 
 /** The small square button on each row: adds the recommendation to the
@@ -31,7 +32,7 @@ function AddButton({
       onClick={() => add(recommendationToCandidate(rec))}
       disabled={done || state === "adding"}
       aria-label={done ? `${rec.title} is on your watchlist` : `Add ${rec.title} to your watchlist`}
-      className={`flex h-8 w-8 flex-none items-center justify-center self-center rounded-lg transition-colors disabled:cursor-default ${
+      className={`flex h-8 w-8 flex-none items-center justify-center rounded-lg transition-colors disabled:cursor-default ${
         done ? "bg-accent-2/20 text-accent-2" : "bg-surface text-muted hover:text-foreground"
       }`}
     >
@@ -46,10 +47,41 @@ function AddButton({
   );
 }
 
+/** The row's other action: "not interested" — excludes it from what's
+ *  shown from now on. No done/disabled state to preserve here (unlike
+ *  AddButton): a successful dismiss removes the whole row instead. */
+function DismissButton({
+  rec,
+  onDismissed,
+}: {
+  rec: EnrichedRecommendation;
+  onDismissed: (rec: EnrichedRecommendation) => void;
+}) {
+  const { dismissing, dismiss } = useDismissRecommendation(rec, onDismissed);
+
+  return (
+    <button
+      type="button"
+      onClick={dismiss}
+      disabled={dismissing}
+      aria-label={`Not interested in ${rec.title}`}
+      title="Not interested"
+      className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-surface text-muted transition-colors hover:text-foreground disabled:cursor-default"
+    >
+      {dismissing ? (
+        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+      ) : (
+        <ThumbsDown className="h-3.5 w-3.5" strokeWidth={2} />
+      )}
+    </button>
+  );
+}
+
 export default function RecommendationsModal({
   titles,
   onClose,
   onAdded,
+  onDismissed,
   savedTmdbIds,
   savedTitleKeys,
 }: {
@@ -59,6 +91,9 @@ export default function RecommendationsModal({
    *  simply doesn't render, which is the case only if a future caller has no
    *  use for it; both current callers pass it. */
   onAdded?: (title: Title) => void;
+  /** "Not interested" — omitted, same as onAdded, hides the button rather
+   *  than rendering one with nothing to call. */
+  onDismissed?: (rec: EnrichedRecommendation) => void;
   /** TMDB ids already in the catalog, watched or waiting. */
   savedTmdbIds?: Set<number>;
   /** Normalized titles already in the catalog, for the rows TMDB never matched. */
@@ -162,17 +197,22 @@ export default function RecommendationsModal({
                   </div>
                   <p className="text-[11px] leading-snug text-muted/80">{rec.reason}</p>
                 </div>
-                {onAdded && (
-                  <AddButton
-                    rec={rec}
-                    alreadySaved={
-                      (rec.tmdbId != null &&
-                        rec.tmdbId > 0 &&
-                        (savedTmdbIds?.has(rec.tmdbId) ?? false)) ||
-                      (savedTitleKeys?.has(normalizeTitle(rec.title)) ?? false)
-                    }
-                    onAdded={onAdded}
-                  />
+                {(onAdded || onDismissed) && (
+                  <div className="flex flex-none flex-col gap-1.5 self-center">
+                    {onAdded && (
+                      <AddButton
+                        rec={rec}
+                        alreadySaved={
+                          (rec.tmdbId != null &&
+                            rec.tmdbId > 0 &&
+                            (savedTmdbIds?.has(rec.tmdbId) ?? false)) ||
+                          (savedTitleKeys?.has(normalizeTitle(rec.title)) ?? false)
+                        }
+                        onAdded={onAdded}
+                      />
+                    )}
+                    {onDismissed && <DismissButton rec={rec} onDismissed={onDismissed} />}
+                  </div>
                 )}
               </li>
             );

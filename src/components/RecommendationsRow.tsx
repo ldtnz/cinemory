@@ -2,11 +2,12 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { Check, Play, Plus, Sparkles } from "lucide-react";
+import { Check, Play, Plus, Sparkles, ThumbsDown } from "lucide-react";
 import type { Title } from "@prisma/client";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
 import { recommendationToCandidate } from "@/lib/recommendation-candidate";
 import { useAddToWatchlist } from "@/lib/use-add-to-watchlist";
+import { useDismissRecommendation } from "@/lib/use-dismiss-recommendation";
 import { normalizeTitle } from "@/lib/title-key";
 import RecommendationsModal from "@/components/RecommendationsModal";
 import TrailerModal from "@/components/TrailerModal";
@@ -15,12 +16,15 @@ function Tile({
   rec,
   alreadySaved,
   onAdded,
+  onDismissed,
 }: {
   rec: EnrichedRecommendation;
   alreadySaved: boolean;
   onAdded: (title: Title) => void;
+  onDismissed: (rec: EnrichedRecommendation) => void;
 }) {
   const { state, add, done } = useAddToWatchlist(alreadySaved, onAdded);
+  const { dismissing, error: dismissError, dismiss } = useDismissRecommendation(rec, onDismissed);
   const [trailerOpen, setTrailerOpen] = useState(false);
   const hasTrailer = Boolean(rec.trailerKey);
 
@@ -61,8 +65,24 @@ function Tile({
           </button>
         )}
 
-        {/* Placed after the trailer button in the DOM, so on the same corner
-            it paints on top and gets the click — no z-index needed. */}
+        {/* Both placed after the trailer button in the DOM, so on their
+            corners they paint on top and get the click — no z-index needed.
+            Two different corners, so they never fight each other either. */}
+        <button
+          type="button"
+          onClick={dismiss}
+          disabled={dismissing}
+          aria-label={`Not interested in ${rec.title}`}
+          title="Not interested"
+          className="absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-black/70 text-white transition-colors hover:bg-black/85 disabled:cursor-default"
+        >
+          {dismissing ? (
+            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+          ) : (
+            <ThumbsDown className="h-3.5 w-3.5" strokeWidth={2.2} />
+          )}
+        </button>
+
         <button
           type="button"
           onClick={() => add(recommendationToCandidate(rec))}
@@ -83,9 +103,9 @@ function Tile({
           )}
         </button>
 
-        {state === "error" && (
+        {(state === "error" || dismissError) && (
           <span className="pointer-events-none absolute inset-x-1 bottom-1 rounded-md bg-red-500/90 px-1.5 py-1 text-center text-[9px] font-medium text-white">
-            Could not add
+            {state === "error" ? "Could not add" : "Could not dismiss"}
           </span>
         )}
       </div>
@@ -127,6 +147,7 @@ export default function RecommendationsRow({
   savedTmdbIds,
   savedTitleKeys,
   onAdded,
+  onDismissed,
 }: {
   titles: EnrichedRecommendation[];
   /** TMDB ids already in the catalog, watched or waiting. */
@@ -134,6 +155,7 @@ export default function RecommendationsRow({
   /** Normalized titles already in the catalog, for the rows TMDB never matched. */
   savedTitleKeys: Set<string>;
   onAdded: (title: Title) => void;
+  onDismissed: (rec: EnrichedRecommendation) => void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -158,8 +180,8 @@ export default function RecommendationsRow({
           </button>
         </div>
         <p className="mt-0.5 text-[11px] text-muted">
-          Picked from your catalog. Tap the poster for a trailer, the badge to
-          add it to your watchlist.
+          Picked from your catalog. Tap the poster for a trailer, the badges
+          to add it or say not interested.
         </p>
 
         <ul className="-mx-3 mt-3 flex snap-x gap-2.5 overflow-x-auto px-3 pb-1 sm:-mx-4 sm:px-4">
@@ -172,6 +194,7 @@ export default function RecommendationsRow({
                 savedTitleKeys.has(normalizeTitle(rec.title))
               }
               onAdded={onAdded}
+              onDismissed={onDismissed}
             />
           ))}
         </ul>
@@ -182,6 +205,7 @@ export default function RecommendationsRow({
           titles={titles}
           onClose={() => setOpen(false)}
           onAdded={onAdded}
+          onDismissed={onDismissed}
           savedTmdbIds={savedTmdbIds}
           savedTitleKeys={savedTitleKeys}
         />
