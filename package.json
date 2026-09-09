@@ -8,6 +8,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --import tsx --test 'tests/**/*.test.ts'",
     "db:seed": "tsx prisma/seed.ts",
     "db:enrich": "tsx scripts/enrich-tmdb.ts",
     "db:sync": "tsx scripts/sync-turso.ts",

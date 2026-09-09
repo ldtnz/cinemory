@@ -257,6 +257,7 @@ src/lib/history.ts          parses the Netflix and Prime Video exports
 src/lib/tmdb.ts             the TMDB client
 src/lib/prisma.ts           shared Prisma client (SQLite or Turso)
 src/lib/auth.ts             TOTP verification and session cookie
+tests/                      parser tests (node:test, run with npm test)
 ```
 
 ## npm scripts
@@ -266,6 +267,7 @@ src/lib/auth.ts             TOTP verification and session cookie
 | `npm run dev` | development server (syncs from Turso first, if configured) |
 | `npm run build` / `npm start` | production build and server |
 | `npm run lint` | ESLint |
+| `npm test` | the parser tests (Node's built-in test runner, no framework) |
 | `npm run db:seed` | rebuild the catalog from the CSV exports |
 | `npm run db:enrich` | fetch TMDB data for titles that have none |
 | `npm run db:sync` | copy the Turso database down into `prisma/dev.db` |

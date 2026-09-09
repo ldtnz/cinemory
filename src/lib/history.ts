@@ -34,7 +34,19 @@ export type Format = "netflix" | "amazon";
 // language, so the season keywords are matched in English and in Italian (the
 // language this catalog was first built against). Add your own if your export
 // uses different words.
-const SERIES_KEYWORDS = /\b(Season|Episode|Miniseries|Part|Stagione|Episodio|Miniserie|Parte)\b/i;
+const SERIES_KEYWORDS = /\b(Season|Episode|Miniseries|Stagione|Episodio|Miniserie)\b/i;
+
+// "Part" is a series marker in Netflix's "Show: Limited Series: Part 1" shape
+// and an ordinary word in a film's, which is why it is kept apart from the
+// list above: on its own it merged "Dune" and "Dune: Part Two" into a single
+// row typed as a series, losing one of the two films. It is only trusted in
+// the three-segment shape a series title has, never in a film's "Name: Part N".
+const PART_KEYWORD = /\b(Part|Parte)\b/i;
+
+function looksLikeSeries(rawTitle: string): boolean {
+  if (SERIES_KEYWORDS.test(rawTitle)) return true;
+  return PART_KEYWORD.test(rawTitle) && rawTitle.split(":").length >= 3;
+}
 
 // "Chicago Fire - Season 13", "Silo - Stagione 3", "Dexter Stagione 1":
 // the season number appears in the title in both export formats.
@@ -129,7 +141,7 @@ export function readNetflix(content: string): HistoryRow[] {
       const baseCandidate = rawTitle.split(":")[0].trim();
       const normalizedPrefix = normalizeTitle(baseCandidate);
       const occursOften = (prefixCount.get(normalizedPrefix) ?? 0) >= 2;
-      if (occursOften || SERIES_KEYWORDS.test(rawTitle)) {
+      if (occursOften || looksLikeSeries(rawTitle)) {
         base = baseCandidate;
         isSeries = true;
       }
