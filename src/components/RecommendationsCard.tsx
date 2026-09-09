@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
+import type { Title } from "@prisma/client";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
 import RecommendationsModal from "@/components/RecommendationsModal";
 
@@ -15,7 +16,20 @@ const FADE_MS = 300;
  *  modal opened on click. Nothing is fetched here — the list comes from the
  *  cached row the server already loaded, so this card never costs an API
  *  call by itself. */
-export default function RecommendationsCard({ titles }: { titles: EnrichedRecommendation[] }) {
+export default function RecommendationsCard({
+  titles,
+  savedTmdbIds,
+  savedTitleKeys,
+  onAdded,
+}: {
+  titles: EnrichedRecommendation[];
+  /** TMDB ids already in the catalog, watched or waiting — passed through to
+   *  the modal so its "add to watchlist" button can mark what is already
+   *  saved, on the Watched page just as it does on To watch. */
+  savedTmdbIds: Set<number>;
+  savedTitleKeys: Set<string>;
+  onAdded: (title: Title) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [chunkIndex, setChunkIndex] = useState(0);
   const [visible, setVisible] = useState(true);
@@ -81,7 +95,15 @@ export default function RecommendationsCard({ titles }: { titles: EnrichedRecomm
         </div>
       </button>
 
-      {open && <RecommendationsModal titles={titles} onClose={() => setOpen(false)} />}
+      {open && (
+        <RecommendationsModal
+          titles={titles}
+          onClose={() => setOpen(false)}
+          onAdded={onAdded}
+          savedTmdbIds={savedTmdbIds}
+          savedTitleKeys={savedTitleKeys}
+        />
+      )}
     </>
   );
 }

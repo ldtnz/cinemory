@@ -341,7 +341,12 @@ export default function Catalog({
           {/* Only in the unfiltered default view — a taste-based suggestion
               tile would be out of place mixed into filtered/search results. */}
           {mode === "watched" && !platform && !mediaType && !deferredQ.trim() && (
-            <RecommendationsCard titles={recommendations} />
+            <RecommendationsCard
+              titles={recommendations}
+              savedTmdbIds={savedKeys.tmdbIds}
+              savedTitleKeys={savedKeys.titleKeys}
+              onAdded={handleAdded}
+            />
           )}
           {shownTitles.map((t, i) => (
             <TitleCard

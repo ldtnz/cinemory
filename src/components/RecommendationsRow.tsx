@@ -5,32 +5,11 @@ import { useState } from "react";
 import { Check, Play, Plus, Sparkles } from "lucide-react";
 import type { Title } from "@prisma/client";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
-import type { TmdbCandidate } from "@/lib/tmdb";
+import { recommendationToCandidate } from "@/lib/recommendation-candidate";
 import { useAddToWatchlist } from "@/lib/use-add-to-watchlist";
 import { normalizeTitle } from "@/lib/title-key";
 import RecommendationsModal from "@/components/RecommendationsModal";
 import TrailerModal from "@/components/TrailerModal";
-
-/** A recommendation is most of a TMDB candidate already; the rest is only
- *  wanted by the search results list, so null does fine here. */
-function toCandidate(rec: EnrichedRecommendation): TmdbCandidate {
-  return {
-    // Null means TMDB had no match for what Claude suggested. Zero is the
-    // "no id" value the API already understands: it falls back to matching
-    // on the normalized title alone when checking for duplicates.
-    tmdbId: rec.tmdbId ?? 0,
-    mediaType: rec.mediaType,
-    title: rec.title,
-    year: rec.year,
-    dataUscita: null,
-    totalSeasons: null,
-    posterUrl: rec.posterUrl,
-    backdropUrl: null,
-    overview: null,
-    tmdbRating: rec.tmdbRating,
-    genres: rec.genres,
-  };
-}
 
 function Tile({
   rec,
@@ -86,7 +65,7 @@ function Tile({
             it paints on top and gets the click — no z-index needed. */}
         <button
           type="button"
-          onClick={() => add(toCandidate(rec))}
+          onClick={() => add(recommendationToCandidate(rec))}
           disabled={done}
           aria-label={
             done ? `${rec.title} is on your watchlist` : `Add ${rec.title} to your watchlist`
@@ -198,7 +177,15 @@ export default function RecommendationsRow({
         </ul>
       </section>
 
-      {open && <RecommendationsModal titles={titles} onClose={() => setOpen(false)} />}
+      {open && (
+        <RecommendationsModal
+          titles={titles}
+          onClose={() => setOpen(false)}
+          onAdded={onAdded}
+          savedTmdbIds={savedTmdbIds}
+          savedTitleKeys={savedTitleKeys}
+        />
+      )}
     </>
   );
 }
