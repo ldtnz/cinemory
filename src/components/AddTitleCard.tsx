@@ -261,13 +261,38 @@ export default function AddTitleCard({
               step === "confirm" ? "max-w-lg" : "max-w-3xl"
             }`}
           >
-            <div className="flex items-center justify-between border-b border-white/5 p-4">
-              <h2 className="text-sm font-semibold">Add title</h2>
+            {/* The search field and "Continue" live in this fixed header
+                rather than at the top of the scrollable list below, so both
+                stay in view — and reachable — no matter how far down the
+                results the user has scrolled. */}
+            <div className="flex items-center gap-2 border-b border-white/5 p-4">
+              {step === "search" ? (
+                <>
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    autoFocus
+                    placeholder="Title to search on TMDB"
+                    className="h-10 min-w-0 flex-1 rounded-xl bg-surface-2 px-3 text-base text-foreground outline-none focus:ring-2 focus:ring-white/20 sm:text-sm"
+                  />
+                  {selected.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setStep("confirm")}
+                      className="flex-none whitespace-nowrap rounded-xl bg-foreground px-3 py-2.5 text-xs font-semibold text-background transition-opacity hover:opacity-90 sm:px-4"
+                    >
+                      Continue ({selected.size})
+                    </button>
+                  )}
+                </>
+              ) : (
+                <h2 className="flex-1 text-sm font-semibold">Add title</h2>
+              )}
               <button
                 type="button"
                 onClick={close}
                 aria-label="Close"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground"
+                className="flex h-9 w-9 flex-none items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground"
               >
                 <X className="h-4 w-4" strokeWidth={1.8} />
               </button>
@@ -276,29 +301,6 @@ export default function AddTitleCard({
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {step === "search" ? (
                 <div className="space-y-3">
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    autoFocus
-                    placeholder="Title to search on TMDB"
-                    className="h-10 w-full rounded-xl bg-surface-2 px-3 text-base text-foreground outline-none focus:ring-2 focus:ring-white/20 sm:text-sm"
-                  />
-
-                  {selected.size > 0 && (
-                    <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2">
-                      <span className="text-xs font-medium text-foreground">
-                        {selected.size} {selected.size === 1 ? "title" : "titles"} selected
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setStep("confirm")}
-                        className="rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition-opacity hover:opacity-90"
-                      >
-                        Continue
-                      </button>
-                    </div>
-                  )}
-
                   {error && <p className="text-xs text-red-400">{error}</p>}
 
                   {searching && <p className="text-xs text-muted">Searching TMDB...</p>}
