@@ -279,7 +279,7 @@ export default function AddTitleCard({
                     <button
                       type="button"
                       onClick={() => setStep("confirm")}
-                      className="flex-none whitespace-nowrap rounded-xl bg-foreground px-3 py-2.5 text-xs font-semibold text-background transition-opacity hover:opacity-90 sm:px-4"
+                      className="flex h-10 flex-none items-center justify-center whitespace-nowrap rounded-xl bg-foreground px-3 text-xs font-semibold text-background transition-opacity hover:opacity-90 sm:px-4"
                     >
                       Continue ({selected.size})
                     </button>
@@ -292,7 +292,7 @@ export default function AddTitleCard({
                 type="button"
                 onClick={close}
                 aria-label="Close"
-                className="flex h-9 w-9 flex-none items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground"
+                className="flex h-10 w-10 flex-none items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground"
               >
                 <X className="h-4 w-4" strokeWidth={1.8} />
               </button>
