@@ -47,6 +47,11 @@ for how to get the values Vercel will ask for.
   watched count from your history, and you can adjust it by hand.
 - **Add a title** — search TMDB as you type and add anything, pick the platform
   you watched it on.
+- **Watchlist** — a Watched / To watch switch; in "To watch" the search browses
+  all of TMDB (hiding what you have already seen) and a click adds it. Right-
+  click a waiting title and "Mark as watched" moves it over.
+- **Statistics** — how much you watched and where, your top genres, titles per
+  year, which decades they come from and your best-rated titles.
 - **TMDB enrichment** — posters, backdrops, overviews, ratings, genres, years,
   season counts.
 - **AI recommendations** *(optional)* — Claude suggests titles to watch next
@@ -250,14 +255,16 @@ scripts/sync-turso.ts       pulls Turso down into the local dev.db
 scripts/migrate-turso.ts    applies prisma/migrations to Turso
 src/app/page.tsx            the catalog page (server component)
 src/app/settings/           import, seasons, missing posters, edit mode
+src/app/stats/              the statistics page
 src/app/api/                TMDB search, import, seasons, titles, login
 src/app/sw.ts               service worker (offline + poster cache)
 src/components/             Catalog, FilterBar, TitleCard, AddTitleCard, …
 src/lib/history.ts          parses the Netflix and Prime Video exports
+src/lib/stats.ts            the numbers behind the statistics page
 src/lib/tmdb.ts             the TMDB client
 src/lib/prisma.ts           shared Prisma client (SQLite or Turso)
 src/lib/auth.ts             TOTP verification and session cookie
-tests/                      parser tests (node:test, run with npm test)
+tests/                      parser and statistics tests (run with npm test)
 ```
 
 ## npm scripts
@@ -267,7 +274,7 @@ tests/                      parser tests (node:test, run with npm test)
 | `npm run dev` | development server (syncs from Turso first, if configured) |
 | `npm run build` / `npm start` | production build and server |
 | `npm run lint` | ESLint |
-| `npm test` | the parser tests (Node's built-in test runner, no framework) |
+| `npm test` | the tests (Node's built-in test runner, no framework) |
 | `npm run db:seed` | rebuild the catalog from the CSV exports |
 | `npm run db:enrich` | fetch TMDB data for titles that have none |
 | `npm run db:sync` | copy the Turso database down into `prisma/dev.db` |

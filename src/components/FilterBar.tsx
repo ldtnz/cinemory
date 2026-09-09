@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Settings, SlidersHorizontal, X } from "lucide-react";
+import { BarChart3, Settings, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { WATCH_MODES, type WatchMode } from "@/lib/watch-mode";
@@ -253,7 +253,8 @@ export default function FilterBar({
   const BUTTON_WIDTH = 36;
   const GAP = 8;
   const MAX_TITLE_WIDTH = 176; // 11rem
-  const mobileRowFixedSpace = BUTTON_WIDTH * 3 + GAP * 4; // search + filters + settings buttons, 4 gaps
+  // search + filters + statistics + settings buttons, and the gaps around them
+  const mobileRowFixedSpace = BUTTON_WIDTH * 4 + GAP * 5;
   const expandedInputWidth = Math.max(0, mobileRowWidth - mobileRowFixedSpace);
   const collapsedTitleWidth = Math.min(
     MAX_TITLE_WIDTH,
@@ -428,6 +429,15 @@ export default function FilterBar({
             </div>
 
             <Link
+              href="/stats"
+              aria-label="Statistics"
+              title="Statistics"
+              className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-surface text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+            >
+              <BarChart3 className="h-4 w-4" strokeWidth={1.8} />
+            </Link>
+
+            <Link
               href="/settings"
               aria-label="Settings"
               title="Settings"
@@ -525,6 +535,15 @@ export default function FilterBar({
                 <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-accent-2" aria-hidden />
               )}
             </button>
+
+            <Link
+              href="/stats"
+              aria-label="Statistics"
+              title="Statistics"
+              className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-surface text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+            >
+              <BarChart3 className="h-4 w-4" strokeWidth={1.8} />
+            </Link>
 
             <Link
               href="/settings"
