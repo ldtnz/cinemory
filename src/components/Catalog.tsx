@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import type { Title } from "@prisma/client";
 import FilterBar from "@/components/FilterBar";
 import TitleCard from "@/components/TitleCard";
@@ -10,8 +10,8 @@ import ImportHistory from "@/components/ImportHistory";
 import RecommendationsCard from "@/components/RecommendationsCard";
 import RecommendationsRow from "@/components/RecommendationsRow";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
-import type { TmdbCandidate } from "@/lib/tmdb";
 import { normalizeTitle } from "@/lib/title-key";
+import { useTmdbSearch } from "@/lib/use-tmdb-search";
 import type { WatchMode } from "@/lib/watch-mode";
 import { useEditMode } from "@/lib/edit-mode";
 
@@ -41,63 +41,20 @@ export default function Catalog({
   const [mediaType, setMediaType] = useState("");
   const [sort, setSort] = useState("recent");
 
-  // Searching the watchlist searches TMDB, not the catalog: the point there
-  // is to find something new to add, not to filter what is already saved.
-  const [discovered, setDiscovered] = useState<TmdbCandidate[]>([]);
-  const [discoveredFor, setDiscoveredFor] = useState<string | null>(null);
-  const [discoverError, setDiscoverError] = useState<string | null>(null);
-
   const editing = useEditMode();
 
   function handleAdded(added: Title) {
     setCatalog((prev) => [added, ...prev]);
   }
 
+  // Searching the watchlist searches TMDB, not the catalog: the point there
+  // is to find something new to add, not to filter what is already saved.
   const discoverQuery = mode === "watchlist" ? deferredQ.trim() : "";
-
-  // Same shape as AddTitleCard's search: debounced, each round cancelling the
-  // previous one, and every setState inside the timeout rather than in the
-  // effect body so a slow response can never overwrite a newer one.
-  useEffect(() => {
-    if (mode !== "watchlist") return;
-
-    let cancelled = false;
-    const controller = new AbortController();
-
-    const timeout = setTimeout(async () => {
-      if (!discoverQuery) {
-        setDiscovered([]);
-        setDiscoverError(null);
-        setDiscoveredFor("");
-        return;
-      }
-      try {
-        const res = await fetch(
-          `/api/tmdb-search?perType=20&q=${encodeURIComponent(discoverQuery)}`,
-          { signal: controller.signal },
-        );
-        if (!res.ok) throw new Error();
-        const data = (await res.json()) as { results: TmdbCandidate[] };
-        if (cancelled) return;
-        setDiscovered(data.results);
-        setDiscoverError(null);
-      } catch {
-        if (!cancelled) {
-          setDiscovered([]);
-          setDiscoverError("Search failed.");
-        }
-      } finally {
-        // On error too: without this it would say "Searching..." forever.
-        if (!cancelled) setDiscoveredFor(discoverQuery);
-      }
-    }, discoverQuery ? 350 : 0);
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-      clearTimeout(timeout);
-    };
-  }, [mode, discoverQuery]);
+  const {
+    results: discovered,
+    searching: discovering,
+    error: discoverError,
+  } = useTmdbSearch(discoverQuery, { enabled: mode === "watchlist", perType: 20 });
 
   // Stable, otherwise TitleCard's memo would be pointless: a fresh function
   // on every render would re-render every card.
@@ -205,8 +162,6 @@ export default function Catalog({
       ),
     [discovered, watchedKeys],
   );
-
-  const discovering = discoverQuery !== "" && discoveredFor !== discoverQuery;
 
   const titles = useMemo(() => {
     const arr = [...filtered];

@@ -7,6 +7,7 @@ import { Check, Plus, X } from "lucide-react";
 import type { Title } from "@prisma/client";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import PlatformPicker from "@/components/PlatformPicker";
+import { useTmdbSearch } from "@/lib/use-tmdb-search";
 
 /** "2022-03-01" -> "1 March 2022". Empty string when TMDB has no date. */
 function formatReleaseDate(iso: string | null): string {
@@ -44,14 +45,11 @@ export default function AddTitleCard({
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState(initialQuery);
-  const [results, setResults] = useState<TmdbCandidate[]>([]);
-  // The query the current results belong to. Compared against what is typed,
-  // it tells whether a search is still in flight, debounce included. With a
-  // plain "loading" flag, the 350ms wait would instead show a "No results"
-  // that is not true yet.
-  const [searchedQuery, setSearchedQuery] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"search" | "confirm">("search");
+  const { results, searching, error } = useTmdbSearch(query, {
+    enabled: open && step === "search",
+    resetOnEnable: true,
+  });
   // Keyed by candidateKey() rather than held as a list, so a title stays
   // selected across a query edit even though `results` swaps out from under
   // it — picking from "the hobbit" and then also from "lord of the rings"
@@ -89,59 +87,13 @@ export default function AddTitleCard({
     };
   }, [open]);
 
-  // Automatic search: it fires on open with the catalog query and on every
-  // edit of the field, with no button to press. The debounce avoids one TMDB
-  // request per keystroke, and each round cancels the previous one so a slow
-  // response cannot overwrite a newer one. Paused during the confirm step —
-  // nothing on screen there depends on it.
-  useEffect(() => {
-    if (!open || step !== "search") return;
-
-    const q = query.trim();
-    let cancelled = false;
-    const controller = new AbortController();
-
-    const timeout = setTimeout(async () => {
-      if (!q) {
-        setResults([]);
-        setError(null);
-        setSearchedQuery("");
-        return;
-      }
-      try {
-        const res = await fetch(`/api/tmdb-search?q=${encodeURIComponent(q)}`, {
-          signal: controller.signal,
-        });
-        if (!res.ok) throw new Error();
-        const data = (await res.json()) as { results: TmdbCandidate[] };
-        if (cancelled) return;
-        setResults(data.results);
-        setError(null);
-      } catch {
-        if (!cancelled) setError("Search failed.");
-      } finally {
-        // On error too: without this it would say "Searching..." forever.
-        if (!cancelled) setSearchedQuery(q);
-      }
-    }, q ? 350 : 0);
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-      clearTimeout(timeout);
-    };
-  }, [open, step, query]);
-
   function openModal() {
     setQuery(initialQuery);
-    setSearchedQuery(null);
     setStep("search");
     setSelected(new Map());
     setItemStatus(new Map());
     setPlatform("");
-    setError(null);
     setOpen(true);
-    setResults([]);
   }
 
   function close() {
@@ -234,7 +186,6 @@ export default function AddTitleCard({
   }
 
   const trimmedQuery = query.trim();
-  const searching = trimmedQuery !== "" && searchedQuery !== trimmedQuery;
   const selectedList = [...selected.entries()];
   const failedCount = selectedList.filter(([key]) => itemStatus.get(key) === "error").length;
   const isRetry = selectedList.some(([key]) => itemStatus.has(key));
