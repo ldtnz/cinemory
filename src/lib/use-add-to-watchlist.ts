@@ -8,17 +8,32 @@ export type AddState = "idle" | "adding" | "added" | "error";
 
 /**
  * Putting a TMDB candidate on the watchlist, with the little state machine
- * the two places that offer it both need: the discovery grid (DiscoverCard)
- * and the recommendations strip (RecommendationsRow).
+ * every place that offers it needs: the discovery grid (DiscoverCard), the
+ * recommendations strip (RecommendationsRow) and the "see all" modal
+ * (RecommendationsModal).
  *
- * `alreadySaved` only seeds the initial state — once mounted the hook owns it,
- * so a tile that was just added stays marked as added.
+ * `alreadySaved` seeds the initial state and is also tracked afterwards: if
+ * the title is later removed from the catalog elsewhere (deleted, or moved
+ * back off the watchlist), `alreadySaved` flips to false and the button
+ * resets to idle instead of staying stuck on "added" until the page reloads.
+ * Skipped while a request is in flight, so a race with the fetch this hook
+ * itself just started can't stomp on it.
+ *
+ * Adjusted during render, not in an effect — React's own guidance for
+ * "reset state when a prop changes": a `prevAlreadySaved` ref-as-state
+ * catches the change on the same render instead of the effect's extra pass.
  */
 export function useAddToWatchlist(
   alreadySaved: boolean,
   onAdded: (title: Title) => void,
 ) {
   const [state, setState] = useState<AddState>(alreadySaved ? "added" : "idle");
+  const [prevAlreadySaved, setPrevAlreadySaved] = useState(alreadySaved);
+
+  if (alreadySaved !== prevAlreadySaved) {
+    setPrevAlreadySaved(alreadySaved);
+    if (state !== "adding") setState(alreadySaved ? "added" : "idle");
+  }
 
   async function add(candidate: TmdbCandidate) {
     if (state === "added" || state === "adding") return;
