@@ -56,8 +56,9 @@ for how to get the values Vercel will ask for.
   season counts.
 - **AI recommendations** *(optional)* — Claude suggests titles to watch next
   based on your catalog, refreshing itself automatically every 5 days (every
-  batch kept as history); click one to watch its trailer. Off by default,
-  enabled by setting `ANTHROPIC_API_KEY`.
+  batch kept as history); click one to watch its trailer. In "To watch" they
+  appear as a strip you can add from in one click. Off by default, enabled by
+  setting `ANTHROPIC_API_KEY`.
 - **Maintenance** — a settings page for importing, merging series split across
   rows, fixing missing posters, and an edit mode for deleting titles.
 - **Single-user auth** — a 6-digit TOTP code from your authenticator app; no

@@ -8,6 +8,7 @@ import AddTitleCard from "@/components/AddTitleCard";
 import DiscoverCard from "@/components/DiscoverCard";
 import ImportHistory from "@/components/ImportHistory";
 import RecommendationsCard from "@/components/RecommendationsCard";
+import RecommendationsRow from "@/components/RecommendationsRow";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import { normalizeTitle } from "@/lib/title-key";
@@ -183,6 +184,18 @@ export default function Catalog({
     return tmdbIds;
   }, [catalog]);
 
+  // Both halves at once: a recommendation is "already yours" whether it is
+  // waiting on the watchlist or was watched years ago.
+  const savedKeys = useMemo(() => {
+    const tmdbIds = new Set<number>();
+    const titleKeys = new Set<string>();
+    for (const t of catalog) {
+      if (t.tmdbId && t.tmdbId > 0) tmdbIds.add(t.tmdbId);
+      titleKeys.add(t.searchTitle);
+    }
+    return { tmdbIds, titleKeys };
+  }, [catalog]);
+
   const discoverResults = useMemo(
     () =>
       discovered.filter(
@@ -276,6 +289,19 @@ export default function Catalog({
         sort={sort}
         onSortChange={setSort}
       />
+
+      {/* "To watch" gets the recommendations as a strip you add from, not as
+          a tile you open: here the list is something to pick from. Above the
+          grid rather than in it, so it is also there when the watchlist is
+          still empty — which is exactly when it is most useful. */}
+      {mode === "watchlist" && !discoverMode && !platform && !mediaType && (
+        <RecommendationsRow
+          titles={recommendations}
+          savedTmdbIds={savedKeys.tmdbIds}
+          savedTitleKeys={savedKeys.titleKeys}
+          onAdded={handleAdded}
+        />
+      )}
 
       {discoverMode ? (
         discovering && discoverResults.length === 0 ? (

@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
 import { Check, Plus } from "lucide-react";
 import type { Title } from "@prisma/client";
 import type { TmdbCandidate } from "@/lib/tmdb";
+import { useAddToWatchlist } from "@/lib/use-add-to-watchlist";
 
 /** A TMDB search result in the "To watch" grid: click (or tap) to put it on
  *  the watchlist. The "+" only shows on hover on desktop; on touch there is
@@ -20,48 +20,14 @@ export default function DiscoverCard({
   priority?: boolean;
   onAdded: (title: Title) => void;
 }) {
-  const [state, setState] = useState<"idle" | "adding" | "added" | "error">(
-    alreadyOnWatchlist ? "added" : "idle",
-  );
-
-  const done = state === "added";
-
-  async function add() {
-    if (done || state === "adding") return;
-    setState("adding");
-    try {
-      const res = await fetch("/api/titles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ candidate, watchlist: true }),
-      });
-      if (res.ok) {
-        const data = (await res.json()) as {
-          title: Title & { lastWatchedAt: string | null; createdAt: string; updatedAt: string };
-        };
-        onAdded({
-          ...data.title,
-          lastWatchedAt: data.title.lastWatchedAt ? new Date(data.title.lastWatchedAt) : null,
-          createdAt: new Date(data.title.createdAt),
-          updatedAt: new Date(data.title.updatedAt),
-        });
-        setState("added");
-        return;
-      }
-      // 409 means it is already in the catalog — treat it as done rather than
-      // as a failure, the outcome the user wanted is already true.
-      setState(res.status === 409 ? "added" : "error");
-    } catch {
-      setState("error");
-    }
-  }
+  const { state, add, done } = useAddToWatchlist(alreadyOnWatchlist, onAdded);
 
   const subtitle = [candidate.mediaType, candidate.year].filter(Boolean).join(" · ");
 
   return (
     <button
       type="button"
-      onClick={add}
+      onClick={() => add(candidate)}
       disabled={done}
       aria-label={done ? `${candidate.title} is on your watchlist` : `Add ${candidate.title} to your watchlist`}
       className="group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2 text-left disabled:cursor-default"
