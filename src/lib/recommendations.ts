@@ -17,7 +17,12 @@ export const REFRESH_INTERVAL_DAYS = 5;
 // How long a claimed lock is honored before being treated as abandoned (the
 // request that took it crashed or timed out mid-generation) and re-claimable.
 const LOCK_STALE_MINUTES = 10;
-const RECOMMENDATION_COUNT = 8;
+// 16 gives the "See all" list something to scroll through and divides evenly
+// into the recommendations strip's rows of 4. Haiku 4.5 is $1/$5 per MTok
+// (input/output): the catalog summary plus 16 short structured entries comes
+// to roughly $0.01-0.02 a call, still well inside the 2-5 cents/use budget
+// this feature was built to (see generateRecommendations below).
+const RECOMMENDATION_COUNT = 16;
 
 export type EnrichedRecommendation = {
   title: string;
@@ -180,7 +185,9 @@ export async function generateRecommendations(): Promise<RecommendationsState> {
   const client = new Anthropic();
   const response = await client.messages.parse({
     model: "claude-haiku-4-5",
-    max_tokens: 2000,
+    // Room for 16 structured entries (title/year/mediaType/reason each);
+    // 2000 was sized for 8 and would truncate the response now.
+    max_tokens: 4000,
     system:
       "You recommend movies and TV series for someone to watch next, based on " +
       "their watch history. Only suggest real, well-known titles that actually " +
