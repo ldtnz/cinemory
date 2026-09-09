@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 function formatDate(d: Date | null): string {
   if (!d) return "";
   return new Intl.DateTimeFormat(undefined, {
+    day: "numeric",
     month: "long",
     year: "numeric",
   }).format(d);
@@ -72,6 +73,17 @@ function Bars({
   );
 }
 
+/** A single watched-then/now highlight: which title, and when. */
+function Milestone({ label, title, date }: { label: string; title: string; date: Date }) {
+  return (
+    <div className="rounded-2xl bg-surface p-4">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted/80">{label}</p>
+      <p className="mt-1.5 line-clamp-2 text-base font-semibold leading-snug">{title}</p>
+      <p className="mt-0.5 text-xs text-muted">{formatDate(date)}</p>
+    </div>
+  );
+}
+
 export default async function StatsPage() {
   if (await needsSetup()) {
     redirect("/");
@@ -83,10 +95,10 @@ export default async function StatsPage() {
   const titles = await prisma.title.findMany();
   const stats = computeStats(titles);
 
-  const span =
-    stats.firstWatchedAt && stats.lastWatchedAt
-      ? `${formatDate(stats.firstWatchedAt)} — ${formatDate(stats.lastWatchedAt)}`
-      : null;
+  // Movies vs. series, as one split bar rather than two more Figure tiles —
+  // the two numbers are already up top; what's interesting here is the
+  // ratio between them.
+  const movieShare = stats.total > 0 ? stats.movies / stats.total : 0;
 
   return (
     <main className="mx-auto w-full max-w-3xl px-3 pb-16 pt-[calc(1.5rem+env(safe-area-inset-top))] sm:px-5">
@@ -99,7 +111,6 @@ export default async function StatsPage() {
           Back to the catalog
         </Link>
         <h1 className="mt-2 text-xl font-semibold tracking-tight">Statistics</h1>
-        {span && <p className="mt-1 text-xs text-muted">{span}</p>}
       </div>
 
       {stats.total === 0 ? (
@@ -131,6 +142,45 @@ export default async function StatsPage() {
             <Figure value={String(stats.watchlist)} label="waiting on the watchlist" />
           </div>
 
+          {stats.movies > 0 && stats.series > 0 && (
+            <section className="rounded-2xl bg-surface p-4">
+              <h2 className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
+                Movies vs. series
+              </h2>
+              <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-surface-2">
+                <span
+                  className="bg-accent-2/80"
+                  style={{ width: `${movieShare * 100}%` }}
+                  aria-hidden
+                />
+                <span className="flex-1 bg-sky-400/70" aria-hidden />
+              </div>
+              <div className="mt-2 flex justify-between text-xs text-muted">
+                <span>{Math.round(movieShare * 100)}% movies</span>
+                <span>{Math.round((1 - movieShare) * 100)}% series</span>
+              </div>
+            </section>
+          )}
+
+          {(stats.firstWatchedTitle || stats.lastWatchedTitle) && (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+              {stats.firstWatchedAt && stats.firstWatchedTitle && (
+                <Milestone
+                  label="First on record"
+                  title={stats.firstWatchedTitle}
+                  date={stats.firstWatchedAt}
+                />
+              )}
+              {stats.lastWatchedAt && stats.lastWatchedTitle && (
+                <Milestone
+                  label="Most recently watched"
+                  title={stats.lastWatchedTitle}
+                  date={stats.lastWatchedAt}
+                />
+              )}
+            </div>
+          )}
+
           <Bars
             title="Where you watched"
             buckets={stats.platforms}
@@ -145,6 +195,16 @@ export default async function StatsPage() {
             title="Titles per year watched"
             buckets={stats.perYear}
             empty="No watch dates recorded."
+          />
+          <Bars
+            title="Titles per month watched"
+            buckets={stats.monthly}
+            empty="No watch dates recorded."
+          />
+          <Bars
+            title="TMDB rating distribution"
+            buckets={stats.ratingBands}
+            empty="No TMDB ratings yet."
           />
           <Bars
             title="When they came out"

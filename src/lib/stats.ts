@@ -15,6 +15,26 @@ export type Bucket = {
   share: number;
 };
 
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+// Fixed bins rather than one per exact rating: a histogram, not a list of
+// every value that happens to occur.
+const RATING_BANDS: { label: string; min: number }[] = [
+  { label: "9.0 – 10", min: 9 },
+  { label: "8.0 – 8.9", min: 8 },
+  { label: "7.0 – 7.9", min: 7 },
+  { label: "6.0 – 6.9", min: 6 },
+  { label: "5.0 – 5.9", min: 5 },
+  { label: "Below 5.0", min: -Infinity },
+];
+
+function ratingBandLabel(rating: number): string {
+  return RATING_BANDS.find((b) => rating >= b.min)!.label;
+}
+
 export type Stats = {
   /** Watched titles only — the watchlist is counted separately. */
   total: number;
@@ -30,11 +50,21 @@ export type Stats = {
   decades: Bucket[];
   /** One entry per year with any activity, oldest first. */
   perYear: Bucket[];
+  /** January through December, every month present even at zero — the shape
+   *  of the year, not just the months with something in them. */
+  monthly: Bucket[];
+  /** Fixed 1-point bands from "Below 5.0" to "9.0 – 10", low to high, every
+   *  band present even at zero, for the same reason. */
+  ratingBands: Bucket[];
   /** Highest TMDB rating first; only titles with a rating and a poster. */
   topRated: Title[];
   /** The oldest and most recent watch dates, when known. */
   firstWatchedAt: Date | null;
   lastWatchedAt: Date | null;
+  /** The titles behind those two dates, for a human-readable highlight
+   *  instead of a bare date range. Null together with the date above. */
+  firstWatchedTitle: string | null;
+  lastWatchedTitle: string | null;
 };
 
 /** Turns counts into bars, sorted by size, keeping at most `limit` of them. */
@@ -51,6 +81,17 @@ function toBuckets(counts: Map<string, number>, limit?: number): Bucket[] {
   }));
 }
 
+/** Like toBuckets, but for a fixed, ordered set of labels that should all
+ *  appear even when their count is zero — a histogram's shape matters as
+ *  much as its peak. */
+function fixedBuckets(labels: string[], counts: Map<string, number>): Bucket[] {
+  const max = Math.max(0, ...labels.map((l) => counts.get(l) ?? 0));
+  return labels.map((label) => {
+    const count = counts.get(label) ?? 0;
+    return { label, count, share: max > 0 ? count / max : 0 };
+  });
+}
+
 function increment(counts: Map<string, number>, key: string, by = 1) {
   counts.set(key, (counts.get(key) ?? 0) + by);
 }
@@ -62,6 +103,8 @@ export function computeStats(titles: Title[]): Stats {
   const genres = new Map<string, number>();
   const decades = new Map<string, number>();
   const years = new Map<string, number>();
+  const months = new Map<string, number>();
+  const ratingBands = new Map<string, number>();
 
   let movies = 0;
   let series = 0;
@@ -69,7 +112,9 @@ export function computeStats(titles: Title[]): Stats {
   let ratingSum = 0;
   let ratedCount = 0;
   let first: Date | null = null;
+  let firstTitle: string | null = null;
   let last: Date | null = null;
+  let lastTitle: string | null = null;
 
   for (const t of watched) {
     if (t.mediaType === "Series") {
@@ -99,12 +144,20 @@ export function computeStats(titles: Title[]): Stats {
     if (t.tmdbRating != null) {
       ratingSum += t.tmdbRating;
       ratedCount += 1;
+      increment(ratingBands, ratingBandLabel(t.tmdbRating));
     }
 
     if (t.lastWatchedAt) {
       increment(years, String(t.lastWatchedAt.getFullYear()));
-      if (!first || t.lastWatchedAt < first) first = t.lastWatchedAt;
-      if (!last || t.lastWatchedAt > last) last = t.lastWatchedAt;
+      increment(months, MONTH_NAMES[t.lastWatchedAt.getMonth()]);
+      if (!first || t.lastWatchedAt < first) {
+        first = t.lastWatchedAt;
+        firstTitle = t.title;
+      }
+      if (!last || t.lastWatchedAt > last) {
+        last = t.lastWatchedAt;
+        lastTitle = t.title;
+      }
     }
   }
 
@@ -132,8 +185,15 @@ export function computeStats(titles: Title[]): Stats {
     genres: toBuckets(genres, 10),
     decades: chronological(decades),
     perYear: chronological(years),
+    monthly: fixedBuckets(MONTH_NAMES, months),
+    ratingBands: fixedBuckets(
+      [...RATING_BANDS].reverse().map((b) => b.label),
+      ratingBands,
+    ),
     topRated,
     firstWatchedAt: first,
     lastWatchedAt: last,
+    firstWatchedTitle: firstTitle,
+    lastWatchedTitle: lastTitle,
   };
 }

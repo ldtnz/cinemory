@@ -171,6 +171,60 @@ test("the span covers the oldest and most recent watch dates", () => {
   assert.deepEqual(s.lastWatchedAt, new Date(2024, 10, 30));
 });
 
+test("the first- and last-watched titles match their dates", () => {
+  const s = computeStats([
+    title({ title: "Oldest", lastWatchedAt: new Date(2022, 3, 5) }),
+    title({ title: "Newest", lastWatchedAt: new Date(2024, 10, 30) }),
+    title({ title: "Middle", lastWatchedAt: new Date(2023, 0, 1) }),
+    title({ title: "Never dated", lastWatchedAt: null }),
+  ]);
+  assert.equal(s.firstWatchedTitle, "Oldest");
+  assert.equal(s.lastWatchedTitle, "Newest");
+});
+
+test("no watch dates at all means no milestone titles either", () => {
+  const s = computeStats([title({ lastWatchedAt: null })]);
+  assert.equal(s.firstWatchedTitle, null);
+  assert.equal(s.lastWatchedTitle, null);
+});
+
+test("monthly keeps all twelve months, in calendar order, zeroes included", () => {
+  const s = computeStats([
+    title({ lastWatchedAt: new Date(2024, 0, 15) }), // January
+    title({ lastWatchedAt: new Date(2023, 0, 3) }), // January, a different year
+    title({ lastWatchedAt: new Date(2024, 11, 25) }), // December
+  ]);
+  assert.equal(s.monthly.length, 12);
+  assert.equal(s.monthly[0].label, "January");
+  assert.equal(s.monthly[0].count, 2);
+  assert.equal(s.monthly[11].label, "December");
+  assert.equal(s.monthly[11].count, 1);
+  assert.equal(s.monthly[1].label, "February");
+  assert.equal(s.monthly[1].count, 0);
+});
+
+test("rating bands cover fixed ranges low to high, zeroes included", () => {
+  const s = computeStats([
+    title({ tmdbRating: 9.5 }),
+    title({ tmdbRating: 8.1 }),
+    title({ tmdbRating: 8.9 }),
+    title({ tmdbRating: 4.2 }),
+    title({ tmdbRating: null }),
+  ]);
+  assert.deepEqual(
+    s.ratingBands.map((b) => b.label),
+    ["Below 5.0", "5.0 – 5.9", "6.0 – 6.9", "7.0 – 7.9", "8.0 – 8.9", "9.0 – 10"],
+  );
+  const byLabel = Object.fromEntries(s.ratingBands.map((b) => [b.label, b.count]));
+  assert.equal(byLabel["9.0 – 10"], 1);
+  assert.equal(byLabel["8.0 – 8.9"], 2);
+  assert.equal(byLabel["Below 5.0"], 1);
+  assert.equal(byLabel["6.0 – 6.9"], 0);
+  // The unrated title must not silently land in a band.
+  const total = s.ratingBands.reduce((n, b) => n + b.count, 0);
+  assert.equal(total, 4);
+});
+
 test("the best-rated list is capped, ordered, and needs a poster", () => {
   const rows = [
     ...Array.from({ length: 8 }, (_, i) => title({ tmdbRating: 5 + i * 0.1 })),
