@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import { findBestTmdbMatch, getTrailerKey, isTmdbConfigured } from "@/lib/tmdb";
 import { recommendationKey } from "@/lib/recommendation-candidate";
+import { normalizeTitle } from "@/lib/title-key";
 
 export const REFRESH_INTERVAL_DAYS = 5;
 // How long a claimed lock is honored before being treated as abandoned (the
@@ -61,8 +62,18 @@ export async function getStoredRecommendations(): Promise<RecommendationsState |
     // shown rather than waiting for the next 5-day regeneration, so "not
     // interested" takes effect immediately, on every page that reads this.
     const dismissed = await getDismissedKeys();
+    // Watched since this batch was generated — including by acting on the
+    // recommendation itself (add to watchlist, then mark as watched later).
+    // A batch is cached for up to 5 days, plenty of time for that to
+    // happen; without this it would keep showing a "recommendation" for
+    // something already watched until the next regeneration. Watchlist
+    // entries are left alone: those still show, marked done — seeing what
+    // you already added is useful, seeing what you already watched is not.
+    const watched = await getWatchedKeys();
     return {
-      titles: titles.filter((t) => !dismissed.has(recommendationKey(t))),
+      titles: titles.filter(
+        (t) => !dismissed.has(recommendationKey(t)) && !watched.has(recommendationKey(t)),
+      ),
       generatedAt: row.generatedAt.toISOString(),
     };
   } catch (err) {
@@ -80,6 +91,18 @@ export async function getStoredRecommendations(): Promise<RecommendationsState |
 async function getDismissedKeys(): Promise<Set<string>> {
   const rows = await prisma.dismissedRecommendation.findMany({ select: { key: true } });
   return new Set(rows.map((r) => r.key));
+}
+
+/** TMDB ids and normalized titles of everything already watched — the
+ *  watchlist half is left out on purpose, see getStoredRecommendations().
+ *  Keyed with the same recommendationKey() every other identity check here
+ *  uses, so it never drifts out of sync with it. */
+async function getWatchedKeys(): Promise<Set<string>> {
+  const rows = await prisma.title.findMany({
+    where: { inWatchlist: false },
+    select: { tmdbId: true, title: true },
+  });
+  return new Set(rows.map((r) => recommendationKey({ tmdbId: r.tmdbId, title: r.title })));
 }
 
 /**
@@ -192,6 +215,8 @@ async function buildCatalogSummary() {
       genres: true,
       tmdbRating: true,
       personalRating: true,
+      tmdbId: true,
+      searchTitle: true,
     },
     orderBy: { lastWatchedAt: "desc" },
   });
@@ -212,6 +237,18 @@ async function buildCatalogSummary() {
     .slice(0, 20)
     .map((t) => t.title);
   const allTitles = titles.map((t) => t.title);
+  // The actual exclusion set, for filtering the response in code — allTitles
+  // above is only the prompt text, and an instruction is not a guarantee:
+  // Claude occasionally suggests something already in the catalog anyway,
+  // especially once that list runs long. Matched the same way the rest of
+  // the app recognises "the same work": TMDB id when there is one, the
+  // normalized title otherwise (searchTitle is already that, stored at
+  // creation time).
+  const catalogTmdbIds = new Set(
+    titles.filter((t) => t.tmdbId != null && t.tmdbId > 0).map((t) => t.tmdbId as number),
+  );
+  const catalogTitleKeys = new Set(titles.map((t) => t.searchTitle));
+
   // Capped: an unbounded "never suggest any of these" list would eventually
   // crowd out the rest of the prompt, and the most recent dismissals are the
   // ones most likely to still be fresh in memory anyway.
@@ -223,7 +260,16 @@ async function buildCatalogSummary() {
     })
   ).map((d) => d.title);
 
-  return { topGenres, topPlatforms, recentlyWatched, highlyRated, allTitles, notInterested };
+  return {
+    topGenres,
+    topPlatforms,
+    recentlyWatched,
+    highlyRated,
+    allTitles,
+    notInterested,
+    catalogTmdbIds,
+    catalogTitleKeys,
+  };
 }
 
 export async function generateRecommendations(): Promise<RecommendationsState> {
@@ -283,13 +329,18 @@ export async function generateRecommendations(): Promise<RecommendationsState> {
 
   // Titles TMDB could not confirm are dropped rather than shown without a
   // poster: for a discovery feature, a wrong or missing match is worse than
-  // one suggestion fewer. A dismissed title slipping past the prompt
-  // instruction is dropped here too — belt and suspenders, same as
-  // getStoredRecommendations() filtering the read side.
+  // one suggestion fewer. A dismissed or already-in-the-catalog title
+  // slipping past the prompt instructions is dropped here too — belt and
+  // suspenders: the prompt says not to suggest them, this is what actually
+  // guarantees it.
   const dismissed = await getDismissedKeys();
-  const confirmed = enriched.filter(
-    (r) => r.tmdbId !== null && !dismissed.has(recommendationKey(r)),
-  );
+  const confirmed = enriched.filter((r) => {
+    if (r.tmdbId === null) return false;
+    if (dismissed.has(recommendationKey(r))) return false;
+    if (summary.catalogTmdbIds.has(r.tmdbId)) return false;
+    if (summary.catalogTitleKeys.has(normalizeTitle(r.title))) return false;
+    return true;
+  });
 
   const generatedAt = new Date();
   await prisma.recommendation.create({
