@@ -45,7 +45,14 @@ const PLATFORM_STYLES: Record<string, { color: string; label: string }> = {
   Netflix: { color: "text-red-400", label: "Netflix" },
   "Amazon Prime Video": { color: "text-sky-400", label: "Prime Video" },
   "Disney+": { color: "text-blue-400", label: "Disney+" },
+  "Apple TV+": { color: "text-zinc-300", label: "Apple TV+" },
+  Max: { color: "text-purple-400", label: "Max" },
+  "Paramount+": { color: "text-indigo-400", label: "Paramount+" },
+  "Sky / NOW": { color: "text-cyan-400", label: "Sky / NOW" },
+  RaiPlay: { color: "text-orange-400", label: "RaiPlay" },
+  "Mediaset Infinity": { color: "text-pink-400", label: "Mediaset Infinity" },
   Cinema: { color: "text-amber-400", label: "Cinema" },
+  Unknown: { color: "text-neutral-500", label: "Not sure" },
 };
 
 function TitleCard({

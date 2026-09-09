@@ -1,5 +1,5 @@
 /**
- * The four platforms a title can be watched on.
+ * Where a title can be watched.
  *
  * One list, shared: the filter bar and the pickers render it, and the API
  * routes validate against it. It used to be copy-pasted into each of those,
@@ -7,13 +7,23 @@
  *
  * The values are stored verbatim in Title.platform, so changing one is a
  * data migration, not a rename. Watchlist entries carry "" instead: they
- * have not been watched anywhere yet.
+ * have not been watched anywhere yet. Kept to the mainstream services (and
+ * Cinema, for a theatrical watch) rather than every niche one that exists —
+ * "Unknown" covers the rest, for an import or a memory that doesn't fit any
+ * of them.
  */
 export const PLATFORMS: { value: string; label: string }[] = [
   { value: "Netflix", label: "Netflix" },
   { value: "Amazon Prime Video", label: "Prime Video" },
   { value: "Disney+", label: "Disney+" },
+  { value: "Apple TV+", label: "Apple TV+" },
+  { value: "Max", label: "Max" },
+  { value: "Paramount+", label: "Paramount+" },
+  { value: "Sky / NOW", label: "Sky / NOW" },
+  { value: "RaiPlay", label: "RaiPlay" },
+  { value: "Mediaset Infinity", label: "Mediaset Infinity" },
   { value: "Cinema", label: "Cinema" },
+  { value: "Unknown", label: "Not sure" },
 ];
 
 export function isValidPlatform(value: unknown): value is string {
