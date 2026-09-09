@@ -26,9 +26,11 @@ export async function DELETE(
 }
 
 /**
- * Two edits, told apart by the body:
+ * Three edits, told apart by the body:
  *  - { markWatched: { platform } } moves a watchlist entry into the watched
  *    half, recording where it was finally watched.
+ *  - { editWatched: { platform, lastWatchedAt } } corrects the platform or
+ *    date on a title that is already watched (edit mode).
  *  - { watchedSeasons } updates a series' progress (the +/- controls in
  *    edit mode).
  */
@@ -46,7 +48,11 @@ export async function PATCH(
   }
 
   const body = (await request.json().catch(() => null)) as
-    | { watchedSeasons?: number | null; markWatched?: { platform?: string } }
+    | {
+        watchedSeasons?: number | null;
+        markWatched?: { platform?: string };
+        editWatched?: { platform?: string; lastWatchedAt?: string | null };
+      }
     | null;
 
   if (body?.markWatched) {
@@ -68,6 +74,35 @@ export async function PATCH(
     });
     if (updated.count === 0) {
       return NextResponse.json({ error: "Title not found." }, { status: 404 });
+    }
+    const title = await prisma.title.findUnique({ where: { id } });
+    return NextResponse.json({ title });
+  }
+
+  if (body?.editWatched) {
+    const { platform, lastWatchedAt } = body.editWatched;
+    if (!isValidPlatform(platform)) {
+      return NextResponse.json({ error: "Invalid platform." }, { status: 400 });
+    }
+    let watchedAt: Date | null = null;
+    if (lastWatchedAt) {
+      watchedAt = new Date(lastWatchedAt);
+      if (isNaN(watchedAt.getTime())) {
+        return NextResponse.json({ error: "Invalid date." }, { status: 400 });
+      }
+    }
+    // A watchlist entry has no watched date or real platform to correct —
+    // that is what "mark as watched" is for.
+    const updated = await prisma.title.updateMany({
+      where: { id, inWatchlist: false },
+      data: { platform, lastWatchedAt: watchedAt },
+    });
+    if (updated.count === 0) {
+      const exists = await prisma.title.findUnique({ where: { id }, select: { id: true } });
+      return NextResponse.json(
+        { error: exists ? "Title is still on the watchlist." : "Title not found." },
+        { status: exists ? 400 : 404 },
+      );
     }
     const title = await prisma.title.findUnique({ where: { id } });
     return NextResponse.json({ title });

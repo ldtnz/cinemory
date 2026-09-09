@@ -3,12 +3,13 @@
 import Image from "next/image";
 import { memo, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Minus, Pencil, Plus, Trash2 } from "lucide-react";
 import type { Title } from "@prisma/client";
 import { setEditMode } from "@/lib/edit-mode";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import TitleContextMenu from "@/components/TitleContextMenu";
 import MarkWatchedDialog from "@/components/MarkWatchedDialog";
+import EditWatchedDialog from "@/components/EditWatchedDialog";
 import TrailerModal from "@/components/TrailerModal";
 
 function MissingPosterIcon() {
@@ -69,6 +70,7 @@ function TitleCard({
   onRemove,
   onSeasons,
   onMarkWatched,
+  onEditWatched,
 }: {
   title: Title;
   /** true for the first cards above the fold, avoids the Next/Image LCP warning */
@@ -79,11 +81,14 @@ function TitleCard({
   onSeasons?: (title: Title, watchedSeasons: number) => void;
   /** Moves a watchlist entry into the watched half, on the chosen platform. */
   onMarkWatched?: (title: Title, platform: string) => void;
+  /** Corrects the platform or watched date on an already-watched title. */
+  onEditWatched?: (title: Title, platform: string, lastWatchedAt: Date | null) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [markingWatched, setMarkingWatched] = useState(false);
+  const [editingWatched, setEditingWatched] = useState(false);
   const [trailer, setTrailer] = useState<{ loading: boolean; key: string | null } | null>(null);
   // Tapping a poster on touch shows the details overlay that desktop gets on
   // hover, then hides it again after a few seconds — touch has no hover.
@@ -303,6 +308,26 @@ function TitleCard({
         </div>
       )}
 
+      {/* Not on the watchlist: nothing watched yet to correct the platform
+          or date on — that's what "mark as watched", from the context menu,
+          is for. */}
+      {editing && !title.inWatchlist && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditingWatched(true);
+          }}
+          aria-label={`Edit ${title.title}`}
+          title={`Edit ${title.title}`}
+          // Same black already used for the recommendation badges — opposite
+          // corner from Delete, same hover-reveal treatment.
+          className="absolute left-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-black/70 text-white opacity-0 transition-opacity duration-150 hover:bg-black/85 group-hover:opacity-100 focus-visible:opacity-100"
+        >
+          <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
+        </button>
+      )}
+
       {editing && (
         <button
           type="button"
@@ -422,6 +447,17 @@ function TitleCard({
             onMarkWatched?.(title, platform);
           }}
           onCancel={() => setMarkingWatched(false)}
+        />
+      )}
+
+      {editingWatched && (
+        <EditWatchedDialog
+          title={title}
+          onConfirm={(platform, lastWatchedAt) => {
+            setEditingWatched(false);
+            onEditWatched?.(title, platform, lastWatchedAt);
+          }}
+          onCancel={() => setEditingWatched(false)}
         />
       )}
 

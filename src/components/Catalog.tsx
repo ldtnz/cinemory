@@ -117,6 +117,42 @@ export default function Catalog({
     setCatalog((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
   }, []);
 
+  // Corrects the platform or watched date on a title already watched (edit
+  // mode). Dates round-trip through JSON as strings, so they are coerced
+  // back into real Dates here rather than trusted as-is — formatDate() on
+  // the card needs an actual Date, not its JSON stand-in.
+  const editWatched = useCallback(
+    async (title: Title, platform: string, lastWatchedAt: Date | null) => {
+      const res = await fetch(`/api/titles/${title.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          editWatched: { platform, lastWatchedAt: lastWatchedAt ? lastWatchedAt.toISOString() : null },
+        }),
+      });
+      if (!res.ok) {
+        window.alert("Could not update the title.");
+        return;
+      }
+      const { title: updated } = (await res.json()) as {
+        title: Title & { lastWatchedAt: string | null; createdAt: string; updatedAt: string };
+      };
+      setCatalog((prev) =>
+        prev.map((t) =>
+          t.id === updated.id
+            ? {
+                ...updated,
+                lastWatchedAt: updated.lastWatchedAt ? new Date(updated.lastWatchedAt) : null,
+                createdAt: new Date(updated.createdAt),
+                updatedAt: new Date(updated.updatedAt),
+              }
+            : t,
+        ),
+      );
+    },
+    [],
+  );
+
   const filtered = useMemo(() => {
     const query = deferredQ.trim().toLowerCase();
     return catalog.filter((t) => {
@@ -325,6 +361,7 @@ export default function Catalog({
               onRemove={remove}
               onSeasons={changeSeasons}
               onMarkWatched={markWatched}
+              onEditWatched={editWatched}
             />
           ))}
         </div>
