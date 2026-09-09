@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { isAuthenticated } from "@/lib/auth";
@@ -102,6 +102,22 @@ export default async function SettingsPage() {
           </section>
         </>
       )}
+
+      <section className="mt-10 border-t border-white/5 pt-6">
+        <h2 className="text-sm font-semibold">Export your catalog</h2>
+        <p className="mt-1 text-xs text-muted">
+          Downloads every title as JSON — a full backup independent of the
+          database itself, in case you ever need to move it or restore from
+          something other than your host&apos;s own backups.
+        </p>
+        <a
+          href="/api/export"
+          className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-surface-2 px-4 text-xs font-semibold text-foreground transition-colors hover:bg-surface-2/70"
+        >
+          <Download className="h-4 w-4" strokeWidth={1.8} />
+          Export catalog (JSON)
+        </a>
+      </section>
 
       <EditModeToggle />
     </main>
