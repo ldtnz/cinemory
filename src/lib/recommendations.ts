@@ -74,10 +74,20 @@ export async function getStoredRecommendations(): Promise<RecommendationsState |
     // entries are left alone: those still show, marked done — seeing what
     // you already added is useful, seeing what you already watched is not.
     const watched = await getWatchedKeys();
+    // Belt and suspenders for a batch stored before generateRecommendations()
+    // started deduplicating its own output below: Claude can repeat a title
+    // within one batch (more room for it now that a batch asks for 24), and
+    // a repeat here doesn't just look odd in the "See all" list — the
+    // rotating 2x2 preview on the Watched-page card can land on a chunk that
+    // is the same poster four times over.
+    const seen = new Set<string>();
     return {
-      titles: titles.filter(
-        (t) => !dismissed.has(recommendationKey(t)) && !watched.has(recommendationKey(t)),
-      ),
+      titles: titles.filter((t) => {
+        const key = recommendationKey(t);
+        if (dismissed.has(key) || watched.has(key) || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }),
       generatedAt: row.generatedAt.toISOString(),
     };
   } catch (err) {
@@ -337,13 +347,21 @@ export async function generateRecommendations(): Promise<RecommendationsState> {
   // one suggestion fewer. A dismissed or already-in-the-catalog title
   // slipping past the prompt instructions is dropped here too — belt and
   // suspenders: the prompt says not to suggest them, this is what actually
-  // guarantees it.
+  // guarantees it. The same goes for Claude repeating a title within its own
+  // batch — nothing in the prompt asks for 24 *distinct* picks, and it
+  // occasionally isn't, which used to mean a repeat could land in the stored
+  // batch and, worse, cluster into the same chunk of the rotating preview on
+  // the Watched-page card (all 4 tiles showing one poster).
   const dismissed = await getDismissedKeys();
+  const seen = new Set<string>();
   const confirmed = enriched.filter((r) => {
     if (r.tmdbId === null) return false;
-    if (dismissed.has(recommendationKey(r))) return false;
+    const key = recommendationKey(r);
+    if (dismissed.has(key)) return false;
     if (summary.catalogTmdbIds.has(r.tmdbId)) return false;
     if (summary.catalogTitleKeys.has(normalizeTitle(r.title))) return false;
+    if (seen.has(key)) return false;
+    seen.add(key);
     return true;
   });
 
