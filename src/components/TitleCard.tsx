@@ -2,10 +2,10 @@
 
 import Image from "next/image";
 import { memo, useEffect, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
 import { Minus, Pencil, Plus, Trash2 } from "lucide-react";
 import type { Title } from "@prisma/client";
 import { setEditMode } from "@/lib/edit-mode";
+import { useCardContextMenu } from "@/lib/use-card-context-menu";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import TitleContextMenu from "@/components/TitleContextMenu";
 import MarkWatchedDialog from "@/components/MarkWatchedDialog";
@@ -85,7 +85,6 @@ function TitleCard({
   onEditWatched?: (title: Title, platform: string, lastWatchedAt: Date | null) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
-  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [markingWatched, setMarkingWatched] = useState(false);
   const [editingWatched, setEditingWatched] = useState(false);
@@ -93,28 +92,15 @@ function TitleCard({
   // Tapping a poster on touch shows the details overlay that desktop gets on
   // hover, then hides it again after a few seconds — touch has no hover.
   const [tapDetailsVisible, setTapDetailsVisible] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
   const tapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Manual long-press timer for touch: iOS Safari (including the installed
-  // PWA) never fires a "contextmenu" DOM event for a long-press on a plain
-  // element — only Android does. This is what makes long-press work there too.
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
-  const longPressFiredRef = useRef(false);
+  const { cardRef, menuPos, closeContextMenu, longPressFiredRef, cardHandlers } =
+    useCardContextMenu<HTMLDivElement>();
 
   useEffect(() => {
     return () => {
       if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
-      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     };
   }, []);
-
-  function clearLongPressTimer() {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  }
 
   function requestDelete() {
     setConfirmingDelete(true);
@@ -135,30 +121,6 @@ function TitleCard({
     }
   }
 
-  // Dims and blurs every other card in the grid so the one under the cursor
-  // stands out, without re-rendering the rest of the (up to 1500-card) grid:
-  // toggled directly on the DOM rather than through React state.
-  function openContextMenu(x: number, y: number) {
-    const card = cardRef.current;
-    const grid = card?.closest<HTMLElement>(".title-grid");
-    if (grid && card) {
-      grid
-        .querySelectorAll(".title-card--context-target")
-        .forEach((el) => el.classList.remove("title-card--context-target"));
-      grid.classList.add("title-grid--context-open");
-      card.classList.add("title-card--context-target");
-    }
-    setMenuPos({ x, y });
-  }
-
-  function closeContextMenu() {
-    const card = cardRef.current;
-    const grid = card?.closest<HTMLElement>(".title-grid");
-    grid?.classList.remove("title-grid--context-open");
-    card?.classList.remove("title-card--context-target");
-    setMenuPos(null);
-  }
-
   function handleTap() {
     // The tap that ends a long-press still fires a click on release: this
     // one should open the menu, not also flash the details overlay.
@@ -170,42 +132,6 @@ function TitleCard({
     setTapDetailsVisible(true);
     if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
     tapTimeoutRef.current = setTimeout(() => setTapDetailsVisible(false), 5000);
-  }
-
-  function handlePointerDown(e: ReactPointerEvent) {
-    if (e.pointerType !== "touch") return;
-    longPressStartRef.current = { x: e.clientX, y: e.clientY };
-    longPressFiredRef.current = false;
-    clearLongPressTimer();
-    const cx = e.clientX;
-    const cy = e.clientY;
-    longPressTimerRef.current = setTimeout(() => {
-      longPressFiredRef.current = true;
-      openContextMenu(cx, cy);
-    }, 500);
-  }
-
-  function handlePointerMove(e: ReactPointerEvent) {
-    if (e.pointerType !== "touch" || !longPressStartRef.current) return;
-    const dx = e.clientX - longPressStartRef.current.x;
-    const dy = e.clientY - longPressStartRef.current.y;
-    // A real long-press stays still; a scroll or drag moves past a small
-    // threshold and should cancel it instead of opening the menu mid-swipe.
-    if (Math.hypot(dx, dy) > 10) clearLongPressTimer();
-  }
-
-  function handlePointerEnd(e: ReactPointerEvent) {
-    if (e.pointerType !== "touch") return;
-    clearLongPressTimer();
-    longPressStartRef.current = null;
-    // Defensive: release capture if the browser implicitly granted it for
-    // this touch, so it can never carry over and interfere with the very
-    // next tap (e.g. on a button inside the menu this long-press opened).
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      // Not captured — nothing to release.
-    }
   }
 
   const platformStyle = PLATFORM_STYLES[title.platform] ?? {
@@ -238,32 +164,8 @@ function TitleCard({
     <div
       ref={cardRef}
       className="title-card group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2"
-      onContextMenu={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        // Touch is handled by the pointer-based long-press detection below:
-        // Android does fire this event for a long-press, iOS Safari never
-        // does, so touch relies on one path only to avoid opening it twice.
-        if (window.matchMedia("(pointer: coarse)").matches) return;
-        openContextMenu(e.clientX, e.clientY);
-      }}
       onClick={handleTap}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerEnd}
-      onPointerCancel={handlePointerEnd}
-      onTouchEnd={(e) => {
-        // Without this, the browser follows the touch with a synthetic
-        // mousedown/click for compatibility — which would land on the card
-        // and immediately close the menu the long-press above just opened,
-        // via TitleContextMenu's own outside-click listener. Suppressing it
-        // also means the click that would have reset the flag never fires,
-        // so it is reset here instead.
-        if (longPressFiredRef.current) {
-          e.preventDefault();
-          longPressFiredRef.current = false;
-        }
-      }}
+      {...cardHandlers}
     >
       {title.posterUrl ? (
         <>

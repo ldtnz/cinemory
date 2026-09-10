@@ -1,14 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { Check, Plus } from "lucide-react";
 import type { Title } from "@prisma/client";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import { useAddToWatchlist } from "@/lib/use-add-to-watchlist";
+import { useCardContextMenu } from "@/lib/use-card-context-menu";
+import DiscoverContextMenu from "@/components/DiscoverContextMenu";
+import TrailerModal from "@/components/TrailerModal";
 
 /** A TMDB search result in the "To watch" grid: click (or tap) to put it on
  *  the watchlist. The "+" only shows on hover on desktop; on touch there is
- *  no hover, but the whole tile is the button, so a tap adds it anyway. */
+ *  no hover, but the whole tile is the button, so a tap adds it anyway.
+ *  Right-click / long-press opens a menu for the trailer or the same add
+ *  action — see DiscoverContextMenu. */
 export default function DiscoverCard({
   candidate,
   alreadyOnWatchlist,
@@ -21,16 +27,36 @@ export default function DiscoverCard({
   onAdded: (title: Title) => void;
 }) {
   const { state, add, done } = useAddToWatchlist(alreadyOnWatchlist, onAdded);
+  const { cardRef, menuPos, closeContextMenu, cardHandlers } =
+    useCardContextMenu<HTMLButtonElement>();
+  const [trailer, setTrailer] = useState<{ loading: boolean; key: string | null } | null>(null);
 
   const subtitle = [candidate.mediaType, candidate.year].filter(Boolean).join(" · ");
 
+  async function openTrailer() {
+    setTrailer({ loading: true, key: null });
+    try {
+      const params = new URLSearchParams({
+        tmdbId: String(candidate.tmdbId),
+        mediaType: candidate.mediaType,
+      });
+      const res = await fetch(`/api/trailer?${params}`);
+      const data = (await res.json()) as { trailerKey?: string | null };
+      setTrailer({ loading: false, key: res.ok ? (data.trailerKey ?? null) : null });
+    } catch {
+      setTrailer({ loading: false, key: null });
+    }
+  }
+
   return (
     <button
+      ref={cardRef}
       type="button"
       onClick={() => add(candidate)}
       disabled={done}
       aria-label={done ? `${candidate.title} is on your watchlist` : `Add ${candidate.title} to your watchlist`}
-      className="group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2 text-left disabled:cursor-default"
+      className="title-card group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2 text-left disabled:cursor-default"
+      {...cardHandlers}
     >
       {candidate.posterUrl ? (
         <Image
@@ -93,6 +119,26 @@ export default function DiscoverCard({
         <span className="absolute inset-x-1.5 top-1.5 rounded-lg bg-red-500/90 px-2 py-1 text-center text-[10px] font-medium text-white">
           Could not add
         </span>
+      )}
+
+      {menuPos && (
+        <DiscoverContextMenu
+          x={menuPos.x}
+          y={menuPos.y}
+          alreadyOnWatchlist={done}
+          onTrailer={openTrailer}
+          onAddToWatchlist={() => add(candidate)}
+          onClose={closeContextMenu}
+        />
+      )}
+
+      {trailer && (
+        <TrailerModal
+          title={candidate.title}
+          trailerKey={trailer.key}
+          loading={trailer.loading}
+          onClose={() => setTrailer(null)}
+        />
       )}
     </button>
   );
