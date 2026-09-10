@@ -50,15 +50,22 @@ export async function PATCH(
   const body = (await request.json().catch(() => null)) as
     | {
         watchedSeasons?: number | null;
-        markWatched?: { platform?: string };
+        markWatched?: { platform?: string; lastWatchedAt?: string };
         editWatched?: { platform?: string; lastWatchedAt?: string | null };
       }
     | null;
 
   if (body?.markWatched) {
-    const { platform } = body.markWatched;
+    const { platform, lastWatchedAt } = body.markWatched;
     if (!isValidPlatform(platform)) {
       return NextResponse.json({ error: "Invalid platform." }, { status: 400 });
+    }
+    let watchedAt = new Date();
+    if (lastWatchedAt) {
+      watchedAt = new Date(lastWatchedAt);
+      if (isNaN(watchedAt.getTime())) {
+        return NextResponse.json({ error: "Invalid date." }, { status: 400 });
+      }
     }
     // Applies to movies and series alike, unlike the seasons path below.
     const updated = await prisma.title.updateMany({
@@ -69,7 +76,7 @@ export async function PATCH(
         inWatchlist: false,
         status: "Watched",
         platform,
-        lastWatchedAt: new Date(),
+        lastWatchedAt: watchedAt,
       },
     });
     if (updated.count === 0) {

@@ -5,20 +5,24 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Title } from "@prisma/client";
 import PlatformPicker from "@/components/PlatformPicker";
+import { toDateInputValue, fromDateInputValue } from "@/lib/date-input";
 
-/** Moving a title off the watchlist needs one more thing than a plain
- *  confirmation: where it was watched. Watchlist entries carry no platform,
- *  and the catalog filters by it, so it has to be picked here. */
+/** Moving a title off the watchlist needs two more things than a plain
+ *  confirmation: where it was watched, and when — watchlist entries carry
+ *  neither, and the catalog filters/sorts on both, so they're picked here.
+ *  The date defaults to today (not everything gets marked the moment it's
+ *  watched) but is editable, the same as the "Add title" flow. */
 export default function MarkWatchedDialog({
   title,
   onConfirm,
   onCancel,
 }: {
   title: Title;
-  onConfirm: (platform: string) => void;
+  onConfirm: (platform: string, lastWatchedAt: Date | null) => void;
   onCancel: () => void;
 }) {
   const [platform, setPlatform] = useState("");
+  const [watchedDate, setWatchedDate] = useState(() => toDateInputValue(new Date()));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -82,6 +86,23 @@ export default function MarkWatchedDialog({
         </div>
 
         <div className="space-y-2">
+          <label
+            htmlFor="mark-watched-date"
+            className="text-[11px] font-medium uppercase tracking-wide text-muted/80"
+          >
+            When did you watch it?
+          </label>
+          <input
+            id="mark-watched-date"
+            type="date"
+            value={watchedDate}
+            onChange={(e) => setWatchedDate(e.target.value)}
+            max={toDateInputValue(new Date())}
+            className="h-10 w-full rounded-xl bg-surface-2 px-3 text-sm text-foreground outline-none [color-scheme:dark] focus:ring-2 focus:ring-white/20"
+          />
+        </div>
+
+        <div className="space-y-2">
           <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
             Where did you watch it?
           </span>
@@ -101,7 +122,7 @@ export default function MarkWatchedDialog({
             disabled={!platform || saving}
             onClick={() => {
               setSaving(true);
-              onConfirm(platform);
+              onConfirm(platform, fromDateInputValue(watchedDate));
             }}
             className="flex-1 rounded-2xl bg-foreground py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
           >

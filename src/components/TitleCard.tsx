@@ -80,7 +80,7 @@ function TitleCard({
   onRemove?: (title: Title) => void;
   onSeasons?: (title: Title, watchedSeasons: number) => void;
   /** Moves a watchlist entry into the watched half, on the chosen platform. */
-  onMarkWatched?: (title: Title, platform: string) => void;
+  onMarkWatched?: (title: Title, platform: string, lastWatchedAt: Date | null) => void;
   /** Corrects the platform or watched date on an already-watched title. */
   onEditWatched?: (title: Title, platform: string, lastWatchedAt: Date | null) => void;
 }) {
@@ -344,9 +344,9 @@ function TitleCard({
       {markingWatched && (
         <MarkWatchedDialog
           title={title}
-          onConfirm={(platform) => {
+          onConfirm={(platform, lastWatchedAt) => {
             setMarkingWatched(false);
-            onMarkWatched?.(title, platform);
+            onMarkWatched?.(title, platform, lastWatchedAt);
           }}
           onCancel={() => setMarkingWatched(false)}
         />
