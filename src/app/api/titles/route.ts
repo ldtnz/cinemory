@@ -11,6 +11,9 @@ type CorpoRichiesta = {
   /** Adds it as "to watch" instead of "watched": no platform yet, since the
    *  point is that it has not been watched anywhere. */
   watchlist?: boolean;
+  /** When it was actually watched — defaults to now when omitted. Ignored
+   *  for a watchlist entry, which has no watched date yet. */
+  lastWatchedAt?: string;
 };
 
 /** Creates a new catalog entry from a TMDB candidate picked by the user (used
@@ -28,6 +31,14 @@ export async function POST(request: NextRequest) {
   const watchlist = body.watchlist === true;
   if (!watchlist && !isValidPlatform(body.platform)) {
     return NextResponse.json({ error: "Invalid platform." }, { status: 400 });
+  }
+
+  let watchedAt = new Date();
+  if (!watchlist && body.lastWatchedAt) {
+    watchedAt = new Date(body.lastWatchedAt);
+    if (isNaN(watchedAt.getTime())) {
+      return NextResponse.json({ error: "Invalid date." }, { status: 400 });
+    }
   }
 
   const { candidate } = body;
@@ -73,7 +84,7 @@ export async function POST(request: NextRequest) {
       // readability and is written together with it, never separately.
       status: watchlist ? "To watch" : "Watched",
       inWatchlist: watchlist,
-      lastWatchedAt: watchlist ? null : new Date(),
+      lastWatchedAt: watchlist ? null : watchedAt,
       tmdbId: candidate.tmdbId,
       posterUrl: candidate.posterUrl,
       backdropUrl: candidate.backdropUrl,

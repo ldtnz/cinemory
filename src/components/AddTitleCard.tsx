@@ -8,6 +8,7 @@ import type { Title } from "@prisma/client";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import PlatformPicker from "@/components/PlatformPicker";
 import { useTmdbSearch } from "@/lib/use-tmdb-search";
+import { toDateInputValue, fromDateInputValue } from "@/lib/date-input";
 
 /** "2022-03-01" -> "1 March 2022". Empty string when TMDB has no date. */
 function formatReleaseDate(iso: string | null): string {
@@ -57,6 +58,9 @@ export default function AddTitleCard({
   const [selected, setSelected] = useState<Map<string, TmdbCandidate>>(new Map());
   const [itemStatus, setItemStatus] = useState<Map<string, ItemStatus>>(new Map());
   const [platform, setPlatform] = useState("");
+  // Defaults to today — not everything gets added the moment it's watched —
+  // but editable, same date-for-the-whole-batch convention as platform.
+  const [watchedDate, setWatchedDate] = useState(() => toDateInputValue(new Date()));
   const [saving, setSaving] = useState(false);
   // Read from the auto-close timer below, which fires after this render has
   // moved on — a plain closure over `open`/`step` would see whatever they
@@ -93,6 +97,7 @@ export default function AddTitleCard({
     setSelected(new Map());
     setItemStatus(new Map());
     setPlatform("");
+    setWatchedDate(toDateInputValue(new Date()));
     setOpen(true);
   }
 
@@ -131,6 +136,7 @@ export default function AddTitleCard({
       return status !== "added" && status !== "duplicate";
     });
     if (toSubmit.length === 0 || !platform) return;
+    const watchedAt = fromDateInputValue(watchedDate);
 
     setSaving(true);
     setItemStatus((prev) => {
@@ -145,7 +151,11 @@ export default function AddTitleCard({
           const res = await fetch("/api/titles", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ candidate, platform }),
+            body: JSON.stringify({
+              candidate,
+              platform,
+              lastWatchedAt: watchedAt ? watchedAt.toISOString() : undefined,
+            }),
           });
           // Already in the catalog: not a failure, the outcome wanted is
           // already true, so it is marked resolved rather than retried.
@@ -418,6 +428,23 @@ export default function AddTitleCard({
                       );
                     })}
                   </ul>
+
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="add-title-watched-date"
+                      className="text-[11px] font-medium uppercase tracking-wide text-muted/80"
+                    >
+                      When did you watch {selectedList.length === 1 ? "it" : "them"}?
+                    </label>
+                    <input
+                      id="add-title-watched-date"
+                      type="date"
+                      value={watchedDate}
+                      onChange={(e) => setWatchedDate(e.target.value)}
+                      max={toDateInputValue(new Date())}
+                      className="h-10 w-full rounded-xl bg-surface-2 px-3 text-sm text-foreground outline-none [color-scheme:dark] focus:ring-2 focus:ring-white/20"
+                    />
+                  </div>
 
                   <div className="space-y-2">
                     <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">

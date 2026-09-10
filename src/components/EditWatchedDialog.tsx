@@ -5,24 +5,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Title } from "@prisma/client";
 import PlatformPicker from "@/components/PlatformPicker";
-
-/** `<input type="date">`'s value is always "YYYY-MM-DD" — built from the
- *  Date's own local calendar fields, not a UTC slice, so the day shown
- *  matches what formatDate() elsewhere on the card already displays. */
-function toDateInputValue(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-/** The inverse: local midnight for that calendar day, the same convention
- *  src/lib/history.ts uses for a date parsed out of an import. */
-function fromDateInputValue(value: string): Date | null {
-  const [y, m, d] = value.split("-").map(Number);
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d);
-}
+import { toDateInputValue, fromDateInputValue } from "@/lib/date-input";
 
 /** Corrects an already-watched title's platform or watched date — for an
  *  import that guessed wrong, or a manual add where the date did not
