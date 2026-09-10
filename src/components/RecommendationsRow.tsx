@@ -181,10 +181,6 @@ export default function RecommendationsRow({
             See all
           </button>
         </div>
-        <p className="mt-0.5 text-[11px] text-muted">
-          Picked from your catalog. Tap the poster for a trailer, the badges
-          to add it or say not interested.
-        </p>
 
         <ul className="-mx-3 mt-3 flex snap-x gap-2.5 overflow-x-auto px-3 pb-1 sm:-mx-4 sm:px-4">
           {titles.map((rec) => (
