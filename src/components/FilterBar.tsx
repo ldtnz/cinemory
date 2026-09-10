@@ -168,6 +168,9 @@ export default function FilterBar({
   onPlatformChange,
   mediaType,
   onMediaTypeChange,
+  genre,
+  onGenreChange,
+  availableGenres,
   sort,
   onSortChange,
   countLabel,
@@ -185,6 +188,12 @@ export default function FilterBar({
   onPlatformChange: (v: string) => void;
   mediaType: string;
   onMediaTypeChange: (v: string) => void;
+  /** Empty string means "any genre" — same convention as platform/mediaType. */
+  genre: string;
+  onGenreChange: (v: string) => void;
+  /** Every genre actually present in the catalog, alphabetized. Not a fixed
+   *  list like platforms or media types, since it depends on what's watched. */
+  availableGenres: string[];
   sort: string;
   onSortChange: (v: string) => void;
 }) {
@@ -246,7 +255,7 @@ export default function FilterBar({
     };
   }, [filtersOpen]);
 
-  const hasActiveFilters = Boolean(platform || mediaType || q);
+  const hasActiveFilters = Boolean(platform || mediaType || genre || q);
 
   // Fixed widths of the mobile row (in pixels, matching the Tailwind classes
   // used below: w-9 = 36px, gap-2 = 8px).
@@ -371,7 +380,7 @@ export default function FilterBar({
                 className="relative flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-surface text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
               >
                 <SlidersHorizontal className="h-4 w-4" strokeWidth={1.8} />
-                {platform && (
+                {(platform || genre) && (
                   <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-accent-2" aria-hidden />
                 )}
               </button>
@@ -384,6 +393,31 @@ export default function FilterBar({
                     </span>
                     <PlatformPicker value={platform} onChange={onPlatformChange} clearable />
                   </div>
+
+                  {availableGenres.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
+                        Genre
+                      </span>
+                      <div className="relative h-9">
+                        <select
+                          value={genre}
+                          onChange={(e) => onGenreChange(e.target.value)}
+                          className="h-9 w-full appearance-none rounded-xl bg-surface-2 pl-3 pr-8 text-sm text-foreground outline-none"
+                        >
+                          <option value="">Any genre</option>
+                          {availableGenres.map((g) => (
+                            <option key={g} value={g}>
+                              {g}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2">
+                          <ChevronIcon />
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
@@ -602,6 +636,31 @@ export default function FilterBar({
               </div>
             </div>
 
+            {availableGenres.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
+                  Genre
+                </span>
+                <div className="relative h-10">
+                  <select
+                    value={genre}
+                    onChange={(e) => onGenreChange(e.target.value)}
+                    className="h-10 w-full appearance-none rounded-xl bg-surface-2 pl-3 pr-8 text-base text-foreground outline-none sm:text-sm"
+                  >
+                    <option value="">Any genre</option>
+                    {availableGenres.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2">
+                    <ChevronIcon />
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
                 Sort by
@@ -632,6 +691,7 @@ export default function FilterBar({
                     onQChange("");
                     onPlatformChange("");
                     onMediaTypeChange("");
+                    onGenreChange("");
                     setFiltersOpen(false);
                   }}
                   className="flex-1 rounded-xl bg-surface-2 py-2.5 text-sm font-medium text-muted hover:text-foreground"

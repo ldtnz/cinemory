@@ -43,6 +43,7 @@ export default function Catalog({
   const [mode, setMode] = useState<WatchMode>("watched");
   const [platform, setPlatform] = useState("");
   const [mediaType, setMediaType] = useState("");
+  const [genre, setGenre] = useState("");
   const [sort, setSort] = useState("recent");
 
   const editing = useEditMode();
@@ -159,12 +160,28 @@ export default function Catalog({
       if (t.inWatchlist !== (mode === "watchlist")) return false;
       if (platform && t.platform !== platform) return false;
       if (mediaType && t.mediaType !== mediaType) return false;
+      if (genre && !(t.genres ?? "").split(",").map((g) => g.trim()).includes(genre)) {
+        return false;
+      }
       // In watchlist mode the query drives the TMDB search below instead of
       // filtering the saved list, so it is deliberately ignored here.
       if (mode === "watched" && query && !t.searchTitle.includes(query)) return false;
       return true;
     });
-  }, [catalog, deferredQ, mode, platform, mediaType]);
+  }, [catalog, deferredQ, mode, platform, mediaType, genre]);
+
+  // Every genre actually present in the catalog, alphabetized — not a fixed
+  // list like platforms, since which genres exist depends entirely on what
+  // was watched.
+  const availableGenres = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of catalog) {
+      for (const g of (t.genres ?? "").split(",").map((g) => g.trim()).filter(Boolean)) {
+        set.add(g);
+      }
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [catalog]);
 
   // What is already watched must not come back as something to add. Matched
   // on TMDB id where there is one, and on the normalized title otherwise —
@@ -288,6 +305,9 @@ export default function Catalog({
         onPlatformChange={setPlatform}
         mediaType={mediaType}
         onMediaTypeChange={setMediaType}
+        genre={genre}
+        onGenreChange={setGenre}
+        availableGenres={availableGenres}
         sort={sort}
         onSortChange={setSort}
       />
