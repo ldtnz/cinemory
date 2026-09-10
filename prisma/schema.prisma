@@ -28,8 +28,12 @@ model Title {
   // watched (derived from the imported history, editable by hand afterwards).
   totalSeasons   Int?
   watchedSeasons Int?
-  inWatchlist    Boolean @default(false)
-  link           String?
+  // Set by the automatic season check (src/lib/season-check.ts) when TMDB's
+  // season count comes back higher than totalSeasons above — cleared when
+  // the badge it drives on the card is dismissed. Series only.
+  newSeasonAvailable Boolean @default(false)
+  inWatchlist        Boolean @default(false)
+  link               String?
 
   // Enriched from TMDB
   tmdbId      Int?
@@ -70,8 +74,14 @@ model Settings {
   // an automatic background refresh and a manual click never both call
   // Claude at once. A lock older than a few minutes is treated as abandoned.
   recommendationsLockedAt DateTime?
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
+  // Same mutex shape as above, for the automatic "any new seasons out?"
+  // sweep (src/lib/season-check.ts) — lastSeasonCheckAt gates how often it
+  // runs at all, seasonCheckLockedAt keeps two triggers (a page load and an
+  // add, say) from running it at once.
+  lastSeasonCheckAt   DateTime?
+  seasonCheckLockedAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 }
 
 // Every AI-generated "what to watch next" batch, kept as a permanent

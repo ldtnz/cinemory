@@ -175,6 +175,21 @@ export default function Catalog({
     [],
   );
 
+  // Clears the "new season available" badge — the only field this touches,
+  // so the update is applied locally rather than round-tripping the whole
+  // response through the Date-coercion dance the other PATCHes need.
+  const dismissNewSeason = useCallback(async (title: Title) => {
+    const res = await fetch(`/api/titles/${title.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dismissNewSeason: true }),
+    });
+    if (!res.ok) return;
+    setCatalog((prev) =>
+      prev.map((t) => (t.id === title.id ? { ...t, newSeasonAvailable: false } : t)),
+    );
+  }, []);
+
   const filtered = useMemo(() => {
     const query = deferredQ.trim().toLowerCase();
     return catalog.filter((t) => {
@@ -403,6 +418,7 @@ export default function Catalog({
               onSeasons={changeSeasons}
               onMarkWatched={markWatched}
               onEditWatched={editWatched}
+              onDismissNewSeason={dismissNewSeason}
             />
           ))}
         </div>

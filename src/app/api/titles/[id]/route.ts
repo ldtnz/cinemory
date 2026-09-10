@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isValidPlatform } from "@/lib/platforms";
+import { dismissNewSeason } from "@/lib/season-check";
 
 /** Removes a title from the catalog (edit mode, enabled in settings). */
 export async function DELETE(
@@ -26,13 +27,15 @@ export async function DELETE(
 }
 
 /**
- * Three edits, told apart by the body:
+ * Four edits, told apart by the body:
  *  - { markWatched: { platform } } moves a watchlist entry into the watched
  *    half, recording where it was finally watched.
  *  - { editWatched: { platform, lastWatchedAt } } corrects the platform or
  *    date on a title that is already watched (edit mode).
  *  - { watchedSeasons } updates a series' progress (the +/- controls in
  *    edit mode).
+ *  - { dismissNewSeason: true } clears the "new season available" badge set
+ *    by the automatic sweep in src/lib/season-check.ts.
  */
 export async function PATCH(
   request: NextRequest,
@@ -52,8 +55,18 @@ export async function PATCH(
         watchedSeasons?: number | null;
         markWatched?: { platform?: string; lastWatchedAt?: string };
         editWatched?: { platform?: string; lastWatchedAt?: string | null };
+        dismissNewSeason?: boolean;
       }
     | null;
+
+  if (body?.dismissNewSeason) {
+    await dismissNewSeason(id);
+    const title = await prisma.title.findUnique({ where: { id } });
+    if (!title) {
+      return NextResponse.json({ error: "Title not found." }, { status: 404 });
+    }
+    return NextResponse.json({ title });
+  }
 
   if (body?.markWatched) {
     const { platform, lastWatchedAt } = body.markWatched;

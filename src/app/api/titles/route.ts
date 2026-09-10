@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import { normalizeTitle } from "@/lib/title-key";
 import { isValidPlatform } from "@/lib/platforms";
+import { ensureFreshSeasonCheckInBackground } from "@/lib/season-check";
 
 type CorpoRichiesta = {
   candidate: TmdbCandidate;
@@ -94,6 +95,12 @@ export async function POST(request: NextRequest) {
       genres: candidate.genres,
     },
   });
+
+  // Piggybacks on every add as one of the moments that nudges the automatic
+  // season-check sweep — see ensureFreshSeasonCheckInBackground's own doc
+  // comment for why this never costs the request anything: it's a no-op
+  // unless a sweep is actually due.
+  ensureFreshSeasonCheckInBackground();
 
   return NextResponse.json({ title });
 }

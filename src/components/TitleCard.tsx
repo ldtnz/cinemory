@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { memo, useEffect, useRef, useState } from "react";
-import { Minus, Pencil, Plus, Trash2 } from "lucide-react";
+import { Minus, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import type { Title } from "@prisma/client";
 import { setEditMode } from "@/lib/edit-mode";
 import { useCardContextMenu } from "@/lib/use-card-context-menu";
@@ -71,6 +71,7 @@ function TitleCard({
   onSeasons,
   onMarkWatched,
   onEditWatched,
+  onDismissNewSeason,
 }: {
   title: Title;
   /** true for the first cards above the fold, avoids the Next/Image LCP warning */
@@ -83,6 +84,8 @@ function TitleCard({
   onMarkWatched?: (title: Title, platform: string, lastWatchedAt: Date | null) => void;
   /** Corrects the platform or watched date on an already-watched title. */
   onEditWatched?: (title: Title, platform: string, lastWatchedAt: Date | null) => void;
+  /** Clears the "new season available" badge (src/lib/season-check.ts). */
+  onDismissNewSeason?: (title: Title) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -208,6 +211,28 @@ function TitleCard({
             {title.title}
           </span>
         </div>
+      )}
+
+      {/* A new season landed since totalSeasons was last checked (see
+          src/lib/season-check.ts) — persistently visible, not hover-gated
+          like the rest of the card's overlays, since the point is to catch
+          the eye without making the user hover every poster to find it.
+          Hidden in edit mode, where the Edit button already owns this
+          corner. */}
+      {!editing && title.newSeasonAvailable && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDismissNewSeason?.(title);
+          }}
+          aria-label={`New season available for ${title.title} — tap to dismiss`}
+          title="New season available — tap to dismiss"
+          className="absolute left-1.5 top-1.5 z-10 flex items-center gap-1 rounded-lg bg-accent-2 px-2 py-1 text-[10px] font-semibold text-background shadow-[0_4px_12px_-2px_rgba(0,0,0,0.5)]"
+        >
+          <Sparkles className="h-3 w-3" strokeWidth={2.2} />
+          New season
+        </button>
       )}
 
       {/* Not on the watchlist: nothing watched yet to correct the platform

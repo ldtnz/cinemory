@@ -9,6 +9,7 @@ import {
   isAnthropicConfigured,
   ensureFreshRecommendationsInBackground,
 } from "@/lib/recommendations";
+import { ensureFreshSeasonCheckInBackground } from "@/lib/season-check";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,10 @@ export default async function Home({
   // fresh generation to run after the response is sent — this request still
   // renders with whatever is cached now, the new batch lands for next time.
   ensureFreshRecommendationsInBackground(recommendations);
+  // Same idea, for "has any series in the catalog dropped a new season":
+  // capped to once every SEASON_CHECK_INTERVAL_DAYS by its own lock, so a
+  // busy day of page loads still only costs one sweep.
+  ensureFreshSeasonCheckInBackground();
 
   return <Catalog initialTitles={titles} recommendations={recommendations?.titles ?? []} />;
 }
