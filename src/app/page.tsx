@@ -12,6 +12,12 @@ import {
 import { ensureFreshSeasonCheckInBackground } from "@/lib/season-check";
 
 export const dynamic = "force-dynamic";
+// The two after() jobs below (a recommendations refresh — Claude plus a TMDB
+// match per pick — and the season-check sweep, one TMDB call per series)
+// share this request's execution budget even though they run after the
+// response is sent. The default is too short for either on a catalog of any
+// size; the import routes hit the same wall and already carry this.
+export const maxDuration = 60;
 
 type SearchParams = {
   error?: string;

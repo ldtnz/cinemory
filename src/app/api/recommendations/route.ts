@@ -10,6 +10,11 @@ import {
   releaseGenerationLock,
 } from "@/lib/recommendations";
 
+// The manual refresh below calls Claude plus a TMDB match per pick, well
+// past the default limit on a catalog of any size — the same wall the
+// import routes hit.
+export const maxDuration = 60;
+
 export async function GET() {
   if (!(await isAuthenticated())) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 });

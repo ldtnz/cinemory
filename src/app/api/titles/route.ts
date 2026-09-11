@@ -6,6 +6,11 @@ import { normalizeTitle } from "@/lib/title-key";
 import { isValidPlatform } from "@/lib/platforms";
 import { ensureFreshSeasonCheckInBackground } from "@/lib/season-check";
 
+// ensureFreshSeasonCheckInBackground's after() job (one TMDB call per series
+// in the catalog) shares this request's execution budget even though it
+// runs after the response is sent — the same wall the import routes hit.
+export const maxDuration = 60;
+
 type CorpoRichiesta = {
   candidate: TmdbCandidate;
   platform: string;
