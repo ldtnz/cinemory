@@ -158,7 +158,7 @@ export default function RecommendationsModal({
                   type="button"
                   onClick={() => hasTrailer && setTrailerFor(rec)}
                   disabled={!hasTrailer}
-                  className={`relative h-24 w-16 flex-none overflow-hidden rounded-lg bg-surface text-left ${
+                  className={`group relative h-24 w-16 flex-none overflow-hidden rounded-lg bg-surface text-left ${
                     hasTrailer ? "transition-colors hover:brightness-110" : "cursor-default"
                   }`}
                 >
@@ -173,7 +173,7 @@ export default function RecommendationsModal({
                     />
                   )}
                   {hasTrailer && (
-                    <span className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-visible:opacity-100">
                       <Play className="h-5 w-5 fill-white text-white" strokeWidth={0} />
                     </span>
                   )}
