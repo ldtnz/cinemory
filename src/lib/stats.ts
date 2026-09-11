@@ -7,6 +7,7 @@
  * a database — see tests/stats.test.ts.
  */
 import type { Title } from "@prisma/client";
+import { splitGenres } from "@/lib/genres";
 
 export type Bucket = {
   label: string;
@@ -130,11 +131,8 @@ export function computeStats(titles: Title[]): Stats {
     // rather than silently dropping them from the chart.
     increment(platforms, t.platform || "Unknown");
 
-    if (t.genres) {
-      for (const g of t.genres.split(",")) {
-        const name = g.trim();
-        if (name) increment(genres, name);
-      }
+    for (const name of splitGenres(t.genres)) {
+      increment(genres, name);
     }
 
     if (t.year != null) {

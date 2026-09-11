@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import { findBestTmdbMatch, getTrailerKey, isTmdbConfigured } from "@/lib/tmdb";
 import { recommendationKey } from "@/lib/recommendation-candidate";
+import { splitGenres } from "@/lib/genres";
 import { normalizeTitle } from "@/lib/title-key";
 
 export const REFRESH_INTERVAL_DAYS = 5;
@@ -238,7 +239,7 @@ async function buildCatalogSummary() {
   const genreCounts = new Map<string, number>();
   const platformCounts = new Map<string, number>();
   for (const t of titles) {
-    for (const g of (t.genres ?? "").split(",").map((s) => s.trim()).filter(Boolean)) {
+    for (const g of splitGenres(t.genres)) {
       genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1);
     }
     platformCounts.set(t.platform, (platformCounts.get(t.platform) ?? 0) + 1);

@@ -11,6 +11,7 @@ import RecommendationsCard from "@/components/RecommendationsCard";
 import RecommendationsRow from "@/components/RecommendationsRow";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
 import { normalizeTitle } from "@/lib/title-key";
+import { splitGenres } from "@/lib/genres";
 import { useTmdbSearch } from "@/lib/use-tmdb-search";
 import type { WatchMode } from "@/lib/watch-mode";
 import { useEditMode } from "@/lib/edit-mode";
@@ -196,7 +197,7 @@ export default function Catalog({
       if (t.inWatchlist !== (mode === "watchlist")) return false;
       if (platform && t.platform !== platform) return false;
       if (mediaType && t.mediaType !== mediaType) return false;
-      if (genre && !(t.genres ?? "").split(",").map((g) => g.trim()).includes(genre)) {
+      if (genre && !splitGenres(t.genres).includes(genre)) {
         return false;
       }
       // In watchlist mode the query drives the TMDB search below instead of
@@ -212,7 +213,7 @@ export default function Catalog({
   const availableGenres = useMemo(() => {
     const set = new Set<string>();
     for (const t of catalog) {
-      for (const g of (t.genres ?? "").split(",").map((g) => g.trim()).filter(Boolean)) {
+      for (const g of splitGenres(t.genres)) {
         set.add(g);
       }
     }
