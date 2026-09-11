@@ -309,7 +309,7 @@ export default function FilterBar({
   }, [searchExpanded]);
 
   return (
-    <div className="sticky top-0 z-10 -mx-3 mb-6 space-y-3 bg-background/95 px-3 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-5 sm:px-5">
+    <div className="sticky top-0 z-10 -mx-3 mb-[1.05rem] space-y-3 bg-background/95 px-3 pb-[0.7rem] pt-[calc(0.7rem+env(safe-area-inset-top))] backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-5 sm:px-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="hidden sm:block">
           <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
