@@ -284,15 +284,15 @@ export default function FilterBar({
     }
   }, [searchExpanded]);
 
-  // Tab jumps straight to the search field, like a keyboard shortcut, rather
-  // than following the normal tab order. It only fires when nothing else is
-  // deliberately focused (typing in a field, a button, a menu, a dialog) so
-  // it never hijacks focus that is already going somewhere on purpose.
+  // Tab always jumps to (or stays on) the search field, like a keyboard
+  // shortcut, instead of following the normal tab order — every press, not
+  // just the first one starting from nothing focused. The one exception is
+  // a dialog or menu open on top of the page: Tab has to keep doing its
+  // normal job inside that (moving between its own fields/buttons) rather
+  // than being hijacked out to a search field the user can't even see.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "Tab" || e.altKey || e.ctrlKey || e.metaKey) return;
-      const active = document.activeElement;
-      if (active && active !== document.body && active !== document.documentElement) return;
       if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) return;
 
       if (window.innerWidth < 640) {
@@ -386,7 +386,12 @@ export default function FilterBar({
               </button>
 
               {desktopFilterOpen && (
-                <div className="absolute right-0 top-full z-20 mt-2 w-56 space-y-4 rounded-2xl border border-white/10 bg-surface p-4 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]">
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Filters and sort"
+                  className="absolute right-0 top-full z-20 mt-2 w-56 space-y-4 rounded-2xl border border-white/10 bg-surface p-4 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
+                >
                   <div className="space-y-2">
                     <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
                       Platform
@@ -591,9 +596,14 @@ export default function FilterBar({
 
       {filtersOpen && mounted && createPortal(
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/70 backdrop-blur-sm sm:hidden">
-          <div className="max-h-[85vh] w-full max-w-md space-y-5 overflow-y-auto rounded-t-3xl border border-white/10 bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.7)]">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Filters and sort"
+            className="max-h-[85vh] w-full max-w-md space-y-5 overflow-y-auto rounded-t-3xl border border-white/10 bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.7)]"
+          >
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Filtri e ordinamento</h2>
+              <h2 className="text-sm font-semibold">Filters and sort</h2>
               <button
                 type="button"
                 onClick={() => setFiltersOpen(false)}
@@ -613,7 +623,7 @@ export default function FilterBar({
 
             <div className="space-y-2">
               <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
-                Tipo
+                Type
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {MEDIA_TYPES.map((opt) => {
@@ -704,7 +714,7 @@ export default function FilterBar({
                 onClick={() => setFiltersOpen(false)}
                 className="flex-1 rounded-xl bg-foreground py-2.5 text-sm font-semibold text-background hover:opacity-90"
               >
-                Applica
+                Apply
               </button>
             </div>
           </div>

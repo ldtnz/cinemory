@@ -134,6 +134,9 @@ export default function RecommendationsModal({
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Recommended for you"
         className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-white/10 bg-surface shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
         onClick={(e) => e.stopPropagation()}
       >

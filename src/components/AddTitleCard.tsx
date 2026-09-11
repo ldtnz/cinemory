@@ -218,6 +218,9 @@ export default function AddTitleCard({
       {open && mounted && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm">
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add title"
             className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-surface shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] transition-[max-width] duration-200 ${
               step === "confirm" ? "max-w-lg" : "max-w-3xl"
             }`}

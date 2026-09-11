@@ -33,7 +33,13 @@ export default function TrailerModal({
       className="fixed inset-0 z-[60] flex items-center justify-center bg-background/90 p-4"
       onClick={onClose}
     >
-      <div className="w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${title} trailer`}
+        className="w-full max-w-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="mb-2 flex items-center justify-between gap-3">
           <p className="truncate text-sm font-medium text-white">{title}</p>
           <button
