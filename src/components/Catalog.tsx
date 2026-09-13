@@ -5,6 +5,7 @@ import type { Title } from "@prisma/client";
 import FilterBar from "@/components/FilterBar";
 import TitleCard from "@/components/TitleCard";
 import AddTitleCard from "@/components/AddTitleCard";
+import AiSearchHint from "@/components/AiSearchHint";
 import DiscoverCard from "@/components/DiscoverCard";
 import ImportHistory from "@/components/ImportHistory";
 import RecommendationsCard from "@/components/RecommendationsCard";
@@ -12,6 +13,7 @@ import RecommendationsRow from "@/components/RecommendationsRow";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
 import { normalizeTitle } from "@/lib/title-key";
 import { splitGenres } from "@/lib/genres";
+import { isValidPlatform } from "@/lib/platforms";
 import { useTmdbSearch } from "@/lib/use-tmdb-search";
 import type { WatchMode } from "@/lib/watch-mode";
 import { useEditMode } from "@/lib/edit-mode";
@@ -21,9 +23,13 @@ const MAX_SHOWN = 1500;
 export default function Catalog({
   initialTitles,
   recommendations = [],
+  aiSearchEnabled = false,
 }: {
   initialTitles: Title[];
   recommendations?: EnrichedRecommendation[];
+  /** Same gate as recommendations — ANTHROPIC_API_KEY configured — since the
+   *  "search with AI" hint calls Claude too. */
+  aiSearchEnabled?: boolean;
 }) {
   // The catalog lives in component state (not just as a prop) so new titles
   // can be added without reloading the page.
@@ -46,6 +52,19 @@ export default function Catalog({
   const [mediaType, setMediaType] = useState("");
   const [genre, setGenre] = useState("");
   const [sort, setSort] = useState("recent");
+
+  // Tracks the "search with AI" (see AiSearchHint) attempt for whatever
+  // query it was run against. Keyed by that query rather than cleared on
+  // every keystroke via an effect: typing further, or switching mode, just
+  // makes trimmedQuery below stop matching it, which is enough to treat it
+  // as stale without an explicit reset.
+  const [aiSearchAttempt, setAiSearchAttempt] = useState<{
+    query: string;
+    status: "loading" | "error" | "done";
+    keywords: string[];
+  } | null>(null);
+  const trimmedQuery = deferredQ.trim();
+  const aiSearch = aiSearchAttempt?.query === trimmedQuery ? aiSearchAttempt : null;
 
   const editing = useEditMode();
 
@@ -200,12 +219,21 @@ export default function Catalog({
       if (genre && !splitGenres(t.genres).includes(genre)) {
         return false;
       }
+      // A successful AI search replaces the plain title-substring match
+      // below with its own keywords, checked against the overview too —
+      // the whole point of asking Claude was that the substring match on
+      // the title alone had already come up empty.
+      if (mode === "watched" && aiSearch?.status === "done") {
+        if (aiSearch.keywords.length === 0) return true;
+        const haystack = `${t.title} ${t.overview ?? ""}`.toLowerCase();
+        return aiSearch.keywords.some((k) => haystack.includes(k.toLowerCase()));
+      }
       // In watchlist mode the query drives the TMDB search below instead of
       // filtering the saved list, so it is deliberately ignored here.
       if (mode === "watched" && query && !t.searchTitle.includes(query)) return false;
       return true;
     });
-  }, [catalog, deferredQ, mode, platform, mediaType, genre]);
+  }, [catalog, deferredQ, mode, platform, mediaType, genre, aiSearch]);
 
   // Every genre actually present in the catalog, alphabetized — not a fixed
   // list like platforms, since which genres exist depends entirely on what
@@ -219,6 +247,45 @@ export default function Catalog({
     }
     return [...set].sort((a, b) => a.localeCompare(b));
   }, [catalog]);
+
+  // Genre/platform/mediaType picked up from an AI search are applied through
+  // the normal filter state above (setGenre/setPlatform/setMediaType) — this
+  // only needs to hand the query to Claude and store the keywords it comes
+  // back with.
+  const runAiSearch = useCallback(
+    async (query: string) => {
+      setAiSearchAttempt({ query, status: "loading", keywords: [] });
+      try {
+        const res = await fetch("/api/search/ai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query, availableGenres }),
+        });
+        if (!res.ok) {
+          setAiSearchAttempt({ query, status: "error", keywords: [] });
+          return;
+        }
+        const data = (await res.json()) as {
+          genre: string | null;
+          platform: string | null;
+          mediaType: string | null;
+          keywords: string[];
+        };
+        if (data.genre) {
+          const match = availableGenres.find((g) => g.toLowerCase() === data.genre!.toLowerCase());
+          if (match) setGenre(match);
+        }
+        if (data.platform && isValidPlatform(data.platform)) setPlatform(data.platform);
+        if (data.mediaType === "Movie" || data.mediaType === "Series") {
+          setMediaType(data.mediaType);
+        }
+        setAiSearchAttempt({ query, status: "done", keywords: data.keywords });
+      } catch {
+        setAiSearchAttempt({ query, status: "error", keywords: [] });
+      }
+    },
+    [availableGenres],
+  );
 
   // What is already watched must not come back as something to add. Matched
   // on TMDB id where there is one, and on the normalized title otherwise —
@@ -292,6 +359,11 @@ export default function Catalog({
   }, [filtered, sort]);
 
   const shownTitles = titles.slice(0, MAX_SHOWN);
+  // Where the AiSearchHint tooltip can appear: Watched only (Watchlist's
+  // search already goes straight to TMDB, so "no results" doesn't happen
+  // there the same way), a non-empty query, and nothing found for it.
+  const showAiSearchHint =
+    aiSearchEnabled && mode === "watched" && trimmedQuery !== "" && shownTitles.length === 0;
   // With a query, the watchlist grid becomes TMDB results to add rather than
   // the saved list.
   const discoverMode = mode === "watchlist" && discoverQuery !== "";
@@ -360,6 +432,14 @@ export default function Catalog({
           savedTitleKeys={savedKeys.titleKeys}
           onAdded={handleAdded}
           onDismissed={handleDismissed}
+        />
+      )}
+
+      {showAiSearchHint && (
+        <AiSearchHint
+          status={aiSearch?.status === "loading" || aiSearch?.status === "error" ? aiSearch.status : "idle"}
+          tried={aiSearch?.status === "done"}
+          onSearch={() => runAiSearch(trimmedQuery)}
         />
       )}
 

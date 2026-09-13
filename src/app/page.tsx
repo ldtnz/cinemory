@@ -74,5 +74,11 @@ export default async function Home({
   // busy day of page loads still only costs one sweep.
   ensureFreshSeasonCheckInBackground();
 
-  return <Catalog initialTitles={titles} recommendations={recommendations?.titles ?? []} />;
+  return (
+    <Catalog
+      initialTitles={titles}
+      recommendations={recommendations?.titles ?? []}
+      aiSearchEnabled={isAnthropicConfigured()}
+    />
+  );
 }
