@@ -8,6 +8,7 @@ import type { Title } from "@prisma/client";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import PlatformPicker from "@/components/PlatformPicker";
 import { useTmdbSearch } from "@/lib/use-tmdb-search";
+import { normalizeTitle } from "@/lib/title-key";
 import { toDateInputValue, fromDateInputValue } from "@/lib/date-input";
 
 /** "2022-03-01" -> "1 March 2022". Empty string when TMDB has no date. */
@@ -38,9 +39,16 @@ type ItemStatus = "adding" | "added" | "duplicate" | "error";
  */
 export default function AddTitleCard({
   initialQuery,
+  savedTmdbIds,
+  savedTitleKeys,
   onAdded,
 }: {
   initialQuery: string;
+  /** Both halves of the catalog: adding something already on the watchlist
+   *  is refused the same way adding something already watched is, so a
+   *  result counts as "already there" either way. */
+  savedTmdbIds: Set<number>;
+  savedTitleKeys: Set<string>;
   onAdded: (title: Title) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -195,6 +203,15 @@ export default function AddTitleCard({
     }
   }
 
+  // Matched on the TMDB id where there is one and on the normalized title
+  // otherwise — the same pair /api/titles checks before refusing a duplicate,
+  // so what is marked here is exactly what would come back as one.
+  function alreadyInCatalog(c: TmdbCandidate): boolean {
+    return (
+      (c.tmdbId > 0 && savedTmdbIds.has(c.tmdbId)) || savedTitleKeys.has(normalizeTitle(c.title))
+    );
+  }
+
   const trimmedQuery = query.trim();
   const selectedList = [...selected.entries()];
   const failedCount = selectedList.filter(([key]) => itemStatus.get(key) === "error").length;
@@ -283,14 +300,23 @@ export default function AddTitleCard({
                         const data = formatReleaseDate(c.dataUscita);
                         const key = candidateKey(c);
                         const isSelected = selected.has(key);
+                        const inCatalog = alreadyInCatalog(c);
                         return (
                           <li key={key}>
                             <button
                               type="button"
                               onClick={() => toggleSelect(c)}
                               aria-pressed={isSelected}
-                              className={`flex w-full gap-3 rounded-2xl p-2.5 text-left outline-none ring-white/40 transition-colors hover:bg-surface-2/70 hover:ring-2 ${
-                                isSelected ? "bg-surface-2 ring-2 ring-accent-2/60" : "bg-surface-2"
+                              // Selecting it could only end in the "already in
+                              // catalog" outcome the overlay is announcing.
+                              disabled={inCatalog}
+                              aria-label={inCatalog ? `${c.title} is already in your catalog` : undefined}
+                              className={`flex w-full gap-3 rounded-2xl bg-surface-2 p-2.5 text-left outline-none ring-white/40 transition-colors ${
+                                inCatalog
+                                  ? "cursor-default"
+                                  : `hover:bg-surface-2/70 hover:ring-2 ${
+                                      isSelected ? "ring-2 ring-accent-2/60" : ""
+                                    }`
                               }`}
                             >
                               <div className="relative h-[81px] w-[54px] flex-none overflow-hidden rounded-lg bg-surface">
@@ -308,25 +334,45 @@ export default function AddTitleCard({
                                     no poster
                                   </div>
                                 )}
-                                {/* Checkbox affordance: makes it read as
-                                    "select", not "open", at a glance. */}
-                                <span
-                                  className={`absolute left-1 top-1 flex h-4 w-4 items-center justify-center rounded-full border ${
-                                    isSelected
-                                      ? "border-accent-2 bg-accent-2 text-background"
-                                      : "border-white/40 bg-black/40"
-                                  }`}
-                                >
-                                  {isSelected && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
-                                </span>
+                                {inCatalog ? (
+                                  /* Covers the poster rather than sitting in a
+                                     corner: it is the reason the row cannot be
+                                     picked, so it should be the first thing
+                                     read, not a detail to notice. */
+                                  <span className="absolute inset-0 flex items-center justify-center bg-black/70">
+                                    <Check className="h-5 w-5 text-accent-2" strokeWidth={2.4} />
+                                  </span>
+                                ) : (
+                                  /* Checkbox affordance: makes it read as
+                                     "select", not "open", at a glance. */
+                                  <span
+                                    className={`absolute left-1 top-1 flex h-4 w-4 items-center justify-center rounded-full border ${
+                                      isSelected
+                                        ? "border-accent-2 bg-accent-2 text-background"
+                                        : "border-white/40 bg-black/40"
+                                    }`}
+                                  >
+                                    {isSelected && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
+                                  </span>
+                                )}
                               </div>
 
                               <div className="min-w-0 flex-1 space-y-1 py-0.5">
-                                <p className="line-clamp-1 text-sm font-medium text-foreground">
+                                <p
+                                  className={`line-clamp-1 text-sm font-medium ${
+                                    inCatalog ? "text-muted" : "text-foreground"
+                                  }`}
+                                >
                                   {c.title}
                                 </p>
 
                                 <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
+                                  {inCatalog && (
+                                    <>
+                                      <span className="font-medium text-accent-2">In catalog</span>
+                                      <span aria-hidden>·</span>
+                                    </>
+                                  )}
                                   <span>{c.mediaType}</span>
                                   {data && (
                                     <>

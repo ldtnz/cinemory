@@ -459,7 +459,12 @@ export default function Catalog({
       ) : (
         <div className="title-grid grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] sm:gap-4">
           {deferredQ.trim() && (
-            <AddTitleCard initialQuery={deferredQ.trim()} onAdded={handleAdded} />
+            <AddTitleCard
+              initialQuery={deferredQ.trim()}
+              savedTmdbIds={savedKeys.tmdbIds}
+              savedTitleKeys={savedKeys.titleKeys}
+              onAdded={handleAdded}
+            />
           )}
           {/* Only in the unfiltered default view — a taste-based suggestion
               tile would be out of place mixed into filtered/search results. */}
