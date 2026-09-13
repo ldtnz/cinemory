@@ -71,9 +71,14 @@ export default function RecommendationsCard({
         // (see globals.css) — it has no context menu of its own.
         className="title-card flex aspect-[2/3] flex-col overflow-hidden rounded-2xl bg-surface-2 p-2 text-left transition-colors hover:bg-surface-2/70"
       >
-        <div className="flex items-center justify-center gap-1.5 px-1 pb-2 pt-1 text-center">
+        {/* Short enough to stay on one line: this tile is a third of the
+            screen wide on a phone, where "Recommended for you" wrapped. The
+            modal it opens carries the full wording. */}
+        <div className="flex items-center justify-center gap-1 px-0.5 pb-2 pt-1 text-center">
           <Sparkles className="h-3.5 w-3.5 flex-none text-accent-ai" strokeWidth={1.8} />
-          <span className="text-[11px] font-semibold leading-tight">Recommended for you</span>
+          <span className="whitespace-nowrap text-[11px] font-semibold leading-tight">
+            AI picks
+          </span>
         </div>
         <div
           className={`grid flex-1 grid-cols-2 grid-rows-2 gap-1.5 transition-opacity duration-300 ${

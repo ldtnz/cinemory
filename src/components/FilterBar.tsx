@@ -590,14 +590,19 @@ export default function FilterBar({
             </Link>
           </div>
 
-          {/* Anchored to the whole row rather than to the field itself: the
-              field lives in an overflow-hidden box (it animates its width
-              open and shut), which would clip anything hanging below it. */}
+          {/* Hung off the whole row rather than off the field itself, which
+              lives in an overflow-hidden box (it animates its width open and
+              shut) that would clip anything below it. The bubble therefore
+              starts at the row's left edge and the arrow is walked over to
+              the middle of the field instead — same result, no clipping, and
+              it cannot spill off a narrow screen the way a bubble centred on
+              a 112px-wide field would. */}
           {aiSearchHint && onAiSearch && (
             <AiSearchHint
               {...aiSearchHint}
               onSearch={onAiSearch}
               className="absolute inset-x-0 top-full z-20 mt-2"
+              arrowOffset={searchExpanded ? GAP + expandedInputWidth / 2 : undefined}
             />
           )}
         </div>
