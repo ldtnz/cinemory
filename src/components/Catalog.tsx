@@ -10,6 +10,7 @@ import ImportHistory from "@/components/ImportHistory";
 import RecommendationsCard from "@/components/RecommendationsCard";
 import RecommendationsRow from "@/components/RecommendationsRow";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
+import type { TmdbCandidate } from "@/lib/tmdb";
 import { normalizeTitle } from "@/lib/title-key";
 import { splitGenres } from "@/lib/genres";
 import { useTmdbSearch } from "@/lib/use-tmdb-search";
@@ -52,19 +53,24 @@ export default function Catalog({
   const [sort, setSort] = useState("recent");
 
   // Tracks the "search with AI" (see AiSearchHint) attempt for whatever
-  // query it was run against. Keyed by that query rather than cleared on
-  // every keystroke via an effect: typing further just makes trimmedQuery
-  // below stop matching it, which is enough to treat it as stale without an
-  // explicit reset.
+  // query and mode it was run against. Keyed by those rather than cleared on
+  // every keystroke via an effect: typing further, or switching halves, just
+  // makes the pair below stop matching, which is enough to treat it as stale
+  // without an explicit reset.
   const [aiSearchAttempt, setAiSearchAttempt] = useState<{
     query: string;
+    mode: WatchMode;
     status: "loading" | "error" | "done";
-    /** Catalog ids Claude picked out — the whole result, since it matches
-     *  against what it knows about the works rather than their stored text. */
+    /** Watched: the catalog rows Claude picked out. */
     ids: number[];
+    /** To watch: the same answer resolved through TMDB, ready to add. */
+    candidates: TmdbCandidate[];
   } | null>(null);
   const trimmedQuery = deferredQ.trim();
-  const aiSearch = aiSearchAttempt?.query === trimmedQuery ? aiSearchAttempt : null;
+  const aiSearch =
+    aiSearchAttempt?.query === trimmedQuery && aiSearchAttempt.mode === mode
+      ? aiSearchAttempt
+      : null;
 
   const editing = useEditMode();
 
@@ -247,24 +253,33 @@ export default function Catalog({
   // Deliberately leaves the filter pickers alone: having a search quietly
   // switch the platform or genre chips underneath you is disorienting, and
   // it also narrows whatever you search next.
-  const runAiSearch = useCallback(async (query: string) => {
-    setAiSearchAttempt({ query, status: "loading", ids: [] });
-    try {
-      const res = await fetch("/api/search/ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
-      });
-      if (!res.ok) {
-        setAiSearchAttempt({ query, status: "error", ids: [] });
-        return;
+  const runAiSearch = useCallback(
+    async (query: string) => {
+      const pending = { query, mode, ids: [], candidates: [] };
+      setAiSearchAttempt({ ...pending, status: "loading" });
+      try {
+        const res = await fetch("/api/search/ai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query, mode }),
+        });
+        if (!res.ok) {
+          setAiSearchAttempt({ ...pending, status: "error" });
+          return;
+        }
+        const data = (await res.json()) as { ids?: number[]; candidates?: TmdbCandidate[] };
+        setAiSearchAttempt({
+          ...pending,
+          status: "done",
+          ids: data.ids ?? [],
+          candidates: data.candidates ?? [],
+        });
+      } catch {
+        setAiSearchAttempt({ ...pending, status: "error" });
       }
-      const { ids } = (await res.json()) as { ids: number[] };
-      setAiSearchAttempt({ query, status: "done", ids });
-    } catch {
-      setAiSearchAttempt({ query, status: "error", ids: [] });
-    }
-  }, []);
+    },
+    [mode],
+  );
 
   // What is already watched must not come back as something to add. Matched
   // on TMDB id where there is one, and on the normalized title otherwise —
@@ -300,15 +315,17 @@ export default function Catalog({
     return { tmdbIds, titleKeys };
   }, [catalog]);
 
-  const discoverResults = useMemo(
-    () =>
-      discovered.filter(
-        (c) =>
-          !watchedKeys.tmdbIds.has(c.tmdbId) &&
-          !watchedKeys.titleKeys.has(normalizeTitle(c.title)),
-      ),
-    [discovered, watchedKeys],
-  );
+  // An AI search stands in for the TMDB results the typed query produced —
+  // the point of running it was that those were not what was being looked for.
+  const aiCandidates =
+    mode === "watchlist" && aiSearch?.status === "done" ? aiSearch.candidates : null;
+  const discoverResults = useMemo(() => {
+    const source = aiCandidates ?? discovered;
+    return source.filter(
+      (c) =>
+        !watchedKeys.tmdbIds.has(c.tmdbId) && !watchedKeys.titleKeys.has(normalizeTitle(c.title)),
+    );
+  }, [discovered, watchedKeys, aiCandidates]);
 
   const titles = useMemo(() => {
     const arr = [...filtered];
@@ -338,11 +355,20 @@ export default function Catalog({
   }, [filtered, sort]);
 
   const shownTitles = titles.slice(0, MAX_SHOWN);
-  // Where the AiSearchHint tooltip can appear: Watched only (Watchlist's
-  // search already goes straight to TMDB, so "no results" doesn't happen
-  // there the same way), a non-empty query, and nothing found for it.
+  // Under Watched it is a way out of a dead end, so it only appears once the
+  // title match has come up empty. Under "To watch" the typed query always
+  // returns something from TMDB — just often not what was meant — so there it
+  // stands as an offer from the moment there is a query at all.
   const showAiSearchHint =
-    aiSearchEnabled && mode === "watched" && trimmedQuery !== "" && shownTitles.length === 0;
+    aiSearchEnabled &&
+    trimmedQuery !== "" &&
+    (mode === "watchlist" || shownTitles.length === 0);
+  // Ran and came back with nothing to show — which under "To watch" is not the
+  // same as having run at all, since there the offer stays up over its own
+  // results and clicking it again is a legitimate retry.
+  const aiFoundNothing =
+    aiSearch?.status === "done" &&
+    (mode === "watchlist" ? discoverResults.length === 0 : shownTitles.length === 0);
   // With a query, the watchlist grid becomes TMDB results to add rather than
   // the saved list.
   const discoverMode = mode === "watchlist" && discoverQuery !== "";
@@ -405,7 +431,7 @@ export default function Catalog({
                   aiSearch?.status === "loading" || aiSearch?.status === "error"
                     ? aiSearch.status
                     : "idle",
-                tried: aiSearch?.status === "done",
+                tried: aiFoundNothing === true,
               }
             : null
         }
@@ -433,7 +459,7 @@ export default function Catalog({
           <p className="mt-16 text-center text-muted">{discoverError}</p>
         ) : discoverResults.length === 0 ? (
           <p className="mt-16 text-center text-muted">
-            {discovered.length > 0
+            {(aiCandidates ?? discovered).length > 0
               ? "Everything matching this search is already in your watched list."
               : "No results. Try another title."}
           </p>

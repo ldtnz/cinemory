@@ -67,8 +67,8 @@ export default function AiSearchHint({
             onClick={onSearch}
             className={`${bubble} font-medium text-foreground transition-colors hover:bg-[#26262a]`}
           >
-            <Sparkles className="h-3.5 w-3.5 flex-none text-accent-2" strokeWidth={1.8} />
-            No matches — search with AI
+            <Sparkles className="h-3.5 w-3.5 flex-none text-accent-ai" strokeWidth={1.8} />
+            Search with AI
           </button>
         )}
       </div>

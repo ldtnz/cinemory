@@ -169,7 +169,7 @@ export default function RecommendationsRow({
           opens on a card — see globals.css. */}
       <section className="recommendations-row mb-4 rounded-2xl bg-surface p-3 sm:mb-6 sm:p-4">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-3.5 w-3.5 flex-none text-amber-400" strokeWidth={1.8} />
+          <Sparkles className="h-3.5 w-3.5 flex-none text-accent-ai" strokeWidth={1.8} />
           <h2 className="text-[11px] font-semibold uppercase tracking-wide">
             Recommended for you
           </h2>

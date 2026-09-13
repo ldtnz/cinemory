@@ -8,6 +8,10 @@
   --muted: #8b8b90;
   --accent: #6b7280;
   --accent-2: #22c55e;
+  /* Marks everything Claude does — the recommendations and the AI search.
+     Magenta, pulled back from a neon hue 300 to something that sits in a
+     near-black, mostly grey UI without glowing out of it. */
+  --accent-ai: #df68df;
 }
 
 @theme inline {
@@ -18,6 +22,7 @@
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-accent-2: var(--accent-2);
+  --color-accent-ai: var(--accent-ai);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

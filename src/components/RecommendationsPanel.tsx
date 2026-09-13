@@ -65,7 +65,7 @@ export default function RecommendationsPanel({
   return (
     <section className="mb-8 rounded-2xl bg-surface p-4">
       <h2 className="flex items-center gap-1.5 text-sm font-semibold">
-        <Sparkles className="h-4 w-4 text-amber-400" strokeWidth={1.8} />
+        <Sparkles className="h-4 w-4 text-accent-ai" strokeWidth={1.8} />
         AI recommendations
       </h2>
       <p className="mt-1 mb-4 text-xs text-muted">

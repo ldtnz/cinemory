@@ -72,7 +72,7 @@ export default function RecommendationsCard({
         className="title-card flex aspect-[2/3] flex-col overflow-hidden rounded-2xl bg-surface-2 p-2 text-left transition-colors hover:bg-surface-2/70"
       >
         <div className="flex items-center justify-center gap-1.5 px-1 pb-2 pt-1 text-center">
-          <Sparkles className="h-3.5 w-3.5 flex-none text-amber-400" strokeWidth={1.8} />
+          <Sparkles className="h-3.5 w-3.5 flex-none text-accent-ai" strokeWidth={1.8} />
           <span className="text-[11px] font-semibold leading-tight">Recommended for you</span>
         </div>
         <div
