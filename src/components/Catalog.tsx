@@ -5,7 +5,6 @@ import type { Title } from "@prisma/client";
 import FilterBar from "@/components/FilterBar";
 import TitleCard from "@/components/TitleCard";
 import AddTitleCard from "@/components/AddTitleCard";
-import AiSearchHint from "@/components/AiSearchHint";
 import DiscoverCard from "@/components/DiscoverCard";
 import ImportHistory from "@/components/ImportHistory";
 import RecommendationsCard from "@/components/RecommendationsCard";
@@ -13,7 +12,6 @@ import RecommendationsRow from "@/components/RecommendationsRow";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
 import { normalizeTitle } from "@/lib/title-key";
 import { splitGenres } from "@/lib/genres";
-import { isValidPlatform } from "@/lib/platforms";
 import { useTmdbSearch } from "@/lib/use-tmdb-search";
 import type { WatchMode } from "@/lib/watch-mode";
 import { useEditMode } from "@/lib/edit-mode";
@@ -55,13 +53,15 @@ export default function Catalog({
 
   // Tracks the "search with AI" (see AiSearchHint) attempt for whatever
   // query it was run against. Keyed by that query rather than cleared on
-  // every keystroke via an effect: typing further, or switching mode, just
-  // makes trimmedQuery below stop matching it, which is enough to treat it
-  // as stale without an explicit reset.
+  // every keystroke via an effect: typing further just makes trimmedQuery
+  // below stop matching it, which is enough to treat it as stale without an
+  // explicit reset.
   const [aiSearchAttempt, setAiSearchAttempt] = useState<{
     query: string;
     status: "loading" | "error" | "done";
-    keywords: string[];
+    /** Catalog ids Claude picked out — the whole result, since it matches
+     *  against what it knows about the works rather than their stored text. */
+    ids: number[];
   } | null>(null);
   const trimmedQuery = deferredQ.trim();
   const aiSearch = aiSearchAttempt?.query === trimmedQuery ? aiSearchAttempt : null;
@@ -212,6 +212,10 @@ export default function Catalog({
 
   const filtered = useMemo(() => {
     const query = deferredQ.trim().toLowerCase();
+    // A finished AI search stands in for the title match below: it already
+    // decided which rows the query is about, and by more than their text.
+    const aiIds =
+      mode === "watched" && aiSearch?.status === "done" ? new Set(aiSearch.ids) : null;
     return catalog.filter((t) => {
       if (t.inWatchlist !== (mode === "watchlist")) return false;
       if (platform && t.platform !== platform) return false;
@@ -219,15 +223,7 @@ export default function Catalog({
       if (genre && !splitGenres(t.genres).includes(genre)) {
         return false;
       }
-      // A successful AI search replaces the plain title-substring match
-      // below with its own keywords, checked against the overview too —
-      // the whole point of asking Claude was that the substring match on
-      // the title alone had already come up empty.
-      if (mode === "watched" && aiSearch?.status === "done") {
-        if (aiSearch.keywords.length === 0) return true;
-        const haystack = `${t.title} ${t.overview ?? ""}`.toLowerCase();
-        return aiSearch.keywords.some((k) => haystack.includes(k.toLowerCase()));
-      }
+      if (aiIds) return aiIds.has(t.id);
       // In watchlist mode the query drives the TMDB search below instead of
       // filtering the saved list, so it is deliberately ignored here.
       if (mode === "watched" && query && !t.searchTitle.includes(query)) return false;
@@ -248,44 +244,27 @@ export default function Catalog({
     return [...set].sort((a, b) => a.localeCompare(b));
   }, [catalog]);
 
-  // Genre/platform/mediaType picked up from an AI search are applied through
-  // the normal filter state above (setGenre/setPlatform/setMediaType) — this
-  // only needs to hand the query to Claude and store the keywords it comes
-  // back with.
-  const runAiSearch = useCallback(
-    async (query: string) => {
-      setAiSearchAttempt({ query, status: "loading", keywords: [] });
-      try {
-        const res = await fetch("/api/search/ai", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, availableGenres }),
-        });
-        if (!res.ok) {
-          setAiSearchAttempt({ query, status: "error", keywords: [] });
-          return;
-        }
-        const data = (await res.json()) as {
-          genre: string | null;
-          platform: string | null;
-          mediaType: string | null;
-          keywords: string[];
-        };
-        if (data.genre) {
-          const match = availableGenres.find((g) => g.toLowerCase() === data.genre!.toLowerCase());
-          if (match) setGenre(match);
-        }
-        if (data.platform && isValidPlatform(data.platform)) setPlatform(data.platform);
-        if (data.mediaType === "Movie" || data.mediaType === "Series") {
-          setMediaType(data.mediaType);
-        }
-        setAiSearchAttempt({ query, status: "done", keywords: data.keywords });
-      } catch {
-        setAiSearchAttempt({ query, status: "error", keywords: [] });
+  // Deliberately leaves the filter pickers alone: having a search quietly
+  // switch the platform or genre chips underneath you is disorienting, and
+  // it also narrows whatever you search next.
+  const runAiSearch = useCallback(async (query: string) => {
+    setAiSearchAttempt({ query, status: "loading", ids: [] });
+    try {
+      const res = await fetch("/api/search/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+      if (!res.ok) {
+        setAiSearchAttempt({ query, status: "error", ids: [] });
+        return;
       }
-    },
-    [availableGenres],
-  );
+      const { ids } = (await res.json()) as { ids: number[] };
+      setAiSearchAttempt({ query, status: "done", ids });
+    } catch {
+      setAiSearchAttempt({ query, status: "error", ids: [] });
+    }
+  }, []);
 
   // What is already watched must not come back as something to add. Matched
   // on TMDB id where there is one, and on the normalized title otherwise —
@@ -419,6 +398,18 @@ export default function Catalog({
         availableGenres={availableGenres}
         sort={sort}
         onSortChange={setSort}
+        aiSearchHint={
+          showAiSearchHint
+            ? {
+                status:
+                  aiSearch?.status === "loading" || aiSearch?.status === "error"
+                    ? aiSearch.status
+                    : "idle",
+                tried: aiSearch?.status === "done",
+              }
+            : null
+        }
+        onAiSearch={() => runAiSearch(trimmedQuery)}
       />
 
       {/* "To watch" gets the recommendations as a strip you add from, not as
@@ -432,14 +423,6 @@ export default function Catalog({
           savedTitleKeys={savedKeys.titleKeys}
           onAdded={handleAdded}
           onDismissed={handleDismissed}
-        />
-      )}
-
-      {showAiSearchHint && (
-        <AiSearchHint
-          status={aiSearch?.status === "loading" || aiSearch?.status === "error" ? aiSearch.status : "idle"}
-          tried={aiSearch?.status === "done"}
-          onSearch={() => runAiSearch(trimmedQuery)}
         />
       )}
 

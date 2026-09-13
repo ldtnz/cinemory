@@ -98,6 +98,37 @@ body:has(.title-grid--context-open) .recommendations-row {
   pointer-events: none;
 }
 
+/* The tooltip under the search field (AiSearchHint): a short rise and fade,
+   so it reads as dropping out of the field rather than blinking into place. */
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.tooltip-in {
+  animation: tooltip-in 150ms ease-out;
+}
+/* The arrow carries its own centering transform, which the keyframes above
+   would otherwise overwrite halfway through. */
+svg.tooltip-in {
+  animation-name: tooltip-in-arrow;
+}
+@keyframes tooltip-in-arrow {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+}
+
 /* Scrollbars hidden everywhere, scrolling still works. */
 * {
   scrollbar-width: none;

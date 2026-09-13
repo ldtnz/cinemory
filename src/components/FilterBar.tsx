@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { WATCH_MODES, type WatchMode } from "@/lib/watch-mode";
 import PlatformPicker from "@/components/PlatformPicker";
+import AiSearchHint, { type AiSearchHintState } from "@/components/AiSearchHint";
 
 const MEDIA_TYPES: { value: string; label: string }[] = [
   { value: "Movie", label: "Movie" },
@@ -174,6 +175,8 @@ export default function FilterBar({
   sort,
   onSortChange,
   countLabel,
+  aiSearchHint = null,
+  onAiSearch,
 }: {
   total: number;
   filteredTotal: number;
@@ -196,6 +199,10 @@ export default function FilterBar({
   availableGenres: string[];
   sort: string;
   onSortChange: (v: string) => void;
+  /** Null hides the "search with AI" tooltip; it hangs off the search field
+   *  itself, which is why it is rendered here and not next to the results. */
+  aiSearchHint?: AiSearchHintState | null;
+  onAiSearch?: () => void;
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [desktopFilterOpen, setDesktopFilterOpen] = useState(false);
@@ -369,6 +376,13 @@ export default function FilterBar({
                   <ClearIcon />
                 </button>
               )}
+              {aiSearchHint && onAiSearch && (
+                <AiSearchHint
+                  {...aiSearchHint}
+                  onSearch={onAiSearch}
+                  className="absolute inset-x-0 top-full z-20 mt-2"
+                />
+              )}
             </div>
 
             <div ref={desktopFilterRef} className="relative">
@@ -472,7 +486,7 @@ export default function FilterBar({
         {/* Mobile: one compact row; the search button expands into a text
             field, hiding the title and count; filters and sorting live in a
             modal */}
-        <div ref={mobileRowRef} className="flex h-9 items-center gap-2 sm:hidden">
+        <div ref={mobileRowRef} className="relative flex h-9 items-center gap-2 sm:hidden">
           {/* Title + count: shrinks and fades when search opens.
               Width animated in pixels (measured at runtime) rather than with
               flex-grow/flex-basis, which snaps instead of sliding on some
@@ -575,6 +589,17 @@ export default function FilterBar({
               <Settings className="h-4 w-4" strokeWidth={1.8} />
             </Link>
           </div>
+
+          {/* Anchored to the whole row rather than to the field itself: the
+              field lives in an overflow-hidden box (it animates its width
+              open and shut), which would clip anything hanging below it. */}
+          {aiSearchHint && onAiSearch && (
+            <AiSearchHint
+              {...aiSearchHint}
+              onSearch={onAiSearch}
+              className="absolute inset-x-0 top-full z-20 mt-2"
+            />
+          )}
         </div>
 
       </div>
