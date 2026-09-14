@@ -76,6 +76,63 @@ img {
   -webkit-touch-callout: none;
 }
 
+/* Switching between Watched and "To watch" replaces every card in the grid,
+   so they mount fresh and this plays: the titles arrive in a quick cascade
+   instead of the whole screen appearing at once. The first paint and each
+   batch added while scrolling read the same way, which is the point.
+
+   Only the first thirty are staggered — about three phone screens, and more
+   than can be seen during the switch — so the rest simply arrive. */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.title-grid > .title-card {
+  animation: card-in 240ms ease-out backwards;
+}
+.title-grid > .title-card:nth-child(1) { animation-delay: 0ms; }
+.title-grid > .title-card:nth-child(2) { animation-delay: 18ms; }
+.title-grid > .title-card:nth-child(3) { animation-delay: 36ms; }
+.title-grid > .title-card:nth-child(4) { animation-delay: 54ms; }
+.title-grid > .title-card:nth-child(5) { animation-delay: 72ms; }
+.title-grid > .title-card:nth-child(6) { animation-delay: 90ms; }
+.title-grid > .title-card:nth-child(7) { animation-delay: 108ms; }
+.title-grid > .title-card:nth-child(8) { animation-delay: 126ms; }
+.title-grid > .title-card:nth-child(9) { animation-delay: 144ms; }
+.title-grid > .title-card:nth-child(10) { animation-delay: 162ms; }
+.title-grid > .title-card:nth-child(11) { animation-delay: 180ms; }
+.title-grid > .title-card:nth-child(12) { animation-delay: 198ms; }
+.title-grid > .title-card:nth-child(13) { animation-delay: 216ms; }
+.title-grid > .title-card:nth-child(14) { animation-delay: 234ms; }
+.title-grid > .title-card:nth-child(15) { animation-delay: 252ms; }
+.title-grid > .title-card:nth-child(16) { animation-delay: 270ms; }
+.title-grid > .title-card:nth-child(17) { animation-delay: 288ms; }
+.title-grid > .title-card:nth-child(18) { animation-delay: 306ms; }
+.title-grid > .title-card:nth-child(19) { animation-delay: 324ms; }
+.title-grid > .title-card:nth-child(20) { animation-delay: 342ms; }
+.title-grid > .title-card:nth-child(21) { animation-delay: 360ms; }
+.title-grid > .title-card:nth-child(22) { animation-delay: 378ms; }
+.title-grid > .title-card:nth-child(23) { animation-delay: 396ms; }
+.title-grid > .title-card:nth-child(24) { animation-delay: 414ms; }
+.title-grid > .title-card:nth-child(25) { animation-delay: 432ms; }
+.title-grid > .title-card:nth-child(26) { animation-delay: 450ms; }
+.title-grid > .title-card:nth-child(27) { animation-delay: 468ms; }
+.title-grid > .title-card:nth-child(28) { animation-delay: 486ms; }
+.title-grid > .title-card:nth-child(29) { animation-delay: 504ms; }
+.title-grid > .title-card:nth-child(30) { animation-delay: 522ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .title-grid > .title-card {
+    animation: none;
+  }
+}
+
 /* A card that is scrolled out of view is skipped entirely — its layout, its
    paint, and while a context menu is open its blur filter with them. The grid
    grows as it is scrolled (see Catalog.tsx), so without this a long session
