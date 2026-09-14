@@ -73,17 +73,25 @@ function WatchModeSwitch({
   onModeChange,
   label,
   className = "",
+  size = "compact",
 }: {
   mode: WatchMode;
   onModeChange: (m: WatchMode) => void;
   label?: string;
   className?: string;
+  /** "roomy" is the floating pill on mobile, which is the main way the two
+   *  halves are switched there and so is sized to be reached with a thumb,
+   *  rather than to sit in a row of desktop filter chips. */
+  size?: "compact" | "roomy";
 }) {
+  const roomy = size === "roomy";
   const tablist = (
     <div
       role="tablist"
       aria-label="Watched or to watch"
-      className={`flex h-9 items-center gap-1 rounded-xl p-1 ${className}`}
+      className={`flex items-center gap-1 rounded-2xl ${
+        roomy ? "h-12 p-1.5" : "h-9 rounded-xl p-1"
+      } ${className}`}
     >
       {WATCH_MODES.map((opt) => {
         const active = mode === opt.value;
@@ -94,7 +102,9 @@ function WatchModeSwitch({
             role="tab"
             aria-selected={active}
             onClick={() => onModeChange(opt.value)}
-            className={`flex-1 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-medium leading-none transition-colors ${
+            className={`flex-1 whitespace-nowrap font-medium leading-none transition-colors ${
+              roomy ? "rounded-xl px-6 py-3 text-sm" : "rounded-lg px-2.5 py-1.5 text-xs"
+            } ${
               active
                 ? "bg-foreground text-background"
                 : "text-muted hover:bg-surface-2 hover:text-foreground"
@@ -618,7 +628,10 @@ export default function FilterBar({
           <WatchModeSwitch
             mode={mode}
             onModeChange={onModeChange}
-            className="border border-white/10 bg-surface/95 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.85)] backdrop-blur"
+            size="roomy"
+            // Same glass as the header: opaque enough to read against a
+            // poster, and it lets the grid show through as it scrolls under.
+            className="border border-white/10 bg-background/95 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.85)] backdrop-blur supports-[backdrop-filter]:bg-background/80"
           />
         </div>,
         document.body,

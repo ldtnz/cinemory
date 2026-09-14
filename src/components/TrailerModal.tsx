@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { setLandscapeAllowed } from "@/lib/landscape";
 
 /** Rendered only from a post-hydration event (a click), never during the
  *  initial render, so document.body is always available here — no separate
@@ -28,19 +29,31 @@ export default function TrailerModal({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  // The one screen worth turning the phone sideways for: while it is open the
+  // portrait lock and its "rotate your device" overlay stand down, and the
+  // video below takes the extra width.
+  useEffect(() => {
+    setLandscapeAllowed(true);
+    return () => setLandscapeAllowed(false);
+  }, []);
+
   return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-background/90 p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-background/90 p-4 [@media(max-height:500px)]:p-2"
       onClick={onClose}
     >
+      {/* Width is capped by whichever runs out first, the screen or the room
+          a 16:9 box needs in the height left over — so turning the phone
+          sideways widens the video instead of cropping it. The short-screen
+          figure reserves less because the title row above is dropped there. */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label={`${title} trailer`}
-        className="w-full max-w-2xl"
+        className="w-full max-w-[min(42rem,calc((100dvh-6rem)*16/9))] [@media(max-height:500px)]:max-w-[calc((100dvh-1rem)*16/9)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="mb-2 flex items-center justify-between gap-3 [@media(max-height:500px)]:hidden">
           <p className="truncate text-sm font-medium text-white">{title}</p>
           <button
             type="button"
@@ -51,7 +64,7 @@ export default function TrailerModal({
             <X className="h-4 w-4" strokeWidth={1.8} />
           </button>
         </div>
-        <div className="flex aspect-video w-full items-center justify-center overflow-hidden rounded-2xl bg-black">
+        <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-2xl bg-black [@media(max-height:500px)]:rounded-xl">
           {loading ? (
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white" />
           ) : trailerKey ? (
@@ -65,6 +78,16 @@ export default function TrailerModal({
           ) : (
             <p className="px-6 text-center text-sm text-white/60">No trailer available for this title.</p>
           )}
+          {/* Sideways the video takes the whole screen, so the way out has to
+              sit on top of it rather than in a row that is no longer there. */}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close trailer"
+            className="absolute right-2 top-2 hidden h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white/80 backdrop-blur hover:text-white [@media(max-height:500px)]:flex"
+          >
+            <X className="h-4 w-4" strokeWidth={1.8} />
+          </button>
         </div>
       </div>
     </div>,

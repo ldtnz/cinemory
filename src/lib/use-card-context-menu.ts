@@ -104,6 +104,11 @@ export function useCardContextMenu<T extends HTMLElement>() {
     const cy = e.clientY;
     longPressTimerRef.current = setTimeout(() => {
       longPressFiredRef.current = true;
+      // A short tick the moment the press is recognised, so the menu is felt
+      // before it is seen. Android and desktop Chrome implement this; iOS
+      // exposes no vibration to web apps at all, in a PWA or otherwise, so
+      // there it is simply absent.
+      navigator.vibrate?.(12);
       openContextMenu(cx, cy);
     }, 500);
   }
