@@ -17,7 +17,17 @@ import { useTmdbSearch } from "@/lib/use-tmdb-search";
 import type { WatchMode } from "@/lib/watch-mode";
 import { useEditMode } from "@/lib/edit-mode";
 
-const MAX_SHOWN = 1500;
+/**
+ * How many cards are added at a time as the grid is scrolled.
+ *
+ * The whole result set used to go into the DOM at once, capped at 1500. On a
+ * catalog of a couple of thousand that is ~14k nodes and as many posters, and
+ * a phone never recovers: the grid took ~9s to settle and a long-press waited
+ * ~19s for its menu, because every one of those cards was also a filter layer
+ * for the dimming (see globals.css). Three phone screens' worth at a time
+ * keeps the DOM small without the reader ever catching the grid growing.
+ */
+const PAGE_SIZE = 60;
 
 export default function Catalog({
   initialTitles,
@@ -354,7 +364,40 @@ export default function Catalog({
     return arr;
   }, [filtered, sort]);
 
-  const shownTitles = titles.slice(0, MAX_SHOWN);
+  // Keyed by what is being shown rather than reset through an effect: change
+  // the filters, the search or the sort and the key stops matching, which is
+  // itself the reset back to the first page.
+  const resultKey = `${mode}|${platform}|${mediaType}|${genre}|${sort}|${trimmedQuery}|${
+    aiSearch?.status === "done" ? aiSearch.ids.join(",") : ""
+  }`;
+  const [page, setPage] = useState({ key: resultKey, count: PAGE_SIZE });
+  const shownCount = page.key === resultKey ? page.count : PAGE_SIZE;
+  const shownTitles = titles.slice(0, shownCount);
+  const hasMore = titles.length > shownTitles.length;
+
+  // Grows the grid as its end comes into view. The observer is watched rather
+  // than the scroll position so it costs nothing while the user is reading,
+  // and the margin means the next batch is already in place by the time they
+  // reach it.
+  const loadMoreRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node) return;
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((e) => e.isIntersecting)) {
+            setPage((prev) => ({
+              key: resultKey,
+              count: (prev.key === resultKey ? prev.count : PAGE_SIZE) + PAGE_SIZE,
+            }));
+          }
+        },
+        { rootMargin: "800px" },
+      );
+      observer.observe(node);
+      return () => observer.disconnect();
+    },
+    [resultKey],
+  );
   // Under Watched it is a way out of a dead end, so it only appears once the
   // title match has come up empty. Under "To watch" the typed query always
   // returns something from TMDB — just often not what was meant — so there it
@@ -519,11 +562,11 @@ export default function Catalog({
         </div>
       )}
 
-      {!discoverMode && titles.length > shownTitles.length && (
-        <p className="mt-8 text-center text-xs text-muted">
-          Showing the first {shownTitles.length} of {titles.length} results.
-          Refine your search to narrow it down.
-        </p>
+      {!discoverMode && hasMore && (
+        <div ref={loadMoreRef} className="mt-8 text-center text-xs text-muted">
+          Loading more... ({shownTitles.length.toLocaleString()} of{" "}
+          {titles.length.toLocaleString()})
+        </div>
       )}
     </main>
   );

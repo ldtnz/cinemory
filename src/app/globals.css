@@ -76,6 +76,16 @@ img {
   -webkit-touch-callout: none;
 }
 
+/* A card that is scrolled out of view is skipped entirely — its layout, its
+   paint, and while a context menu is open its blur filter with them. The grid
+   grows as it is scrolled (see Catalog.tsx), so without this a long session
+   through a large catalog ends up as heavy as rendering the whole thing at
+   once was. The box keeps its size regardless, from the grid track and the
+   2/3 aspect ratio, so nothing collapses while it is skipped. */
+.title-card {
+  content-visibility: auto;
+}
+
 /* While a card's context menu (right-click / long-press) is open, every
    other card in its grid dims and blurs so the targeted one stands out.
    Toggled by TitleCard directly on the DOM (see TitleCard.tsx) rather than
