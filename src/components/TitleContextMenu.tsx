@@ -12,25 +12,25 @@ import ContextMenuShell from "@/components/ContextMenuShell";
 export default function TitleContextMenu({
   x,
   y,
-  editing,
   hasTrailerSource,
   onWatchlist,
   onTrailer,
   onMarkWatched,
-  onToggleEdit,
+  onEdit,
   onDelete,
   onClose,
 }: {
   x: number;
   y: number;
-  editing: boolean;
   /** Whether this title is matched to TMDB, so a trailer lookup is worth offering. */
   hasTrailerSource: boolean;
   /** On the watchlist, so it can be moved into the watched half. */
   onWatchlist: boolean;
   onTrailer: () => void;
   onMarkWatched: () => void;
-  onToggleEdit: () => void;
+  /** Opens the dialog for correcting the platform and the watched date —
+   *  absent for a watchlist entry, which has neither yet. */
+  onEdit?: () => void;
   onDelete: () => void;
   onClose: () => void;
 }) {
@@ -64,18 +64,20 @@ export default function TitleContextMenu({
           Trailer
         </button>
       )}
-      <button
-        type="button"
-        role="menuitem"
-        onClick={() => {
-          onToggleEdit();
-          onClose();
-        }}
-        className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm whitespace-nowrap text-foreground hover:bg-white/5"
-      >
-        <Pencil className="h-3.5 w-3.5 flex-none text-muted" strokeWidth={1.8} />
-        {editing ? "Exit edit mode" : "Edit"}
-      </button>
+      {onEdit && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            onEdit();
+            onClose();
+          }}
+          className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm whitespace-nowrap text-foreground hover:bg-white/5"
+        >
+          <Pencil className="h-3.5 w-3.5 flex-none text-muted" strokeWidth={1.8} />
+          Edit
+        </button>
+      )}
       <button
         type="button"
         role="menuitem"

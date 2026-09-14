@@ -4,8 +4,8 @@ import Image from "next/image";
 import { memo, useEffect, useRef, useState } from "react";
 import { Minus, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import type { Title } from "@prisma/client";
-import { setEditMode } from "@/lib/edit-mode";
 import { useCardContextMenu } from "@/lib/use-card-context-menu";
+import { useRevealOnView } from "@/lib/reveal-on-view";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import TitleContextMenu from "@/components/TitleContextMenu";
 import MarkWatchedDialog from "@/components/MarkWatchedDialog";
@@ -96,6 +96,7 @@ function TitleCard({
   // hover, then hides it again after a few seconds — touch has no hover.
   const [tapDetailsVisible, setTapDetailsVisible] = useState(false);
   const tapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const revealRef = useRevealOnView();
   const { cardRef, menuPos, closeContextMenu, longPressFiredRef, cardHandlers } =
     useCardContextMenu<HTMLDivElement>();
 
@@ -165,7 +166,10 @@ function TitleCard({
 
   return (
     <div
-      ref={cardRef}
+      ref={(node) => {
+        cardRef.current = node;
+        revealRef(node);
+      }}
       className="title-card group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2"
       onClick={handleTap}
       {...cardHandlers}
@@ -341,12 +345,14 @@ function TitleCard({
         <TitleContextMenu
           x={menuPos.x}
           y={menuPos.y}
-          editing={editing}
           hasTrailerSource={Boolean(title.tmdbId && title.tmdbId > 0)}
           onWatchlist={title.inWatchlist}
           onTrailer={openTrailer}
           onMarkWatched={() => setMarkingWatched(true)}
-          onToggleEdit={() => setEditMode(!editing)}
+          // The same dialog the pencil opens on a card in edit mode: on a
+          // phone there is no hover to reveal that button, so the menu is
+          // the only way to reach it.
+          onEdit={title.inWatchlist ? undefined : () => setEditingWatched(true)}
           onDelete={requestDelete}
           onClose={closeContextMenu}
         />

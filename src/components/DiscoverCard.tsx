@@ -7,6 +7,7 @@ import type { Title } from "@prisma/client";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import { useAddToWatchlist } from "@/lib/use-add-to-watchlist";
 import { useCardContextMenu } from "@/lib/use-card-context-menu";
+import { useRevealOnView } from "@/lib/reveal-on-view";
 import DiscoverContextMenu from "@/components/DiscoverContextMenu";
 import TrailerModal from "@/components/TrailerModal";
 
@@ -27,6 +28,7 @@ export default function DiscoverCard({
   onAdded: (title: Title) => void;
 }) {
   const { state, add, done } = useAddToWatchlist(alreadyOnWatchlist, onAdded);
+  const revealRef = useRevealOnView();
   const { cardRef, menuPos, closeContextMenu, cardHandlers } =
     useCardContextMenu<HTMLButtonElement>();
   const [trailer, setTrailer] = useState<{ loading: boolean; key: string | null } | null>(null);
@@ -50,7 +52,10 @@ export default function DiscoverCard({
 
   return (
     <button
-      ref={cardRef}
+      ref={(node) => {
+        cardRef.current = node;
+        revealRef(node);
+      }}
       type="button"
       onClick={() => add(candidate)}
       disabled={done}
