@@ -21,9 +21,37 @@ import type {
  * blur CSS in globals.css to find it) and renders its menu when `menuPos` is
  * set.
  */
+/**
+ * The card whose long-press is currently in progress, shared across every
+ * card in the grid.
+ *
+ * Each card keeps its own state, so without this two fingers landing on two
+ * posters simply ran two timers and opened two menus at once. The first
+ * press claims the gesture and any other card ignores its own until that one
+ * is over. The timestamp is only there so a claim can never outlive the
+ * press that made it — if a pointerup is ever lost, the next press a few
+ * seconds later takes over rather than finding the grid permanently deaf.
+ */
+let activePress: { owner: object; at: number } | null = null;
+const CLAIM_STALE_MS = 5000;
+
+function claimPress(owner: object): boolean {
+  if (activePress && activePress.owner !== owner && Date.now() - activePress.at < CLAIM_STALE_MS) {
+    return false;
+  }
+  activePress = { owner, at: Date.now() };
+  return true;
+}
+
+function releasePress(owner: object) {
+  if (activePress?.owner === owner) activePress = null;
+}
+
 export function useCardContextMenu<T extends HTMLElement>() {
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const cardRef = useRef<T>(null);
+  /** This card's identity in the claim above — a stable object, nothing more. */
+  const pressOwnerRef = useRef({});
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
   // Also read by a caller's own tap handler (see TitleCard's handleTap): the
@@ -32,8 +60,12 @@ export function useCardContextMenu<T extends HTMLElement>() {
   const longPressFiredRef = useRef(false);
 
   useEffect(() => {
+    const owner = pressOwnerRef.current;
     return () => {
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+      // Unmounting mid-press (the grid re-renders on a filter change, say)
+      // would otherwise leave the claim standing with no one to drop it.
+      releasePress(owner);
     };
   }, []);
 
@@ -97,6 +129,9 @@ export function useCardContextMenu<T extends HTMLElement>() {
 
   function handlePointerDown(e: ReactPointerEvent) {
     if (e.pointerType !== "touch" || !startedOnCard(e)) return;
+    // Another poster is already being held: that press opens its menu, this
+    // one does nothing at all.
+    if (!claimPress(pressOwnerRef.current)) return;
     longPressStartRef.current = { x: e.clientX, y: e.clientY };
     longPressFiredRef.current = false;
     clearLongPressTimer();
@@ -126,6 +161,7 @@ export function useCardContextMenu<T extends HTMLElement>() {
   function handlePointerEnd(e: ReactPointerEvent) {
     if (e.pointerType !== "touch" || !startedOnCard(e)) return;
     clearLongPressTimer();
+    releasePress(pressOwnerRef.current);
     longPressStartRef.current = null;
     // A cancelled touch is never followed by a click, so the flag that guards
     // against that click has nothing left to guard and must not be left
