@@ -36,23 +36,41 @@ export default function ContextMenuShell({
   }, [x, y]);
 
   useEffect(() => {
+    // On touch this menu opens mid-gesture, with the finger still down, and
+    // letting go of it is itself dismissal-shaped: a touchend, usually a
+    // compatibility mousedown right behind it, and on iOS sometimes a
+    // rubber-band scroll. Every one of those would land here and close the
+    // menu in the same motion that opened it — which is exactly what a
+    // long-press felt like: it appeared, then vanished on release before it
+    // could be tapped. So dismissal holds off until that release is over.
+    // Escape needs no such wait: no long-press produces one.
+    let armed = false;
+    const arming = setTimeout(() => {
+      armed = true;
+    }, 350);
+
     function onPointerDown(e: Event) {
+      if (!armed) return;
       if (!ref.current?.contains(e.target as Node)) onClose();
     }
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
     }
+    function onDismiss() {
+      if (armed) onClose();
+    }
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("touchstart", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
-    window.addEventListener("scroll", onClose, true);
-    window.addEventListener("resize", onClose);
+    window.addEventListener("scroll", onDismiss, true);
+    window.addEventListener("resize", onDismiss);
     return () => {
+      clearTimeout(arming);
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("touchstart", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("scroll", onClose, true);
-      window.removeEventListener("resize", onClose);
+      window.removeEventListener("scroll", onDismiss, true);
+      window.removeEventListener("resize", onDismiss);
     };
   }, [onClose]);
 

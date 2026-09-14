@@ -104,6 +104,11 @@ export function useCardContextMenu<T extends HTMLElement>() {
     if (e.pointerType !== "touch") return;
     clearLongPressTimer();
     longPressStartRef.current = null;
+    // A cancelled touch is never followed by a click, so the flag that guards
+    // against that click has nothing left to guard and must not be left
+    // standing — it would swallow the next real tap instead. (iOS cancels a
+    // touch it has decided was a system gesture, which a long-press can be.)
+    if (e.type === "pointercancel") longPressFiredRef.current = false;
     // Defensive: release capture if the browser implicitly granted it for
     // this touch, so it can never carry over and interfere with the very
     // next tap (e.g. on a button inside the menu this long-press opened).
