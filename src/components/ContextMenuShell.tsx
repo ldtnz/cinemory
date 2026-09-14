@@ -74,10 +74,26 @@ export default function ContextMenuShell({
     };
   }, [onClose]);
 
+  // A portal's events still travel up the React tree, not the DOM one, so
+  // everything aimed at this menu also reaches the card it was opened from —
+  // whose own long-press handlers then treat it as a gesture on the card,
+  // down to calling preventDefault() on the touch that ends it and so
+  // cancelling the click on the menu item itself. Nothing in here is the
+  // card's business, so none of it is passed along.
+  const keepToSelf = (e: { stopPropagation: () => void }) => e.stopPropagation();
+
   return createPortal(
     <div
       ref={ref}
       role="menu"
+      onClick={keepToSelf}
+      onPointerDown={keepToSelf}
+      onPointerUp={keepToSelf}
+      onPointerMove={keepToSelf}
+      onPointerCancel={keepToSelf}
+      onTouchStart={keepToSelf}
+      onTouchEnd={keepToSelf}
+      onContextMenu={keepToSelf}
       style={{ left: position.left, top: position.top }}
       // Width follows the longest item, with that width kept as the floor so
       // a short menu doesn't shrink below it.

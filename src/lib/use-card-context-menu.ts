@@ -37,6 +37,22 @@ export function useCardContextMenu<T extends HTMLElement>() {
     };
   }, []);
 
+  /**
+   * Whether an event actually happened on the card.
+   *
+   * The menu this hook opens is rendered as a child of the card in the React
+   * tree even though it is portalled to the body, and React propagates a
+   * portal's events up that tree — so without this, a tap on a menu item
+   * arrives here indistinguishable from a tap on the poster. The shell stops
+   * those at the source; this is the same rule stated where the assumption
+   * lives, and it covers any other portalled child a card may grow.
+   */
+  function startedOnCard(e: { target: EventTarget | null }): boolean {
+    const card = cardRef.current;
+    if (!card) return true;
+    return e.target instanceof Node && card.contains(e.target);
+  }
+
   function clearLongPressTimer() {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
@@ -69,6 +85,7 @@ export function useCardContextMenu<T extends HTMLElement>() {
   }
 
   function handleContextMenu(e: ReactMouseEvent) {
+    if (!startedOnCard(e)) return;
     e.preventDefault();
     e.stopPropagation();
     // Touch is handled by the pointer-based long-press detection below:
@@ -79,7 +96,7 @@ export function useCardContextMenu<T extends HTMLElement>() {
   }
 
   function handlePointerDown(e: ReactPointerEvent) {
-    if (e.pointerType !== "touch") return;
+    if (e.pointerType !== "touch" || !startedOnCard(e)) return;
     longPressStartRef.current = { x: e.clientX, y: e.clientY };
     longPressFiredRef.current = false;
     clearLongPressTimer();
@@ -93,6 +110,7 @@ export function useCardContextMenu<T extends HTMLElement>() {
 
   function handlePointerMove(e: ReactPointerEvent) {
     if (e.pointerType !== "touch" || !longPressStartRef.current) return;
+    if (!startedOnCard(e)) return;
     const dx = e.clientX - longPressStartRef.current.x;
     const dy = e.clientY - longPressStartRef.current.y;
     // A real long-press stays still; a scroll or drag moves past a small
@@ -101,7 +119,7 @@ export function useCardContextMenu<T extends HTMLElement>() {
   }
 
   function handlePointerEnd(e: ReactPointerEvent) {
-    if (e.pointerType !== "touch") return;
+    if (e.pointerType !== "touch" || !startedOnCard(e)) return;
     clearLongPressTimer();
     longPressStartRef.current = null;
     // A cancelled touch is never followed by a click, so the flag that guards
@@ -120,6 +138,7 @@ export function useCardContextMenu<T extends HTMLElement>() {
   }
 
   function handleTouchEnd(e: ReactTouchEvent) {
+    if (!startedOnCard(e)) return;
     // Without this, the browser follows the touch with a synthetic
     // mousedown/click for compatibility — which would land on the card and
     // immediately close the menu the long-press above just opened, via the
