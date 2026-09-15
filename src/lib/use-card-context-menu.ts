@@ -47,7 +47,12 @@ function releasePress(owner: object) {
   if (activePress?.owner === owner) activePress = null;
 }
 
-export function useCardContextMenu<T extends HTMLElement>() {
+export function useCardContextMenu<T extends HTMLElement>(
+  /** Whether the card currently has a dialog of its own open. The menu hands
+   *  the grid's blur over to it rather than dropping it — see the effect
+   *  below. Cards with no dialogs (DiscoverCard) leave it at false. */
+  dialogOpen = false,
+) {
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const cardRef = useRef<T>(null);
   /** This card's identity in the claim above — a stable object, nothing more. */
@@ -92,29 +97,43 @@ export function useCardContextMenu<T extends HTMLElement>() {
     }
   }
 
-  // Dims and blurs every other card in the grid so the one under the cursor
-  // stands out, without re-rendering the rest of the (up to 1500-card) grid:
-  // toggled directly on the DOM rather than through React state.
   function openContextMenu(x: number, y: number) {
-    const card = cardRef.current;
-    const grid = card?.closest<HTMLElement>(".title-grid");
-    if (grid && card) {
-      grid
-        .querySelectorAll(".title-card--context-target")
-        .forEach((el) => el.classList.remove("title-card--context-target"));
-      grid.classList.add("title-grid--context-open");
-      card.classList.add("title-card--context-target");
-    }
     setMenuPos({ x, y });
   }
 
   function closeContextMenu() {
-    const card = cardRef.current;
-    const grid = card?.closest<HTMLElement>(".title-grid");
-    grid?.classList.remove("title-grid--context-open");
-    card?.classList.remove("title-card--context-target");
     setMenuPos(null);
   }
+
+  /**
+   * Dims and blurs the rest of the grid so the card being acted on stands
+   * out. Toggled directly on the DOM rather than through React state, so it
+   * never re-renders the (up to 1500-card) grid.
+   *
+   * The menu and any dialog it opens share one blur. Menu items act and then
+   * close the menu, so tearing the blur down on close and having the dialog's
+   * own backdrop build it again showed a frame with neither: the background
+   * snapped sharp and then blurred a second time. Driving it from "menu or
+   * dialog" instead keeps it up across the handover, and the acted-on card
+   * stops being the exception once the menu is gone — with no menu pinned
+   * over it there is nothing left to keep sharp, and an evenly blurred grid
+   * behind the dialog reads better than one card floating in focus.
+   */
+  useEffect(() => {
+    const card = cardRef.current;
+    const grid = card?.closest<HTMLElement>(".title-grid");
+    if (!grid || !card || (!menuPos && !dialogOpen)) return;
+    // Another card may have been left marked if its own cleanup never ran.
+    grid
+      .querySelectorAll(".title-card--context-target")
+      .forEach((el) => el !== card && el.classList.remove("title-card--context-target"));
+    grid.classList.add("title-grid--context-open");
+    card.classList.toggle("title-card--context-target", Boolean(menuPos));
+    return () => {
+      grid.classList.remove("title-grid--context-open");
+      card.classList.remove("title-card--context-target");
+    };
+  }, [menuPos, dialogOpen]);
 
   function handleContextMenu(e: ReactMouseEvent) {
     if (!startedOnCard(e)) return;

@@ -110,8 +110,14 @@ function TitleCard({
   const [tapDetailsVisible, setTapDetailsVisible] = useState(false);
   const tapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealRef = useRevealOnView();
+  // Every dialog this card can open, from the context menu or from the
+  // buttons on the card itself. The grid stays blurred behind all of them
+  // rather than flashing sharp between the menu closing and the dialog
+  // opening — see the hook.
+  const dialogOpen =
+    confirmingDelete || markingWatched || editingWatched || trailer !== null;
   const { cardRef, menuPos, closeContextMenu, longPressFiredRef, cardHandlers } =
-    useCardContextMenu<HTMLDivElement>();
+    useCardContextMenu<HTMLDivElement>(dialogOpen);
 
   useEffect(() => {
     return () => {
