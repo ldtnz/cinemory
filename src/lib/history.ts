@@ -1,5 +1,6 @@
 /**
- * Parsing of Netflix and Amazon Prime Video watch-history exports.
+ * Parsing of Netflix and Amazon Prime Video watch-history exports, and of a
+ * Disney+ watchlist collected with scripts/disney-watchlist.js.
  *
  * Shared between the initial seed (prisma/seed.ts, which wipes and refills the
  * catalog) and the incremental import on the settings page (which only adds
@@ -28,7 +29,7 @@ export type HistoryRow = {
   link: string | null;
 };
 
-export type Format = "netflix" | "amazon";
+export type Format = "netflix" | "amazon" | "disney-watchlist";
 
 // Netflix and Prime Video localise the exported titles to the account's own
 // language, so the season keywords are matched in English and in Italian (the
@@ -78,12 +79,18 @@ export function withoutSeason(title: string): string {
 /**
  * Detects which service a CSV came from by looking at its header row, so the
  * user can upload files without declaring which is which. Returns null when it
- * is neither of the two expected formats.
+ * is none of the expected formats.
  */
 export function detectFormat(content: string): Format | null {
   const header = content.slice(0, 500).toLowerCase();
   if (header.includes("global title identifier") || header.includes("date watched")) {
     return "amazon";
+  }
+  // Disney+ publishes no export of its own, so this is the shape produced by
+  // scripts/disney-watchlist.js. Tested before Netflix: both start with a
+  // "title" column.
+  if (/^\ufeff?"?title"?\s*,\s*"?type"?\s*,\s*"?link"?\s*$/i.test((header.split("\n")[0] ?? "").trim())) {
+    return "disney-watchlist";
   }
   // Netflix exports just two columns: Title,Date
   if (/^﻿?"?title"?\s*,\s*"?date"?\s*$/im.test(header.split("\n")[0] ?? "")) {
@@ -93,7 +100,9 @@ export function detectFormat(content: string): Format | null {
 }
 
 export function readHistory(content: string, format: Format): HistoryRow[] {
-  return format === "netflix" ? readNetflix(content) : readAmazon(content);
+  if (format === "netflix") return readNetflix(content);
+  if (format === "amazon") return readAmazon(content);
+  return readDisneyWatchlist(content);
 }
 
 export function readNetflix(content: string): HistoryRow[] {
@@ -239,6 +248,71 @@ export function readAmazon(content: string): HistoryRow[] {
     });
   }
   return rows;
+}
+
+/**
+ * A Disney+ watchlist, as collected by scripts/disney-watchlist.js.
+ *
+ * Disney+ has no export of its own and no public API, so the columns are ours
+ * rather than theirs: Title,Type,Link. Unlike the two history formats these
+ * rows are things still to watch, so they carry no date and no platform —
+ * "where" is only known once something has actually been watched somewhere
+ * (see src/lib/platforms.ts, which states that invariant for the column).
+ *
+ * Season suffixes are stripped the same way as everywhere else: a watchlist
+ * holding "Andor - Season 2" means the reader wants to watch Andor.
+ */
+export function readDisneyWatchlist(content: string): HistoryRow[] {
+  const records: { Title: string; Type: string; Link: string }[] = parse(content, {
+    columns: true,
+    skip_empty_lines: true,
+    bom: true,
+    trim: true,
+    // A watchlist scraped from a page can carry a stray short row; one bad
+    // line should not cost the reader the whole import.
+    relax_column_count: true,
+  });
+
+  // Keyed by normalized title so the same show listed twice (and a series
+  // listed once per season) collapses into one entry.
+  const seen = new Map<string, HistoryRow>();
+
+  for (const row of records) {
+    const rawTitle = row.Title?.trim();
+    if (!rawTitle) continue;
+
+    // The script reads the type from the title's own URL (/series/ or
+    // /movies/), so it is trustworthy when present; the season keywords are
+    // the fallback for a row that arrived without one.
+    const declared = row.Type?.trim().toLowerCase();
+    const mediaType =
+      declared === "series" || declared === "movie"
+        ? declared === "series"
+          ? "Series"
+          : "Movie"
+        : looksLikeSeries(rawTitle)
+          ? "Series"
+          : "Movie";
+
+    const title = mediaType === "Series" ? withoutSeason(rawTitle) || rawTitle : rawTitle;
+    const key = normalizeTitle(title);
+    if (!key || seen.has(key)) continue;
+
+    const link = row.Link?.trim();
+    seen.set(key, {
+      title,
+      searchTitle: key,
+      platform: "",
+      mediaType,
+      status: "To watch",
+      lastWatchedAt: null,
+      watchedSeasons: null,
+      inWatchlist: true,
+      link: link && /^https?:\/\//i.test(link) ? link : null,
+    });
+  }
+
+  return [...seen.values()];
 }
 
 /**

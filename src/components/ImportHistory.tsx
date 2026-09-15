@@ -30,6 +30,7 @@ type EnrichResponse = {
 const FORMAT_LABELS: Record<string, string> = {
   netflix: "Netflix",
   amazon: "Prime Video",
+  "disney-watchlist": "Disney+ watchlist",
 };
 
 export default function ImportHistory({ onImported }: { onImported?: () => void } = {}) {
@@ -111,7 +112,11 @@ export default function ImportHistory({ onImported }: { onImported?: () => void 
       <h2 className="text-sm font-semibold">Import watch history</h2>
       <p className="mt-1 text-xs text-muted">
         Upload your Netflix or Prime Video export: only titles that are not
-        already in the catalog are added.
+        already in the catalog are added. A Disney+ watchlist collected with{" "}
+        <code className="rounded bg-surface-2 px-1 py-0.5 text-[11px]">
+          scripts/disney-watchlist.js
+        </code>{" "}
+        is read too, and lands in &quot;To watch&quot; rather than the watched half.
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">

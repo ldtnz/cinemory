@@ -40,7 +40,8 @@ for how to get the values Vercel will ask for.
 - **Catalog** — one grid for every title, filtered by platform and by
   movie/series, searchable, sortable by date watched, title, TMDB rating or
   release year.
-- **History import** — upload your Netflix and Prime Video exports; only titles
+- **History import** — upload your Netflix and Prime Video exports, or a
+  Disney+ watchlist collected with the bundled script; only titles
   that are not already in the catalog get added, so you can re-import after
   every new export.
 - **Seasons** — series show "3 of 5 seasons"; the totals come from TMDB, the
@@ -217,6 +218,16 @@ changes nothing. Posters and metadata are fetched right afterwards.
   [Watch History Exporter for Amazon Prime Video](https://github.com/caret-collective/watch-history-exporter-for-amazon-prime-video):
   open primevideo.com/settings/watch-history, paste the script into the browser
   console and run it.
+- **Disney+** — no export and no public API, which is why trackers like Simkl
+  do not sync it either. What it does have is a watchlist page, so
+  `scripts/disney-watchlist.js` reads that one: open your Watchlist on
+  disneyplus.com, paste the script into the browser console, and it downloads
+  a `disney-watchlist.csv` you upload like the others. It runs entirely in your
+  browser and sends nothing anywhere. These are titles you have *not* watched,
+  so they land in "To watch" rather than the watched half — a Disney+ watch
+  history can only be had by asking Disney for it under GDPR
+  (EMEA.dataprotection@disney.com), which is not a file this project can parse
+  sight unseen.
 - **IMDb** (optional) — Your Ratings → Export. Handled by a script rather than
   the UI, see below.
 
@@ -253,6 +264,7 @@ prisma/migrations/          SQL migrations
 prisma/seed.ts              builds the catalog from the CSVs
 prisma/seed-data/           your exports + the bundled fake samples
 scripts/enrich-tmdb.ts      fills in TMDB data for existing titles
+scripts/disney-watchlist.js collects a Disney+ watchlist from the browser
 scripts/import-imdb.ts      imports an IMDb ratings export
 scripts/sync-turso.ts       pulls Turso down into the local dev.db
 scripts/migrate-turso.ts    applies prisma/migrations to Turso
@@ -262,7 +274,7 @@ src/app/stats/              the statistics page
 src/app/api/                TMDB search, import, seasons, titles, login
 src/app/sw.ts               service worker (offline + poster cache)
 src/components/             Catalog, FilterBar, TitleCard, AddTitleCard, …
-src/lib/history.ts          parses the Netflix and Prime Video exports
+src/lib/history.ts          parses the Netflix, Prime Video and Disney+ files
 src/lib/stats.ts            the numbers behind the statistics page
 src/lib/tmdb.ts             the TMDB client
 src/lib/prisma.ts           shared Prisma client (SQLite or Turso)

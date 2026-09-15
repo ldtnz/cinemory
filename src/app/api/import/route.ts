@@ -27,7 +27,9 @@ type FileOutcome = {
 };
 
 /**
- * Incremental import of a Netflix or Prime Video history export.
+ * Incremental import of a Netflix or Prime Video history export, or of a
+ * Disney+ watchlist (which arrives as rows already marked inWatchlist, so it
+ * needs nothing special here).
  *
  * It only adds titles that are not there yet: de-duplication is on the
  * normalized title regardless of platform, so a movie already in the catalog
@@ -87,7 +89,8 @@ export async function POST(request: NextRequest) {
         alreadyPresent: 0,
         added: 0,
         seasonsUpdated: 0,
-        error: "Unrecognized format: expected a Netflix or Prime Video export.",
+        error:
+          "Unrecognized format: expected a Netflix or Prime Video export, or a Disney+ watchlist.",
       });
       continue;
     }

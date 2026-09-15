@@ -15,6 +15,7 @@ import assert from "node:assert/strict";
 import {
   detectFormat,
   readAmazon,
+  readDisneyWatchlist,
   readNetflix,
   seasonNumber,
   seriesKey,
@@ -338,6 +339,124 @@ test("the bundled example exports parse into coherent rows", async () => {
     const keys = rows.map((r) => r.searchTitle);
     assert.equal(new Set(keys).size, keys.length, "duplicate rows after grouping");
   }
+});
+
+/** The CSV scripts/disney-watchlist.js produces. */
+function disneyCsv(rows: string[][]): string {
+  return csv(["Title", "Type", "Link"], rows);
+}
+
+test("detectFormat tells a Disney+ watchlist from a Netflix export", () => {
+  assert.equal(detectFormat(disneyCsv([["Andor", "Series", ""]])), "disney-watchlist");
+  // Both start with a "title" column, so the order of the checks matters.
+  assert.equal(detectFormat(csv(["Title", "Date"], [["Dune", "06/01/24"]])), "netflix");
+  assert.equal(detectFormat("Name,Something\n\"x\",\"y\""), null);
+});
+
+test("readDisneyWatchlist marks rows as waiting, not watched", () => {
+  const rows = readDisneyWatchlist(
+    disneyCsv([["Turning Red", "Movie", "https://www.disneyplus.com/movies/turning-red/4k"]]),
+  );
+  assert.equal(rows.length, 1);
+  const [r] = rows;
+  assert.equal(r.title, "Turning Red");
+  assert.equal(r.inWatchlist, true);
+  assert.equal(r.status, "To watch");
+  assert.equal(r.lastWatchedAt, null);
+  assert.equal(r.watchedSeasons, null);
+  // Watchlist entries have not been watched anywhere yet, so they carry no
+  // platform — see src/lib/platforms.ts.
+  assert.equal(r.platform, "");
+});
+
+test("readDisneyWatchlist takes the media type from the Type column", () => {
+  const rows = readDisneyWatchlist(
+    disneyCsv([
+      ["The Bear", "Series", ""],
+      ["Soul", "Movie", ""],
+    ]),
+  );
+  assert.deepEqual(
+    rows.map((r) => [r.title, r.mediaType]),
+    [
+      ["The Bear", "Series"],
+      ["Soul", "Movie"],
+    ],
+  );
+});
+
+test("readDisneyWatchlist falls back to the title when Type is missing", () => {
+  // The /browse/entity- URL shape says nothing about what a title is, so the
+  // script leaves the column empty and the name has to settle it.
+  const rows = readDisneyWatchlist(
+    disneyCsv([
+      ["Loki - Season 2", "", ""],
+      ["Encanto", "", ""],
+    ]),
+  );
+  assert.deepEqual(
+    rows.map((r) => [r.title, r.mediaType]),
+    [
+      ["Loki", "Series"],
+      ["Encanto", "Movie"],
+    ],
+  );
+});
+
+test("readDisneyWatchlist collapses a series listed once per season", () => {
+  const rows = readDisneyWatchlist(
+    disneyCsv([
+      ["Andor", "Series", ""],
+      ["Andor - Season 2", "Series", ""],
+      ["Andor - Season 3", "Series", ""],
+    ]),
+  );
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].title, "Andor");
+  // It is on the list to be watched, so no season has been watched yet.
+  assert.equal(rows[0].watchedSeasons, null);
+});
+
+test("readDisneyWatchlist keeps only real links", () => {
+  const rows = readDisneyWatchlist(
+    disneyCsv([
+      ["Andor", "Series", "https://www.disneyplus.com/series/andor/3x"],
+      ["Soul", "Movie", ""],
+      ["Luca", "Movie", "not a url"],
+    ]),
+  );
+  assert.deepEqual(rows.map((r) => r.link), [
+    "https://www.disneyplus.com/series/andor/3x",
+    null,
+    null,
+  ]);
+});
+
+test("readDisneyWatchlist skips rows with no title", () => {
+  const rows = readDisneyWatchlist(disneyCsv([["", "Movie", ""], ["Soul", "Movie", ""]]));
+  assert.deepEqual(rows.map((r) => r.title), ["Soul"]);
+});
+
+test("the bundled Disney+ watchlist example parses into watchlist rows", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const content = await readFile("prisma/seed-data/DisneyWatchlist.example.csv", "utf8");
+  assert.equal(detectFormat(content), "disney-watchlist");
+
+  const rows = readDisneyWatchlist(content);
+  assert.ok(rows.length > 0);
+  for (const r of rows) {
+    assert.ok(r.title.length > 0);
+    assert.equal(r.searchTitle, r.searchTitle.toLowerCase());
+    assert.ok(r.mediaType === "Movie" || r.mediaType === "Series");
+    assert.equal(r.inWatchlist, true);
+    assert.equal(r.status, "To watch");
+    assert.equal(r.platform, "");
+    assert.equal(seasonNumber(r.title), null, `"${r.title}" kept its season`);
+  }
+  const keys = rows.map((r) => r.searchTitle);
+  assert.equal(new Set(keys).size, keys.length, "duplicate rows after grouping");
+  // The example lists Andor twice, once with a season.
+  assert.equal(rows.filter((r) => r.title === "Andor").length, 1);
 });
 
 test("re-parsing the same export twice gives the same rows", () => {
