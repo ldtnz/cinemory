@@ -202,7 +202,7 @@ function TitleCard({
       {selected && (
         <span
           aria-hidden
-          className="absolute right-1.5 top-1.5 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-accent-select text-background shadow-[0_4px_12px_-2px_rgba(0,0,0,0.6)]"
+          className="absolute right-1.5 top-1.5 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-accent-select text-background"
         >
           <Check className="h-3.5 w-3.5" strokeWidth={3} />
         </span>
