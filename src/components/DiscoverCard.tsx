@@ -60,7 +60,7 @@ export default function DiscoverCard({
       onClick={() => add(candidate)}
       disabled={done}
       aria-label={done ? `${candidate.title} is on your watchlist` : `Add ${candidate.title} to your watchlist`}
-      className="title-card group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2 text-left disabled:cursor-default"
+      className="title-card reveal-item group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2 text-left disabled:cursor-default"
       {...cardHandlers}
     >
       {candidate.posterUrl ? (

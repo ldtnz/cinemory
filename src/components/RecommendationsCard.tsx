@@ -73,7 +73,7 @@ export default function RecommendationsCard({
         // (it has no menu of its own), and it stays hidden until revealed —
         // so it has to be observed like they are, or it never appears.
         ref={revealRef}
-        className="title-card flex aspect-[2/3] flex-col overflow-hidden rounded-2xl bg-surface-2 p-2 text-left transition-colors hover:bg-surface-2/70"
+        className="title-card reveal-item flex aspect-[2/3] flex-col overflow-hidden rounded-2xl bg-surface-2 p-2 text-left transition-colors hover:bg-surface-2/70"
       >
         {/* Short enough to stay on one line: this tile is a third of the
             screen wide on a phone, where "Recommended for you" wrapped. The

@@ -83,12 +83,16 @@ img {
 
 /* Titles arrive in a quick wave rather than all at once — on a switch
    between Watched and "To watch", on the first screen, and on each batch
-   scrolled into view. What triggers it is the card crossing into view, not
+   scrolled into view. What triggers it is the element crossing into view, not
    mounting: the grid loads its next batch a screen ahead of the reader, so
    an animation tied to mounting would be over before they arrived. The
-   per-card delay is set in src/lib/reveal-on-view.ts, which also puts
-   "reveal-ready" on <html> — without it nothing below applies, so a card
-   whose script never ran is simply visible. */
+   per-item delay is set in src/lib/reveal-on-view.ts, which also puts
+   "reveal-ready" on <html> — without it nothing below applies, so anything
+   whose script never ran is simply visible.
+
+   "reveal-item" rather than ".title-card": the recommendation strip above the
+   "To watch" grid arrives the same way, and its tiles are not cards — they
+   want none of the content-visibility or context-menu rules further down. */
 @keyframes card-in {
   from {
     opacity: 0;
@@ -99,19 +103,19 @@ img {
     transform: none;
   }
 }
-html.reveal-ready .title-card:not([data-revealed]) {
+html.reveal-ready .reveal-item:not([data-revealed]) {
   opacity: 0;
 }
-html.reveal-ready .title-card[data-revealed] {
+html.reveal-ready .reveal-item[data-revealed] {
   animation: card-in 240ms ease-out backwards;
   animation-delay: calc(var(--stagger, 0) * 1ms);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html.reveal-ready .title-card:not([data-revealed]) {
+  html.reveal-ready .reveal-item:not([data-revealed]) {
     opacity: 1;
   }
-  html.reveal-ready .title-card[data-revealed] {
+  html.reveal-ready .reveal-item[data-revealed] {
     animation: none;
   }
 }

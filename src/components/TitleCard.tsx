@@ -209,7 +209,7 @@ function TitleCard({
   return (
     <div
       ref={setCardNode}
-      className={`title-card group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2 ${
+      className={`title-card reveal-item group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2 ${
         selected ? "ring-1 ring-accent-select" : ""
       }`}
       onClick={handleTap}

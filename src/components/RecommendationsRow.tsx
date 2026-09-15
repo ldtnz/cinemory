@@ -9,6 +9,7 @@ import { recommendationToCandidate } from "@/lib/recommendation-candidate";
 import { useAddToWatchlist } from "@/lib/use-add-to-watchlist";
 import { useDismissRecommendation } from "@/lib/use-dismiss-recommendation";
 import { normalizeTitle } from "@/lib/title-key";
+import { useRevealOnView } from "@/lib/reveal-on-view";
 import RecommendationsModal from "@/components/RecommendationsModal";
 import TrailerModal from "@/components/TrailerModal";
 
@@ -27,9 +28,14 @@ function Tile({
   const { dismissing, error: dismissError, dismiss } = useDismissRecommendation(rec, onDismissed);
   const [trailerOpen, setTrailerOpen] = useState(false);
   const hasTrailer = Boolean(rec.trailerKey);
+  // The strip arrives in the same wave as the grid beneath it, tile by tile.
+  // Being a row, that reads left to right; and since the observer watches for
+  // the crossing rather than the mount, a tile parked off the right edge waits
+  // there until it is scrolled to.
+  const revealRef = useRevealOnView();
 
   return (
-    <li className="w-[104px] flex-none snap-start sm:w-[124px]">
+    <li ref={revealRef} className="reveal-item w-[104px] flex-none snap-start sm:w-[124px]">
       {/* Two independent buttons stacked on the poster, not one button doing
           both jobs: the add button used to live inside the same element the
           center hover-overlay controlled, so hovering the poster to reveal
