@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import SettingsSection from "@/components/SettingsSection";
 import Select from "@/components/Select";
 import { Check } from "lucide-react";
 import { LANGUAGES, REGIONS } from "@/lib/locales";
@@ -39,13 +40,10 @@ export default function PreferencesEditor({
   }
 
   return (
-    <section className="mb-8 rounded-2xl bg-surface p-4">
-      <h2 className="text-sm font-semibold">Content language &amp; region</h2>
-      <p className="mt-1 mb-4 text-xs text-muted">
-        Language TMDB answers in (posters, overviews, genres) and the region used to guess a
-        title&apos;s streaming platform on import.
-      </p>
-
+    <SettingsSection
+      title="Content language & region"
+      description="Language TMDB answers in (posters, overviews, genres) and the region used to guess a title's streaming platform on import."
+    >
       <div className="flex flex-col gap-3 sm:flex-row">
         <Select
           value={language}
@@ -71,6 +69,6 @@ export default function PreferencesEditor({
           {saving ? "Saving..." : saved ? "Saved" : "Save"}
         </button>
       </div>
-    </section>
+    </SettingsSection>
   );
 }

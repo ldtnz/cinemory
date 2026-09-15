@@ -1,9 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
+import SettingsSection from "@/components/SettingsSection";
 import { Upload } from "lucide-react";
+import ImportDialog from "@/components/ImportDialog";
 
-type FileOutcome = {
+export type FileOutcome = {
   file: string;
   format: string | null;
   read: number;
@@ -27,24 +29,22 @@ type EnrichResponse = {
   done: boolean;
 };
 
-const FORMAT_LABELS: Record<string, string> = {
-  netflix: "Netflix",
-  amazon: "Prime Video",
-  "disney-watchlist": "Disney+ watchlist",
-};
-
+/**
+ * The import section: a button, and whatever the last import did.
+ *
+ * Choosing a service and being told how to get its file happens in the dialog
+ * (ImportDialog). The request itself stays here, so its result outlives the
+ * dialog being closed.
+ */
 export default function ImportHistory({ onImported }: { onImported?: () => void } = {}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File[]>([]);
+  const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<"idle" | "importing" | "enriching">("idle");
   const [outcomes, setOutcomes] = useState<FileOutcome[] | null>(null);
   const [added, setAdded] = useState(0);
   const [enriched, setEnriched] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const busy = phase !== "idle";
-
-  async function runImport() {
+  async function runImport(file: File[]) {
     if (file.length === 0) return;
     setPhase("importing");
     setError(null);
@@ -102,101 +102,43 @@ export default function ImportHistory({ onImported }: { onImported?: () => void 
       setError(e instanceof Error ? e.message : "Import failed.");
     } finally {
       setPhase("idle");
-      setFile([]);
-      if (inputRef.current) inputRef.current.value = "";
     }
   }
 
+  const lastAdded = outcomes?.reduce((n, o) => n + o.added, 0) ?? 0;
+
   return (
-    <section className="mb-8 rounded-2xl bg-surface p-4">
-      <h2 className="text-sm font-semibold">Import watch history</h2>
-      <p className="mt-1 text-xs text-muted">
-        Upload your Netflix or Prime Video export: only titles that are not
-        already in the catalog are added. A Disney+ watchlist collected with{" "}
-        <code className="rounded bg-surface-2 px-1 py-0.5 text-[11px]">
-          scripts/disney-watchlist.js
-        </code>{" "}
-        is read too, and lands in &quot;To watch&quot; rather than the watched half.
-      </p>
+    <SettingsSection
+      title="Import watch history"
+      description="Bring in what you have already watched from a streaming service. Each one gives it up differently, so pick yours and the steps follow."
+    >
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex h-10 items-center gap-2 rounded-xl bg-surface-2 px-4 text-xs font-semibold transition-colors hover:bg-surface-3"
+      >
+        <Upload className="h-4 w-4" strokeWidth={1.8} />
+        Import from a service
+      </button>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {/* The native control would not follow the rest of the styling:
-              it is hidden behind a label, which the browser still treats as the
-            file picker button. */}
-        <input
-          ref={inputRef}
-          id="history-file"
-          type="file"
-          accept=".csv,text/csv"
-          multiple
-          disabled={busy}
-          onChange={(e) => setFile(Array.from(e.target.files ?? []))}
-          className="sr-only"
-        />
-        <label
-          htmlFor="history-file"
-          className={`inline-flex h-9 flex-none items-center rounded-xl bg-surface-2 px-3 text-xs font-medium ${
-            busy ? "opacity-50" : "cursor-pointer hover:bg-surface-2/70"
-          }`}
-        >
-          Choose files
-        </label>
-        <span className="min-w-0 flex-1 truncate text-xs text-muted">
-          {file.length === 0
-            ? "No file selected"
-            : file.map((f) => f.name).join(", ")}
-        </span>
-        <button
-          type="button"
-          onClick={runImport}
-          disabled={busy || file.length === 0}
-          className="inline-flex h-9 flex-none items-center gap-1.5 rounded-xl bg-foreground px-4 text-xs font-medium text-background disabled:opacity-50"
-        >
-          <Upload className="h-3.5 w-3.5" strokeWidth={2} />
-          {phase === "importing" ? "Importing..." : "Import"}
-        </button>
-      </div>
-
-      {phase === "enriching" && (
+      {outcomes && !open && (
         <p className="mt-3 text-xs text-muted">
-          Fetching posters and details from TMDB... {enriched} of {added}
+          Last import: {lastAdded.toLocaleString()} {lastAdded === 1 ? "title" : "titles"} added.
+          {lastAdded > 0 && " Reload the catalog to see them."}
         </p>
       )}
 
-      {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
-
-      {outcomes && (
-        <div className="mt-4 space-y-2">
-          {outcomes.map((e) => (
-            <div key={e.file} className="rounded-xl bg-surface-2 px-3 py-2 text-xs">
-              <p className="font-medium">
-                {e.file}
-                {e.format && (
-                  <span className="ml-1.5 font-normal text-muted">
-                    · {FORMAT_LABELS[e.format] ?? e.format}
-                  </span>
-                )}
-              </p>
-              {e.error ? (
-                <p className="mt-0.5 text-red-400">{e.error}</p>
-              ) : (
-                <p className="mt-0.5 text-muted">
-                  {e.read.toLocaleString()} {e.read === 1 ? "title read" : "titles read"} ·{" "}
-                  {e.alreadyPresent.toLocaleString()} already present ·{" "}
-                  <span className={e.added > 0 ? "text-accent-2" : undefined}>
-                    {e.added.toLocaleString()} added
-                  </span>
-                </p>
-              )}
-            </div>
-          ))}
-          {added > 0 && phase === "idle" && (
-            <p className="text-xs text-muted">
-              Reload the catalog to see the new titles.
-            </p>
-          )}
-        </div>
+      {open && (
+        <ImportDialog
+          phase={phase}
+          outcomes={outcomes}
+          added={added}
+          enriched={enriched}
+          error={error}
+          onImport={runImport}
+          onClose={() => setOpen(false)}
+        />
       )}
-    </section>
+    </SettingsSection>
   );
 }

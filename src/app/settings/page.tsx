@@ -13,6 +13,7 @@ import {
   nextRefreshAt,
 } from "@/lib/recommendations";
 import MissingPostersPanel from "@/components/MissingPostersPanel";
+import SettingsSection from "@/components/SettingsSection";
 import ImportHistory from "@/components/ImportHistory";
 import EditModeToggle from "@/components/EditModeToggle";
 import SeriesSeasons from "@/components/SeriesSeasons";
@@ -67,59 +68,63 @@ export default async function SettingsPage() {
         </h1>
       </div>
 
-      <PreferencesEditor initialLanguage={settings.language} initialRegion={settings.region} />
+      {/* One gap between sections, set here rather than as a bottom margin on
+          each of them — which is how they had come to differ by section. */}
+      <div className="space-y-4">
+        <PreferencesEditor initialLanguage={settings.language} initialRegion={settings.region} />
 
-      {isAnthropicConfigured() && (
-        <RecommendationsPanel
-          initialTitles={storedRecommendations?.titles ?? []}
-          initialGeneratedAt={storedRecommendations?.generatedAt ?? null}
-          initialCanRefresh={canRefreshNow(storedRecommendations?.generatedAt ?? null)}
-          initialNextRefreshAt={
-            storedRecommendations ? nextRefreshAt(storedRecommendations.generatedAt).toISOString() : null
-          }
-        />
-      )}
+        {!isTmdbConfigured() ? (
+          <p className="rounded-2xl bg-surface p-4 text-sm text-red-400">
+            TMDB_API_KEY or TMDB_ACCESS_TOKEN is not configured: import and
+            search are unavailable.
+          </p>
+        ) : (
+          <>
+            <ImportHistory />
 
-      {!isTmdbConfigured() ? (
-        <p className="rounded-2xl bg-surface p-4 text-sm text-red-400">
-          TMDB_API_KEY or TMDB_ACCESS_TOKEN is not configured: import and
-          search are unavailable.
-        </p>
-      ) : (
-        <>
-          <ImportHistory />
+            {/* Posters before seasons: both are import leftovers, and a title
+                with no artwork is the one you actually notice in the grid. */}
+            <SettingsSection
+              title="Missing posters"
+              description={
+                missing.length === 0
+                  ? "Every title has a poster."
+                  : `${missing.length} titles without a poster. Search for the right one and link it, or ignore the title.`
+              }
+            >
+              <MissingPostersPanel initialTitles={missing} />
+            </SettingsSection>
 
-          <SeriesSeasons missing={seriesWithoutSeasons} toMerge={toMerge} />
+            <SeriesSeasons missing={seriesWithoutSeasons} toMerge={toMerge} />
+          </>
+        )}
 
-          <section>
-            <h2 className="text-sm font-semibold">Missing posters</h2>
-            <p className="mt-1 mb-4 text-xs text-muted">
-              {missing.length === 0
-                ? "Every title has a poster."
-                : `${missing.length} titles without a poster. Search for the right one and link it, or ignore the title.`}
-            </p>
-            <MissingPostersPanel initialTitles={missing} />
-          </section>
-        </>
-      )}
+        {isAnthropicConfigured() && (
+          <RecommendationsPanel
+            initialTitles={storedRecommendations?.titles ?? []}
+            initialGeneratedAt={storedRecommendations?.generatedAt ?? null}
+            initialCanRefresh={canRefreshNow(storedRecommendations?.generatedAt ?? null)}
+            initialNextRefreshAt={
+              storedRecommendations ? nextRefreshAt(storedRecommendations.generatedAt).toISOString() : null
+            }
+          />
+        )}
 
-      <section className="mt-10 border-t border-white/5 pt-6">
-        <h2 className="text-sm font-semibold">Export your catalog</h2>
-        <p className="mt-1 text-xs text-muted">
-          Downloads every title as JSON — a full backup independent of the
-          database itself, in case you ever need to move it or restore from
-          something other than your host&apos;s own backups.
-        </p>
-        <a
-          href="/api/export"
-          className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-surface-2 px-4 text-xs font-semibold text-foreground transition-colors hover:bg-surface-2/70"
+        <SettingsSection
+          title="Export your catalog"
+          description="Downloads every title as JSON — a full backup independent of the database itself, in case you ever need to move it or restore from something other than your host's own backups."
         >
-          <Download className="h-4 w-4" strokeWidth={1.8} />
-          Export catalog (JSON)
-        </a>
-      </section>
+          <a
+            href="/api/export"
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-surface-2 px-4 text-xs font-semibold text-foreground transition-colors hover:bg-surface-3"
+          >
+            <Download className="h-4 w-4" strokeWidth={1.8} />
+            Export catalog (JSON)
+          </a>
+        </SettingsSection>
 
-      <EditModeToggle />
+        <EditModeToggle />
+      </div>
     </main>
   );
 }

@@ -341,7 +341,7 @@ test("the bundled example exports parse into coherent rows", async () => {
   }
 });
 
-/** The CSV scripts/disney-watchlist.js produces. */
+/** The CSV public/disney-watchlist.js produces. */
 function disneyCsv(rows: string[][]): string {
   return csv(["Title", "Type", "Link"], rows);
 }

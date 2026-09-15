@@ -80,7 +80,7 @@ function GestisciItem({
   }
 
   return (
-    <div className="rounded-2xl bg-surface p-4">
+    <div className="rounded-2xl bg-surface-2 p-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{title.title}</p>
@@ -93,14 +93,14 @@ function GestisciItem({
             type="button"
             onClick={ignora}
             disabled={associando}
-            className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+            className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-surface-3 hover:text-foreground disabled:opacity-50"
           >
-            Ignora
+            Ignore
           </button>
           <button
             type="button"
             onClick={() => (open ? setOpen(false) : openModal())}
-            className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium hover:bg-surface-2/70"
+            className="rounded-lg bg-surface-3 px-3 py-1.5 text-xs font-medium hover:bg-surface-3/70"
           >
             {open ? "Close" : "Search"}
           </button>
@@ -114,14 +114,14 @@ function GestisciItem({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && search()}
-              className="h-9 flex-1 rounded-xl bg-surface-2 px-3 text-base outline-none focus:ring-2 focus:ring-accent-2 sm:text-sm"
+              className="h-9 flex-1 rounded-xl bg-surface-3 px-3 text-base outline-none focus:ring-2 focus:ring-accent-2 sm:text-sm"
               placeholder="Title to search on TMDB"
             />
             <button
               type="button"
               onClick={search}
               disabled={loading}
-              className="h-9 flex-none rounded-xl bg-surface-2 px-3 text-xs font-medium hover:bg-surface-2/70 disabled:opacity-50"
+              className="h-9 flex-none rounded-xl bg-surface-3 px-3 text-xs font-medium hover:bg-surface-3/70 disabled:opacity-50"
             >
               {loading ? "..." : "Search"}
             </button>
@@ -139,7 +139,7 @@ function GestisciItem({
                   type="button"
                   onClick={() => associa(c)}
                   disabled={associando}
-                  className="group relative aspect-[2/3] overflow-hidden rounded-xl bg-surface-2 text-left outline-none ring-accent-2 hover:ring-2 disabled:opacity-50"
+                  className="group relative aspect-[2/3] overflow-hidden rounded-xl bg-surface-3 text-left outline-none ring-accent-2 hover:ring-2 disabled:opacity-50"
                   title={`${c.title}${c.year ? ` (${c.year})` : ""}`}
                 >
                   {c.posterUrl ? (
@@ -173,9 +173,9 @@ export default function MissingPostersPanel({
     setTitoli((prev) => prev.filter((t) => t.id !== id));
   }
 
-  if (titles.length === 0) {
-    return <p className="text-sm text-muted">All done, nothing to fix.</p>;
-  }
+  // The section's own description already says there is nothing to do; a
+  // second line saying it again is just noise.
+  if (titles.length === 0) return null;
 
   return (
     <div className="space-y-3">

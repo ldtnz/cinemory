@@ -205,10 +205,13 @@ stays a few cents a month.
 
 ### From the app (recommended)
 
-Open **Settings** (the gear, top right) → **Import watch history** and upload
-one or both CSVs. The format is detected from the header, and only titles that
-are not already in the catalog are added — so importing the same file twice
-changes nothing. Posters and metadata are fetched right afterwards.
+Open **Settings** (the gear, top right) → **Import watch history** → **Import
+from a service**, and pick the service you are coming from: the dialog then
+shows how to get its file, what the file should look like, and whether it lands
+in your watched titles or in "To watch". The format is also detected from the
+header, and only titles that are not already in the catalog are added — so
+importing the same file twice changes nothing. Posters and metadata are fetched
+right afterwards.
 
 ### Where the exports come from
 
@@ -220,9 +223,10 @@ changes nothing. Posters and metadata are fetched right afterwards.
   console and run it.
 - **Disney+** — no export and no public API, which is why trackers like Simkl
   do not sync it either. What it does have is a watchlist page, so
-  `scripts/disney-watchlist.js` reads that one: open your Watchlist on
+  `public/disney-watchlist.js` reads that one: open your Watchlist on
   disneyplus.com, paste the script into the browser console, and it downloads
-  a `disney-watchlist.csv` you upload like the others. It runs entirely in your
+  a `disney-watchlist.csv` you upload like the others. The import dialog hands
+  you the script with a copy button, so you need not go looking for the file. It runs entirely in your
   browser and sends nothing anywhere. These are titles you have *not* watched,
   so they land in "To watch" rather than the watched half — a Disney+ watch
   history can only be had by asking Disney for it under GDPR
@@ -264,7 +268,6 @@ prisma/migrations/          SQL migrations
 prisma/seed.ts              builds the catalog from the CSVs
 prisma/seed-data/           your exports + the bundled fake samples
 scripts/enrich-tmdb.ts      fills in TMDB data for existing titles
-scripts/disney-watchlist.js collects a Disney+ watchlist from the browser
 scripts/import-imdb.ts      imports an IMDb ratings export
 scripts/sync-turso.ts       pulls Turso down into the local dev.db
 scripts/migrate-turso.ts    applies prisma/migrations to Turso

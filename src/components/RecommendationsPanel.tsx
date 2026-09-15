@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import SettingsSection from "@/components/SettingsSection";
 import { Sparkles } from "lucide-react";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
 
@@ -63,19 +64,19 @@ export default function RecommendationsPanel({
   const wait = !canRefresh && nextRefreshAt ? timeUntil(nextRefreshAt) : "";
 
   return (
-    <section className="mb-8 rounded-2xl bg-surface p-4">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold">
-        <Sparkles className="h-4 w-4 text-accent-ai" strokeWidth={1.8} />
-        AI recommendations
-      </h2>
-      <p className="mt-1 mb-4 text-xs text-muted">
-        {generatedAt
-          ? `Last generated ${new Date(generatedAt).toLocaleString()}. `
-          : "Not generated yet — the first batch appears automatically on your next visit. "}
-        Claude suggests what to watch next based on your catalog and refreshes
-        itself every 5 days — this button forces a fresh one right away.
-      </p>
-
+    <SettingsSection
+      title="AI recommendations"
+      icon={<Sparkles className="h-4 w-4 text-accent-ai" strokeWidth={1.8} />}
+      description={
+        <>
+          {generatedAt
+            ? `Last generated ${new Date(generatedAt).toLocaleString()}. `
+            : "Not generated yet — the first batch appears automatically on your next visit. "}
+          Claude suggests what to watch next based on your catalog and refreshes itself
+          every 5 days — this button forces a fresh one right away.
+        </>
+      }
+    >
       {error && <p className="mb-3 text-xs text-red-400">{error}</p>}
 
       <button
@@ -94,6 +95,6 @@ export default function RecommendationsPanel({
       {wait && !loading && (
         <p className="mt-2 text-[11px] text-muted">Next automatic refresh in {wait}.</p>
       )}
-    </section>
+    </SettingsSection>
   );
 }

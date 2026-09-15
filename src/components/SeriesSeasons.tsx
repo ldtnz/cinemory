@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import SettingsSection from "@/components/SettingsSection";
 import { Layers, Merge } from "lucide-react";
 
 type Response = {
@@ -87,19 +88,19 @@ export default function SeriesSeasons({
   }
 
   return (
-    <section className="mb-8 rounded-2xl bg-surface p-4">
-      <h2 className="text-sm font-semibold">Series seasons</h2>
-      <p className="mt-1 text-xs text-muted">
-        {missing === 0
+    <SettingsSection
+      title="Series seasons"
+      description={
+        missing === 0
           ? "Every series matched on TMDB knows how many seasons it has."
-          : `${missing.toLocaleString()} series do not know their season count yet. The number comes from TMDB and is what shows "watched X of Y" on the posters.`}
-      </p>
-
+          : `${missing.toLocaleString()} series do not know their season count yet. The number comes from TMDB and is what shows "watched X of Y" on the posters.`
+      }
+    >
       <button
         type="button"
         onClick={fill}
         disabled={running || missing === 0}
-        className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-xl bg-foreground px-4 text-xs font-medium text-background disabled:opacity-50"
+        className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-foreground px-4 text-xs font-medium text-background disabled:opacity-50"
       >
         <Layers className="h-3.5 w-3.5" strokeWidth={2} />
         {running ? "Fetching..." : "Fetch from TMDB"}
@@ -140,6 +141,6 @@ export default function SeriesSeasons({
           {mergeResult && <p className="mt-3 text-xs text-accent-2">{mergeResult}</p>}
         </div>
       )}
-    </section>
+    </SettingsSection>
   );
 }

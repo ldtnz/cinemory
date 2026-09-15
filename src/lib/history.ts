@@ -1,6 +1,6 @@
 /**
  * Parsing of Netflix and Amazon Prime Video watch-history exports, and of a
- * Disney+ watchlist collected with scripts/disney-watchlist.js.
+ * Disney+ watchlist collected with public/disney-watchlist.js.
  *
  * Shared between the initial seed (prisma/seed.ts, which wipes and refills the
  * catalog) and the incremental import on the settings page (which only adds
@@ -87,7 +87,7 @@ export function detectFormat(content: string): Format | null {
     return "amazon";
   }
   // Disney+ publishes no export of its own, so this is the shape produced by
-  // scripts/disney-watchlist.js. Tested before Netflix: both start with a
+  // public/disney-watchlist.js. Tested before Netflix: both start with a
   // "title" column.
   if (/^\ufeff?"?title"?\s*,\s*"?type"?\s*,\s*"?link"?\s*$/i.test((header.split("\n")[0] ?? "").trim())) {
     return "disney-watchlist";
@@ -251,7 +251,7 @@ export function readAmazon(content: string): HistoryRow[] {
 }
 
 /**
- * A Disney+ watchlist, as collected by scripts/disney-watchlist.js.
+ * A Disney+ watchlist, as collected by public/disney-watchlist.js.
  *
  * Disney+ has no export of its own and no public API, so the columns are ours
  * rather than theirs: Title,Type,Link. Unlike the two history formats these
