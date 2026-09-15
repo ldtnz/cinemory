@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
+import { useRevealOnView } from "@/lib/reveal-on-view";
 import type { Title } from "@prisma/client";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
 import RecommendationsModal from "@/components/RecommendationsModal";
@@ -32,6 +33,7 @@ export default function RecommendationsCard({
   onAdded: (title: Title) => void;
   onDismissed: (rec: EnrichedRecommendation) => void;
 }) {
+  const revealRef = useRevealOnView();
   const [open, setOpen] = useState(false);
   const [chunkIndex, setChunkIndex] = useState(0);
   const [visible, setVisible] = useState(true);
@@ -66,9 +68,11 @@ export default function RecommendationsCard({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        // title-card: so it dims and blurs along with every other card when
-        // a right-click/long-press context menu opens elsewhere in the grid
-        // (see globals.css) — it has no context menu of its own.
+        // Carrying title-card means the grid's rules apply here too: it dims
+        // and blurs with the other cards when a context menu opens elsewhere
+        // (it has no menu of its own), and it stays hidden until revealed —
+        // so it has to be observed like they are, or it never appears.
+        ref={revealRef}
         className="title-card flex aspect-[2/3] flex-col overflow-hidden rounded-2xl bg-surface-2 p-2 text-left transition-colors hover:bg-surface-2/70"
       >
         {/* Short enough to stay on one line: this tile is a third of the
