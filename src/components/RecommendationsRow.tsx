@@ -35,7 +35,7 @@ function Tile({
   const revealRef = useRevealOnView();
 
   return (
-    <li ref={revealRef} className="reveal-item w-[104px] flex-none snap-start sm:w-[124px]">
+    <li ref={revealRef} className="reveal-item w-[104px] flex-none sm:w-[124px]">
       {/* Two independent buttons stacked on the poster, not one button doing
           both jobs: the add button used to live inside the same element the
           center hover-overlay controlled, so hovering the poster to reveal
@@ -188,7 +188,7 @@ export default function RecommendationsRow({
           </button>
         </div>
 
-        <ul className="-mx-3 mt-3 flex snap-x gap-2.5 overflow-x-auto px-3 pb-1 sm:-mx-4 sm:px-4">
+        <ul className="-mx-3 mt-3 flex gap-2.5 overflow-x-auto px-3 pb-1 sm:-mx-4 sm:px-4">
           {titles.map((rec) => (
             <Tile
               key={`${rec.mediaType}-${rec.tmdbId ?? rec.title}`}
