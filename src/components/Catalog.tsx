@@ -90,7 +90,7 @@ export default function Catalog({
   // refreshed under it; what it means is resolved against the visible
   // results below, which is also what narrows it when the filters change.
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(new Set());
-  const [bulkAction, setBulkAction] = useState<"watched" | "delete" | null>(null);
+  const [bulkAction, setBulkAction] = useState<"watched" | "towatch" | "delete" | null>(null);
 
   const toggleSelect = useCallback((title: Title) => {
     setSelectedIds((prev) => {
@@ -249,6 +249,40 @@ export default function Catalog({
       prev.map((t) => (t.id === title.id ? { ...t, newSeasonAvailable: false } : t)),
     );
   }, []);
+
+  /** Sends watched titles back to the watchlist — the way back from
+   *  markWatched, which is why it drops the same two fields that one set. */
+  const moveToWatchlist = useCallback(async (rows: Title[]) => {
+    const updated = await Promise.all(
+      rows.map(async (t) => {
+        const res = await fetch(`/api/titles/${t.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ moveToWatchlist: true }),
+        });
+        if (!res.ok) return null;
+        const { title } = (await res.json()) as {
+          title: Title & { lastWatchedAt: string | null; createdAt: string; updatedAt: string };
+        };
+        return {
+          ...title,
+          lastWatchedAt: title.lastWatchedAt ? new Date(title.lastWatchedAt) : null,
+          createdAt: new Date(title.createdAt),
+          updatedAt: new Date(title.updatedAt),
+        };
+      }),
+    );
+    const byId = new Map(updated.filter((t): t is Title => t !== null).map((t) => [t.id, t]));
+    if (byId.size < rows.length) {
+      window.alert(`Could not move ${rows.length - byId.size} of ${rows.length} titles.`);
+    }
+    setCatalog((prev) => prev.map((t) => byId.get(t.id) ?? t));
+  }, []);
+
+  const moveOneToWatchlist = useCallback(
+    (title: Title) => void moveToWatchlist([title]),
+    [moveToWatchlist],
+  );
 
   /** Deletes everything currently selected, in one pass over the catalog. */
   const bulkDelete = useCallback(async (rows: Title[]) => {
@@ -643,6 +677,7 @@ export default function Catalog({
               onMarkWatched={markWatched}
               onEditWatched={editWatched}
               onDismissNewSeason={dismissNewSeason}
+              onMoveToWatchlist={moveOneToWatchlist}
               selected={selectedIds.has(t.id)}
               onToggleSelect={toggleSelect}
             />
@@ -663,6 +698,9 @@ export default function Catalog({
           onMarkWatched={
             mode === "watchlist" ? () => setBulkAction("watched") : undefined
           }
+          onMoveToWatchlist={
+            mode === "watched" ? () => setBulkAction("towatch") : undefined
+          }
           onDelete={() => setBulkAction("delete")}
           onClear={clearSelection}
         />
@@ -675,6 +713,22 @@ export default function Catalog({
             const rows = selectedTitles;
             clearSelection();
             void bulkMarkWatched(rows, platform, lastWatchedAt);
+          }}
+          onCancel={() => setBulkAction(null)}
+        />
+      )}
+
+      {bulkAction === "towatch" && selectedTitles.length > 0 && (
+        <ConfirmDialog
+          title={`Move ${selectedTitles.length} titles to "To watch"?`}
+          description={`Where and when you watched ${
+            selectedTitles.length === 1 ? "it" : "them"
+          } will be cleared — that is what "not watched yet" means here.`}
+          confirmLabel="Move"
+          onConfirm={() => {
+            const rows = selectedTitles;
+            clearSelection();
+            void moveToWatchlist(rows);
           }}
           onCancel={() => setBulkAction(null)}
         />

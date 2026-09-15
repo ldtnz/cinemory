@@ -73,6 +73,7 @@ function TitleCard({
   onMarkWatched,
   onEditWatched,
   onDismissNewSeason,
+  onMoveToWatchlist,
   selected = false,
   onToggleSelect,
 }: {
@@ -89,6 +90,8 @@ function TitleCard({
   onEditWatched?: (title: Title, platform: string, lastWatchedAt: Date | null) => void;
   /** Clears the "new season available" badge (src/lib/season-check.ts). */
   onDismissNewSeason?: (title: Title) => void;
+  /** Sends an already-watched title back to the watchlist. */
+  onMoveToWatchlist?: (title: Title) => void;
   /** Part of the standing shift-click selection (see SelectionBar). */
   selected?: boolean;
   onToggleSelect?: (title: Title) => void;
@@ -373,6 +376,11 @@ function TitleCard({
           onWatchlist={title.inWatchlist}
           onTrailer={openTrailer}
           onMarkWatched={() => setMarkingWatched(true)}
+          onMoveToWatchlist={
+            title.inWatchlist || !onMoveToWatchlist
+              ? undefined
+              : () => onMoveToWatchlist(title)
+          }
           // The same dialog the pencil opens on a card in edit mode: on a
           // phone there is no hover to reveal that button, so the menu is
           // the only way to reach it.

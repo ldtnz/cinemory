@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Trash2, X } from "lucide-react";
+import { Bookmark, Check, Trash2, X } from "lucide-react";
 import { createPortal } from "react-dom";
 
 /**
@@ -13,6 +13,7 @@ import { createPortal } from "react-dom";
 export default function SelectionBar({
   count,
   onMarkWatched,
+  onMoveToWatchlist,
   onDelete,
   onClear,
 }: {
@@ -20,6 +21,8 @@ export default function SelectionBar({
   /** Only on the watchlist half, where "watched" is a move that means
    *  something; absent for titles already watched. */
   onMarkWatched?: () => void;
+  /** The opposite move, and so the opposite half. */
+  onMoveToWatchlist?: () => void;
   onDelete: () => void;
   onClear: () => void;
 }) {
@@ -38,6 +41,17 @@ export default function SelectionBar({
           >
             <Check className="h-4 w-4 flex-none text-accent-2" strokeWidth={2.2} />
             Mark as watched
+          </button>
+        )}
+
+        {onMoveToWatchlist && (
+          <button
+            type="button"
+            onClick={onMoveToWatchlist}
+            className="flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-3 text-sm font-medium leading-none text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+          >
+            <Bookmark className="h-4 w-4 flex-none" strokeWidth={1.8} />
+            Move to To watch
           </button>
         )}
 

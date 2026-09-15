@@ -27,9 +27,11 @@ export async function DELETE(
 }
 
 /**
- * Four edits, told apart by the body:
+ * Five edits, told apart by the body:
  *  - { markWatched: { platform } } moves a watchlist entry into the watched
  *    half, recording where it was finally watched.
+ *  - { moveToWatchlist: true } is the way back: it drops the platform and the
+ *    watched date, which is what "not watched yet" means here.
  *  - { editWatched: { platform, lastWatchedAt } } corrects the platform or
  *    date on a title that is already watched (edit mode).
  *  - { watchedSeasons } updates a series' progress (the +/- controls in
@@ -55,6 +57,7 @@ export async function PATCH(
         watchedSeasons?: number | null;
         markWatched?: { platform?: string; lastWatchedAt?: string };
         editWatched?: { platform?: string; lastWatchedAt?: string | null };
+        moveToWatchlist?: boolean;
         dismissNewSeason?: boolean;
       }
     | null;
@@ -65,6 +68,26 @@ export async function PATCH(
     if (!title) {
       return NextResponse.json({ error: "Title not found." }, { status: 404 });
     }
+    return NextResponse.json({ title });
+  }
+
+  if (body?.moveToWatchlist) {
+    const updated = await prisma.title.updateMany({
+      where: { id },
+      // Cleared rather than kept: everything here reads a watchlist entry as
+      // one that has not been watched anywhere, and a leftover date would
+      // also sort it among things that have been.
+      data: {
+        inWatchlist: true,
+        status: "To watch",
+        platform: "",
+        lastWatchedAt: null,
+      },
+    });
+    if (updated.count === 0) {
+      return NextResponse.json({ error: "Title not found." }, { status: 404 });
+    }
+    const title = await prisma.title.findUnique({ where: { id } });
     return NextResponse.json({ title });
   }
 
