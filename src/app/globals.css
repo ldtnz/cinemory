@@ -14,6 +14,10 @@
      Magenta, pulled back from a neon hue 300 to something that sits in a
      near-black, mostly grey UI without glowing out of it. */
   --accent-ai: #df68df;
+  /* The shift-click selection. Deliberately a quiet, desaturated blue: it
+     outlines posters, which carry every colour there is, so it has to read
+     as a marking rather than compete with them. */
+  --accent-select: #8db3ce;
 }
 
 @theme inline {
@@ -26,6 +30,7 @@
   --color-accent: var(--accent);
   --color-accent-2: var(--accent-2);
   --color-accent-ai: var(--accent-ai);
+  --color-accent-select: var(--accent-select);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

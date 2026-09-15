@@ -679,6 +679,7 @@ export default function Catalog({
               onDismissNewSeason={dismissNewSeason}
               onMoveToWatchlist={moveOneToWatchlist}
               selected={selectedIds.has(t.id)}
+              selectionActive={selectedTitles.length > 0}
               onToggleSelect={toggleSelect}
             />
           ))}

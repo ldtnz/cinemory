@@ -75,6 +75,7 @@ function TitleCard({
   onDismissNewSeason,
   onMoveToWatchlist,
   selected = false,
+  selectionActive = false,
   onToggleSelect,
 }: {
   title: Title;
@@ -94,6 +95,9 @@ function TitleCard({
   onMoveToWatchlist?: (title: Title) => void;
   /** Part of the standing shift-click selection (see SelectionBar). */
   selected?: boolean;
+  /** Something is already selected, so a plain click adds to the selection
+   *  rather than opening anything: shift is only needed to start one. */
+  selectionActive?: boolean;
   onToggleSelect?: (title: Title) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
@@ -137,8 +141,11 @@ function TitleCard({
   function handleTap(e: ReactMouseEvent) {
     // Shift-click picks titles out to act on together rather than opening
     // anything — see SelectionBar. Only a mouse can hold shift, so this is
-    // silently a desktop gesture.
-    if (e.shiftKey && onToggleSelect) {
+    // silently a desktop gesture. Once a selection is standing, a plain
+    // click goes on adding to it: holding shift for every title after the
+    // first is a chore, and there is nothing else a click could mean while
+    // the selection bar is up.
+    if ((e.shiftKey || selectionActive) && onToggleSelect) {
       onToggleSelect(title);
       return;
     }
@@ -187,7 +194,7 @@ function TitleCard({
         revealRef(node);
       }}
       className={`title-card group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2 ${
-        selected ? "ring-2 ring-accent-2" : ""
+        selected ? "ring-1 ring-accent-select" : ""
       }`}
       onClick={handleTap}
       {...cardHandlers}
@@ -195,7 +202,7 @@ function TitleCard({
       {selected && (
         <span
           aria-hidden
-          className="absolute right-1.5 top-1.5 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-accent-2 text-background shadow-[0_4px_12px_-2px_rgba(0,0,0,0.6)]"
+          className="absolute right-1.5 top-1.5 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-accent-select text-background shadow-[0_4px_12px_-2px_rgba(0,0,0,0.6)]"
         >
           <Check className="h-3.5 w-3.5" strokeWidth={3} />
         </span>
