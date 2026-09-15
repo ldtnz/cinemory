@@ -99,7 +99,7 @@ export default function MarkWatchedDialog({
                 </>
               ) : null}
             </div>
-            {title.mediaType === "Series" && title.totalSeasons != null && (
+            {title.mediaType === "Series" && (title.totalSeasons ?? 0) > 0 && (
               <p className="text-xs text-muted">
                 {title.totalSeasons} {title.totalSeasons === 1 ? "season" : "seasons"}
               </p>

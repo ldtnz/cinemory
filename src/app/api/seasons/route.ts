@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { totalSeasonsFromTmdb, isTmdbConfigured } from "@/lib/tmdb";
+import { lookupTotalSeasons, isTmdbConfigured } from "@/lib/tmdb";
+import { NO_SEASON_COUNT } from "@/lib/seasons";
 
 export const maxDuration = 60;
 
@@ -14,9 +15,14 @@ const BATCH_SIZE = 25;
  *
  * This is for an existing catalog: series imported before this feature have a
  * tmdbId but no season count, which the TMDB search does not return. As with
- * the import enrichment, progress is a cursor on the id: series TMDB cannot
- * count are left empty without
- * essere ritentate in eterno.
+ * the import enrichment, progress is a cursor on the id.
+ *
+ * A series TMDB has no answer for is written as NO_SEASON_COUNT rather than
+ * left empty. Leaving it empty is what "still has it empty" means, so the
+ * next run picked it up again, found the same nothing, and left it again:
+ * the count never reached zero however many times the button was pressed.
+ * A request that merely failed to get through is still left alone — that one
+ * really should be retried.
  */
 export async function POST(request: NextRequest) {
   if (!(await isAuthenticated())) {
@@ -43,10 +49,22 @@ export async function POST(request: NextRequest) {
   });
 
   let completed = 0;
+  let unavailable = 0;
   for (const s of series) {
-    const totalCount = await totalSeasonsFromTmdb(s.tmdbId!).catch(() => null);
-    if (totalCount == null) continue;
-    await prisma.title.update({ where: { id: s.id }, data: { totalSeasons: totalCount } });
+    const found = await lookupTotalSeasons(s.tmdbId!).catch(() => ({ status: "failed" }) as const);
+    if (found.status === "failed") continue;
+    if (found.status === "none") {
+      await prisma.title.update({
+        where: { id: s.id },
+        data: { totalSeasons: NO_SEASON_COUNT },
+      });
+      unavailable += 1;
+      continue;
+    }
+    await prisma.title.update({
+      where: { id: s.id },
+      data: { totalSeasons: found.totalSeasons },
+    });
     completed += 1;
   }
 
@@ -57,6 +75,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     completed,
+    unavailable,
     cursor: nextCursor,
     remaining,
     done: series.length < BATCH_SIZE,

@@ -178,11 +178,11 @@ function TitleCard({
   const seasonsLabel =
     title.mediaType !== "Series"
       ? null
-      : title.watchedSeasons != null && title.totalSeasons != null
+      : title.watchedSeasons != null && (title.totalSeasons ?? 0) > 0
         ? `${title.watchedSeasons} of ${title.totalSeasons} seasons`
         : title.watchedSeasons != null
           ? `${title.watchedSeasons} ${title.watchedSeasons === 1 ? "season watched" : "seasons watched"}`
-          : title.totalSeasons != null
+          : (title.totalSeasons ?? 0) > 0
             ? `${title.totalSeasons} ${title.totalSeasons === 1 ? "season" : "seasons"}`
             : null;
 
@@ -335,7 +335,7 @@ function TitleCard({
           </button>
           <span className="px-1 text-center text-[10px] font-semibold leading-tight text-white">
             {title.watchedSeasons ?? 0}
-            {title.totalSeasons != null ? `/${title.totalSeasons}` : ""}
+            {(title.totalSeasons ?? 0) > 0 ? `/${title.totalSeasons}` : ""}
           </span>
           <button
             type="button"

@@ -61,7 +61,7 @@ async function releaseSeasonCheckLock(): Promise<void> {
  */
 export async function checkAllSeriesForNewSeasons(): Promise<void> {
   const series = await prisma.title.findMany({
-    where: { mediaType: "Series", tmdbId: { gt: 0 }, totalSeasons: { not: null } },
+    where: { mediaType: "Series", tmdbId: { gt: 0 }, totalSeasons: { gt: 0 } },
     select: { id: true, tmdbId: true, totalSeasons: true },
   });
 

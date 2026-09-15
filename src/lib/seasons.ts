@@ -10,6 +10,20 @@
 import { prisma } from "@/lib/prisma";
 import { normalizeTitle, withoutSeason } from "@/lib/history";
 
+/**
+ * Stored in Title.totalSeasons for a series TMDB has no season count for.
+ *
+ * Null means "not asked yet", which is what the settings page counts and the
+ * fill route works through — so a series TMDB cannot answer for has to be
+ * marked as asked, or it stays in that count forever. Negative rather than 0
+ * so it can never be mistaken for a real answer, matching the tmdbId of -1
+ * that marks a title whose missing poster was deliberately ignored.
+ *
+ * Anything reading a season count treats it as unknown: the checks are for a
+ * number greater than zero, never merely non-null.
+ */
+export const NO_SEASON_COUNT = -1;
+
 export type SeriesGroup = {
   name: string;
   rows: {

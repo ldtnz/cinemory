@@ -6,6 +6,9 @@ import { Layers, Merge } from "lucide-react";
 
 type Response = {
   completed: number;
+  /** Series TMDB has no season count for. They are marked as asked, so this
+   *  is the only time they are ever reported. */
+  unavailable: number;
   cursor: number;
   remaining: number;
   done: boolean;
@@ -28,6 +31,7 @@ export default function SeriesSeasons({
 }) {
   const [running, setRunning] = useState(false);
   const [completed, setCompleted] = useState(0);
+  const [unavailable, setUnavailable] = useState(0);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mergeResult, setMergeResult] = useState<string | null>(null);
@@ -38,9 +42,11 @@ export default function SeriesSeasons({
     setError(null);
     setDone(false);
     setCompleted(0);
+    setUnavailable(0);
 
     let cursor = 0;
     let total = 0;
+    let noAnswer = 0;
     try {
       for (;;) {
         const res = await fetch("/api/seasons", {
@@ -51,7 +57,9 @@ export default function SeriesSeasons({
         if (!res.ok) throw new Error("Lookup failed.");
         const state = (await res.json()) as Response;
         total += state.completed;
+        noAnswer += state.unavailable;
         setCompleted(total);
+        setUnavailable(noAnswer);
         cursor = state.cursor;
         if (state.done || state.remaining === 0) break;
       }
@@ -93,7 +101,7 @@ export default function SeriesSeasons({
       description={
         missing === 0
           ? "Every series matched on TMDB knows how many seasons it has."
-          : `${missing.toLocaleString()} series do not know their season count yet. The number comes from TMDB and is what shows "watched X of Y" on the posters.`
+          : `${missing.toLocaleString()} ${missing === 1 ? "series does" : "series do"} not know ${missing === 1 ? "its" : "their"} season count yet. The number comes from TMDB and is what shows "watched X of Y" on the posters.`
       }
     >
       <button
@@ -112,10 +120,28 @@ export default function SeriesSeasons({
         </p>
       )}
       {done && !running && (
-        <p className="mt-3 text-xs text-accent-2">
-          {completed.toLocaleString()} series completed. Reload the catalog to
-          see them.
-        </p>
+        <div className="mt-3 space-y-1 text-xs">
+          {completed > 0 && (
+            <p className="text-accent-2">
+              {completed.toLocaleString()} series completed. Reload the catalog to see them.
+            </p>
+          )}
+          {/* Said once, here: these are now marked as asked, so they drop out
+              of the count and never come back on their own. */}
+          {unavailable > 0 && (
+            <p className="text-muted">
+              {unavailable.toLocaleString()}{" "}
+              {unavailable === 1 ? "series has" : "series have"} no season count on TMDB —{" "}
+              {unavailable === 1 ? "it is" : "they are"} usually matched to the wrong entry.
+              Fix the match from Missing posters, or leave{" "}
+              {unavailable === 1 ? "it" : "them"}: {unavailable === 1 ? "it" : "they"} will not
+              be asked about again.
+            </p>
+          )}
+          {completed === 0 && unavailable === 0 && (
+            <p className="text-muted">Nothing to do.</p>
+          )}
+        </div>
       )}
       {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
 

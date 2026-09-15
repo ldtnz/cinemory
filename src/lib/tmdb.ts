@@ -264,29 +264,54 @@ export async function findBestTmdbMatch(
  * It counts real seasons: TMDB includes "specials" (season 0) in its own
  * count, which is not a season as far as a viewer is concerned.
  */
-export async function totalSeasonsFromTmdb(tmdbId: number): Promise<number | null> {
-  if (!isTmdbConfigured() || !(tmdbId > 0)) return null;
+/**
+ * Why a season count came back empty, which the plain number cannot say.
+ *
+ * "none" is TMDB's own answer and will not change by asking again: the id is
+ * not a series there at all (a title matched to a film keeps a tmdbId that
+ * 404s on /tv), or the entry carries no usable season list. "failed" is the
+ * request not getting through — a timeout, a rate limit, TMDB being down —
+ * and is worth retrying. Telling them apart is what stops a series TMDB
+ * cannot answer for from being asked about forever.
+ */
+export type SeasonLookup =
+  | { status: "ok"; totalSeasons: number }
+  | { status: "none" }
+  | { status: "failed" };
+
+export async function lookupTotalSeasons(tmdbId: number): Promise<SeasonLookup> {
+  if (!isTmdbConfigured() || !(tmdbId > 0)) return { status: "none" };
 
   const language = (await getSettings()).language;
   const url = withKey(new URL(`https://api.themoviedb.org/3/tv/${tmdbId}`));
   url.searchParams.set("language", language);
 
   const res = await fetch(url, { headers: authHeaders() }).catch(() => null);
-  if (!res?.ok) return null;
+  if (!res) return { status: "failed" };
+  // 404 is TMDB saying there is no series under this id. Every other error
+  // status is about the request, not the title.
+  if (!res.ok) return res.status === 404 ? { status: "none" } : { status: "failed" };
 
   const data = (await res.json().catch(() => null)) as {
     number_of_seasons?: number;
     seasons?: { season_number?: number }[];
   } | null;
-  if (!data) return null;
+  if (!data) return { status: "failed" };
 
   if (Array.isArray(data.seasons)) {
-    const vere = data.seasons.filter((s) => (s.season_number ?? 0) > 0).length;
-    if (vere > 0) return vere;
+    const real = data.seasons.filter((s) => (s.season_number ?? 0) > 0).length;
+    if (real > 0) return { status: "ok", totalSeasons: real };
   }
   return typeof data.number_of_seasons === "number" && data.number_of_seasons > 0
-    ? data.number_of_seasons
-    : null;
+    ? { status: "ok", totalSeasons: data.number_of_seasons }
+    : { status: "none" };
+}
+
+/** The count alone, for callers that treat "no answer" and "ask again later"
+ *  the same way — both simply leave what is stored untouched. */
+export async function totalSeasonsFromTmdb(tmdbId: number): Promise<number | null> {
+  const r = await lookupTotalSeasons(tmdbId);
+  return r.status === "ok" ? r.totalSeasons : null;
 }
 
 type TmdbVideo = { key: string; site: string; type: string; official?: boolean };
