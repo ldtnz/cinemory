@@ -102,8 +102,13 @@ export default function Select({
       if (!listRef.current?.contains(t) && !triggerRef.current?.contains(t)) setOpen(false);
     }
     // Fixed coordinates do not follow a scrolling page, so the panel closes
-    // instead of drifting away from the field it belongs to.
-    function onDismiss() {
+    // instead of drifting away from the field it belongs to. Scrolling inside
+    // the list is not that: a list too long to fit is meant to be scrolled,
+    // and closing it on the first wheel turn made the longer ones (languages,
+    // regions, genres) unusable. Only movement outside it counts.
+    function onDismiss(e: Event) {
+      const t = e.target as Node | null;
+      if (t && listRef.current?.contains(t)) return;
       setOpen(false);
     }
     document.addEventListener("mousedown", onPointerDown);
