@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { memo, useEffect, useRef, useState } from "react";
-import { Minus, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { Check, Minus, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import type { Title } from "@prisma/client";
 import { useCardContextMenu } from "@/lib/use-card-context-menu";
 import { useRevealOnView } from "@/lib/reveal-on-view";
@@ -72,6 +73,8 @@ function TitleCard({
   onMarkWatched,
   onEditWatched,
   onDismissNewSeason,
+  selected = false,
+  onToggleSelect,
 }: {
   title: Title;
   /** true for the first cards above the fold, avoids the Next/Image LCP warning */
@@ -86,6 +89,9 @@ function TitleCard({
   onEditWatched?: (title: Title, platform: string, lastWatchedAt: Date | null) => void;
   /** Clears the "new season available" badge (src/lib/season-check.ts). */
   onDismissNewSeason?: (title: Title) => void;
+  /** Part of the standing shift-click selection (see SelectionBar). */
+  selected?: boolean;
+  onToggleSelect?: (title: Title) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -125,7 +131,14 @@ function TitleCard({
     }
   }
 
-  function handleTap() {
+  function handleTap(e: ReactMouseEvent) {
+    // Shift-click picks titles out to act on together rather than opening
+    // anything — see SelectionBar. Only a mouse can hold shift, so this is
+    // silently a desktop gesture.
+    if (e.shiftKey && onToggleSelect) {
+      onToggleSelect(title);
+      return;
+    }
     // The tap that ends a long-press still fires a click on release: this
     // one should open the menu, not also flash the details overlay.
     if (longPressFiredRef.current) {
@@ -170,10 +183,21 @@ function TitleCard({
         cardRef.current = node;
         revealRef(node);
       }}
-      className="title-card group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2"
+      className={`title-card group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2 ${
+        selected ? "ring-2 ring-accent-2" : ""
+      }`}
       onClick={handleTap}
       {...cardHandlers}
     >
+      {selected && (
+        <span
+          aria-hidden
+          className="absolute right-1.5 top-1.5 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-accent-2 text-background shadow-[0_4px_12px_-2px_rgba(0,0,0,0.6)]"
+        >
+          <Check className="h-3.5 w-3.5" strokeWidth={3} />
+        </span>
+      )}
+
       {title.posterUrl ? (
         <>
           {/* pulsing skeleton until the poster has loaded */}
@@ -374,7 +398,7 @@ function TitleCard({
 
       {markingWatched && (
         <MarkWatchedDialog
-          title={title}
+          titles={[title]}
           onConfirm={(platform, lastWatchedAt) => {
             setMarkingWatched(false);
             onMarkWatched?.(title, platform, lastWatchedAt);

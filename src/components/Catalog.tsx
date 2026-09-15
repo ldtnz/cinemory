@@ -9,6 +9,9 @@ import DiscoverCard from "@/components/DiscoverCard";
 import ImportHistory from "@/components/ImportHistory";
 import RecommendationsCard from "@/components/RecommendationsCard";
 import RecommendationsRow from "@/components/RecommendationsRow";
+import SelectionBar from "@/components/SelectionBar";
+import MarkWatchedDialog from "@/components/MarkWatchedDialog";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import { normalizeTitle } from "@/lib/title-key";
@@ -81,6 +84,27 @@ export default function Catalog({
     aiSearchAttempt?.query === trimmedQuery && aiSearchAttempt.mode === mode
       ? aiSearchAttempt
       : null;
+
+  // Titles picked out with shift-click, to act on together (see SelectionBar).
+  // Held as ids rather than rows so the set survives the catalog being
+  // refreshed under it; what it means is resolved against the visible
+  // results below, which is also what narrows it when the filters change.
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(new Set());
+  const [bulkAction, setBulkAction] = useState<"watched" | "delete" | null>(null);
+
+  const toggleSelect = useCallback((title: Title) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(title.id)) next.delete(title.id);
+      else next.add(title.id);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+    setBulkAction(null);
+  }, []);
 
   const editing = useEditMode();
 
@@ -225,6 +249,58 @@ export default function Catalog({
       prev.map((t) => (t.id === title.id ? { ...t, newSeasonAvailable: false } : t)),
     );
   }, []);
+
+  /** Deletes everything currently selected, in one pass over the catalog. */
+  const bulkDelete = useCallback(async (rows: Title[]) => {
+    const results = await Promise.all(
+      rows.map(async (t) => {
+        const res = await fetch(`/api/titles/${t.id}`, { method: "DELETE" });
+        return res.ok ? t.id : null;
+      }),
+    );
+    const gone = new Set(results.filter((id): id is number => id !== null));
+    if (gone.size < rows.length) {
+      window.alert(`Could not delete ${rows.length - gone.size} of ${rows.length} titles.`);
+    }
+    setCatalog((prev) => prev.filter((t) => !gone.has(t.id)));
+  }, []);
+
+  /** Moves everything selected into the watched half, all on the platform and
+   *  date the dialog asked for once. */
+  const bulkMarkWatched = useCallback(
+    async (rows: Title[], platform: string, lastWatchedAt: Date | null) => {
+      const updated = await Promise.all(
+        rows.map(async (t) => {
+          const res = await fetch(`/api/titles/${t.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              markWatched: {
+                platform,
+                lastWatchedAt: lastWatchedAt ? lastWatchedAt.toISOString() : undefined,
+              },
+            }),
+          });
+          if (!res.ok) return null;
+          const { title } = (await res.json()) as {
+            title: Title & { lastWatchedAt: string | null; createdAt: string; updatedAt: string };
+          };
+          return {
+            ...title,
+            lastWatchedAt: title.lastWatchedAt ? new Date(title.lastWatchedAt) : null,
+            createdAt: new Date(title.createdAt),
+            updatedAt: new Date(title.updatedAt),
+          };
+        }),
+      );
+      const byId = new Map(updated.filter((t): t is Title => t !== null).map((t) => [t.id, t]));
+      if (byId.size < rows.length) {
+        window.alert(`Could not update ${rows.length - byId.size} of ${rows.length} titles.`);
+      }
+      setCatalog((prev) => prev.map((t) => byId.get(t.id) ?? t));
+    },
+    [],
+  );
 
   const filtered = useMemo(() => {
     const query = deferredQ.trim().toLowerCase();
@@ -373,6 +449,13 @@ export default function Catalog({
   const [page, setPage] = useState({ key: resultKey, count: PAGE_SIZE });
   const shownCount = page.key === resultKey ? page.count : PAGE_SIZE;
   const shownTitles = titles.slice(0, shownCount);
+  // Resolved against the visible results, so changing a filter narrows the
+  // selection to what is still on screen rather than acting on rows the
+  // reader can no longer see.
+  const selectedTitles = useMemo(
+    () => (selectedIds.size === 0 ? [] : titles.filter((t) => selectedIds.has(t.id))),
+    [titles, selectedIds],
+  );
   const hasMore = titles.length > shownTitles.length;
 
   // Grows the grid as its end comes into view. The observer is watched rather
@@ -457,7 +540,10 @@ export default function Catalog({
         q={q}
         onQChange={setQ}
         mode={mode}
-        onModeChange={setMode}
+        onModeChange={(next) => {
+          clearSelection();
+          setMode(next);
+        }}
         platform={platform}
         onPlatformChange={setPlatform}
         mediaType={mediaType}
@@ -557,6 +643,8 @@ export default function Catalog({
               onMarkWatched={markWatched}
               onEditWatched={editWatched}
               onDismissNewSeason={dismissNewSeason}
+              selected={selectedIds.has(t.id)}
+              onToggleSelect={toggleSelect}
             />
           ))}
         </div>
@@ -567,6 +655,49 @@ export default function Catalog({
           Loading more... ({shownTitles.length.toLocaleString()} of{" "}
           {titles.length.toLocaleString()})
         </div>
+      )}
+
+      {selectedTitles.length > 0 && (
+        <SelectionBar
+          count={selectedTitles.length}
+          onMarkWatched={
+            mode === "watchlist" ? () => setBulkAction("watched") : undefined
+          }
+          onDelete={() => setBulkAction("delete")}
+          onClear={clearSelection}
+        />
+      )}
+
+      {bulkAction === "watched" && selectedTitles.length > 0 && (
+        <MarkWatchedDialog
+          titles={selectedTitles}
+          onConfirm={(platform, lastWatchedAt) => {
+            const rows = selectedTitles;
+            clearSelection();
+            void bulkMarkWatched(rows, platform, lastWatchedAt);
+          }}
+          onCancel={() => setBulkAction(null)}
+        />
+      )}
+
+      {bulkAction === "delete" && selectedTitles.length > 0 && (
+        <ConfirmDialog
+          title={`Delete ${selectedTitles.length} titles?`}
+          description={`${selectedTitles
+            .slice(0, 5)
+            .map((t) => `"${t.title}"`)
+            .join(", ")}${
+            selectedTitles.length > 5 ? ` and ${selectedTitles.length - 5} more` : ""
+          } will be removed from your catalog. This cannot be undone.`}
+          confirmLabel="Delete"
+          danger
+          onConfirm={() => {
+            const rows = selectedTitles;
+            clearSelection();
+            void bulkDelete(rows);
+          }}
+          onCancel={() => setBulkAction(null)}
+        />
       )}
     </main>
   );

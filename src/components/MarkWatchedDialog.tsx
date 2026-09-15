@@ -11,16 +11,22 @@ import { toDateInputValue, fromDateInputValue } from "@/lib/date-input";
  *  confirmation: where it was watched, and when — watchlist entries carry
  *  neither, and the catalog filters/sorts on both, so they're picked here.
  *  The date defaults to today (not everything gets marked the moment it's
- *  watched) but is editable, the same as the "Add title" flow. */
+ *  watched) but is editable, the same as the "Add title" flow.
+ *
+ *  Several titles at once (a shift-click selection) are asked the same two
+ *  questions once, on the reasoning that a batch marked together was watched
+ *  together — the same assumption the "Add title" flow already makes. */
 export default function MarkWatchedDialog({
-  title,
+  titles,
   onConfirm,
   onCancel,
 }: {
-  title: Title;
+  titles: Title[];
   onConfirm: (platform: string, lastWatchedAt: Date | null) => void;
   onCancel: () => void;
 }) {
+  const title = titles[0];
+  const batch = titles.length > 1;
   const [platform, setPlatform] = useState("");
   const [watchedDate, setWatchedDate] = useState(() => toDateInputValue(new Date()));
   const [saving, setSaving] = useState(false);
@@ -41,10 +47,32 @@ export default function MarkWatchedDialog({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={`Mark ${title.title} as watched`}
+        aria-label={batch ? `Mark ${titles.length} titles as watched` : `Mark ${title.title} as watched`}
         onClick={(e) => e.stopPropagation()}
         className="flex w-[min(94vw,460px)] flex-col gap-5 rounded-3xl border border-white/10 bg-surface p-6 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
       >
+        {batch ? (
+          <div className="flex items-center gap-4">
+            <div className="flex flex-none -space-x-6">
+              {titles.slice(0, 4).map((t) => (
+                <div
+                  key={t.id}
+                  className="relative h-28 w-[4.75rem] overflow-hidden rounded-lg border border-white/10 bg-surface-2 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]"
+                >
+                  {t.posterUrl ? (
+                    <Image src={t.posterUrl} alt={t.title} fill unoptimized sizes="76px" className="object-cover" />
+                  ) : null}
+                </div>
+              ))}
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className="text-lg font-semibold leading-snug">{titles.length} titles</p>
+              <p className="line-clamp-3 text-xs text-muted">
+                {titles.map((t) => t.title).join(", ")}
+              </p>
+            </div>
+          </div>
+        ) : (
         <div className="flex gap-4">
           <div className="relative h-52 w-[8.5rem] flex-none overflow-hidden rounded-xl bg-surface-2 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]">
             {title.posterUrl ? (
@@ -84,13 +112,14 @@ export default function MarkWatchedDialog({
             )}
           </div>
         </div>
+        )}
 
         <div className="space-y-2">
           <label
             htmlFor="mark-watched-date"
             className="text-[11px] font-medium uppercase tracking-wide text-muted/80"
           >
-            When did you watch it?
+            When did you watch {batch ? "them" : "it"}?
           </label>
           <input
             id="mark-watched-date"
@@ -104,7 +133,7 @@ export default function MarkWatchedDialog({
 
         <div className="space-y-2">
           <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
-            Where did you watch it?
+            Where did you watch {batch ? "them" : "it"}?
           </span>
           <PlatformPicker value={platform} onChange={setPlatform} />
         </div>
