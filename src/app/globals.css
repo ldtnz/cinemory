@@ -99,19 +99,19 @@ img {
     transform: none;
   }
 }
-html.reveal-ready .title-card:not(.is-revealed) {
+html.reveal-ready .title-card:not([data-revealed]) {
   opacity: 0;
 }
-html.reveal-ready .title-card.is-revealed {
+html.reveal-ready .title-card[data-revealed] {
   animation: card-in 240ms ease-out backwards;
   animation-delay: calc(var(--stagger, 0) * 1ms);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html.reveal-ready .title-card:not(.is-revealed) {
+  html.reveal-ready .title-card:not([data-revealed]) {
     opacity: 1;
   }
-  html.reveal-ready .title-card.is-revealed {
+  html.reveal-ready .title-card[data-revealed] {
     animation: none;
   }
 }
@@ -137,13 +137,13 @@ html.reveal-ready .title-card.is-revealed {
      own details overlay into view — only the targeted card shows one. */
   pointer-events: none;
 }
-.title-grid.title-grid--context-open > .title-card.title-card--context-target {
+.title-grid.title-grid--context-open > .title-card[data-context-target] {
   filter: none;
   pointer-events: auto;
 }
 /* Pinned open regardless of hover: the menu itself sits over the card (it is
    portalled to the body), so the mouse is on the menu, not the poster. */
-.title-grid.title-grid--context-open > .title-card.title-card--context-target .title-card__details {
+.title-grid.title-grid--context-open > .title-card[data-context-target] .title-card__details {
   opacity: 1;
 }
 /* The recommendations strip in "To watch" sits above the grid rather than

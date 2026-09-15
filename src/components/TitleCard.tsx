@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { Check, Minus, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import type { Title } from "@prisma/client";
@@ -119,6 +119,19 @@ function TitleCard({
   const { cardRef, menuPos, closeContextMenu, longPressFiredRef, cardHandlers } =
     useCardContextMenu<HTMLDivElement>(dialogOpen);
 
+  // One ref for the card's root, stable across renders. An inline arrow here
+  // is a new function every time, which React reads as a different ref: it
+  // calls the old one with null and the new one with the same node, and the
+  // reveal observer duly played the entrance animation again — the card
+  // blinked out and faded back in every time it was selected.
+  const setCardNode = useCallback(
+    (node: HTMLDivElement | null) => {
+      cardRef.current = node;
+      revealRef(node);
+    },
+    [cardRef, revealRef],
+  );
+
   useEffect(() => {
     return () => {
       if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
@@ -195,10 +208,7 @@ function TitleCard({
 
   return (
     <div
-      ref={(node) => {
-        cardRef.current = node;
-        revealRef(node);
-      }}
+      ref={setCardNode}
       className={`title-card group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2 ${
         selected ? "ring-1 ring-accent-select" : ""
       }`}

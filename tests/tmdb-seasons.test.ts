@@ -9,7 +9,7 @@
  *
  * TMDB is never called: global fetch is replaced per case.
  */
-import { test, beforeEach, afterEach } from "node:test";
+import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
 process.env.DATABASE_URL ??= "file:./prisma/dev.db";

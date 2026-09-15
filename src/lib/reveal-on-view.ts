@@ -16,6 +16,12 @@ import { useCallback, useRef } from "react";
  * One observer serves every card on the page. Everything that crosses in the
  * same callback is treated as one wave and staggered in document order, which
  * is what turns a row arriving into a ripple rather than a block.
+ *
+ * Revealed cards are marked with a data attribute, not a class. React owns the
+ * class attribute of the element this is attached to and rewrites it whole
+ * whenever the card re-renders — selecting one, say — which silently dropped a
+ * class added out here and left the card at opacity 0. React only writes the
+ * attributes it is given, and it is never given this one.
  */
 const STAGGER_STEP = 8;
 /** Past this the wave would outlast the scroll that started it. */
@@ -40,7 +46,7 @@ function sharedObserver(): IntersectionObserver {
       .sort(inDocumentOrder)
       .forEach((el, i) => {
         el.style.setProperty("--stagger", String(Math.min(i, MAX_STAGGER) * STAGGER_STEP));
-        el.classList.add("is-revealed");
+        el.dataset.revealed = "true";
         observer?.unobserve(el);
       });
   });
@@ -51,10 +57,15 @@ function sharedObserver(): IntersectionObserver {
 export function useRevealOnView() {
   const observed = useRef<HTMLElement | null>(null);
   return useCallback((node: HTMLElement | null) => {
+    if (node === observed.current) return;
     // Dropped explicitly rather than through a returned cleanup: the observer
     // holds what it watches, and the grid discards cards by the screenful.
     if (observed.current) observer?.unobserve(observed.current);
     observed.current = node;
-    if (node) sharedObserver().observe(node);
+    // Already revealed: re-observing would play the entrance a second time.
+    // A caller whose ref identity changes between renders hands the same node
+    // back, and this is the only thing standing between that and a card that
+    // fades in again every time it is re-rendered.
+    if (node && node.dataset.revealed !== "true") sharedObserver().observe(node);
   }, []);
 }

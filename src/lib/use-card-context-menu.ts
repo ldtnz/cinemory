@@ -125,13 +125,17 @@ export function useCardContextMenu<T extends HTMLElement>(
     if (!grid || !card || (!menuPos && !dialogOpen)) return;
     // Another card may have been left marked if its own cleanup never ran.
     grid
-      .querySelectorAll(".title-card--context-target")
-      .forEach((el) => el !== card && el.classList.remove("title-card--context-target"));
+      .querySelectorAll("[data-context-target]")
+      .forEach((el) => el !== card && el.removeAttribute("data-context-target"));
     grid.classList.add("title-grid--context-open");
-    card.classList.toggle("title-card--context-target", Boolean(menuPos));
+    // An attribute, not a class: React rewrites the card's class attribute
+    // whole on every re-render and would drop a class set from out here. The
+    // grid's own class is safe — nothing renders that element from React.
+    if (menuPos) card.dataset.contextTarget = "true";
+    else delete card.dataset.contextTarget;
     return () => {
       grid.classList.remove("title-grid--context-open");
-      card.classList.remove("title-card--context-target");
+      delete card.dataset.contextTarget;
     };
   }, [menuPos, dialogOpen]);
 
