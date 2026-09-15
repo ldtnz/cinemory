@@ -39,7 +39,7 @@ export default function TrailerModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-background/90 p-4 [@media(max-height:500px)]:p-2"
+      className="overlay-in fixed inset-0 z-[60] flex items-center justify-center bg-background/90 p-4 [@media(max-height:500px)]:p-2"
       onClick={onClose}
     >
       {/* Width is capped by whichever runs out first, the screen or the room
@@ -50,7 +50,7 @@ export default function TrailerModal({
         role="dialog"
         aria-modal="true"
         aria-label={`${title} trailer`}
-        className="w-full max-w-[min(42rem,calc((100dvh-6rem)*16/9))] [@media(max-height:500px)]:max-w-[calc((100dvh-1rem)*16/9)]"
+        className="dialog-in w-full max-w-[min(42rem,calc((100dvh-6rem)*16/9))] [@media(max-height:500px)]:max-w-[calc((100dvh-1rem)*16/9)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-2 flex items-center justify-between gap-3 [@media(max-height:500px)]:hidden">

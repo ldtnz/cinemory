@@ -36,7 +36,7 @@ export default function EditWatchedDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm"
+      className="overlay-in fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm"
       onClick={onCancel}
     >
       <div
@@ -44,7 +44,7 @@ export default function EditWatchedDialog({
         aria-modal="true"
         aria-label={`Edit ${title.title}`}
         onClick={(e) => e.stopPropagation()}
-        className="flex w-[min(94vw,460px)] flex-col gap-5 rounded-3xl border border-white/10 bg-surface p-6 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
+        className="dialog-in flex w-[min(94vw,460px)] flex-col gap-5 rounded-3xl border border-white/10 bg-surface p-6 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
       >
         <div className="flex gap-4">
           <div className="relative h-36 w-24 flex-none overflow-hidden rounded-xl bg-surface-2 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]">

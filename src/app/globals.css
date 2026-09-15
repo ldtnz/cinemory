@@ -187,6 +187,60 @@ svg.tooltip-in {
   }
 }
 
+/* Every modal opens this way. Each sits in front of a click the reader has
+   already made, so the whole thing is over in under a fifth of a second —
+   long enough that the panel arrives rather than replacing the page in one
+   frame, short enough that it never reads as lag. The backdrop carries the
+   fade for both layers; the panel only moves, so its opacity is not
+   animated twice.
+
+   Two shapes: centred dialogs grow the last few percent into place, while a
+   sheet anchored to the bottom edge (the mobile filters) slides up from it,
+   since scaling something from a corner it is attached to looks wrong. */
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes dialog-in {
+  from {
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    transform: none;
+  }
+}
+.overlay-in {
+  animation: overlay-in 140ms ease-out;
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+.dialog-in {
+  /* Decelerating, so it settles into place instead of stopping dead. */
+  animation: dialog-in 190ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.sheet-in {
+  /* A little longer: it covers the height of the sheet, not a few percent. */
+  animation: sheet-in 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay-in,
+  .dialog-in,
+  .sheet-in {
+    animation: none;
+  }
+}
+
 /* Scrollbars hidden everywhere, scrolling still works. */
 * {
   scrollbar-width: none;

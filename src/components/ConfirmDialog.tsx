@@ -37,7 +37,7 @@ export default function ConfirmDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm"
+      className="overlay-in fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm"
       onClick={onCancel}
     >
       <div
@@ -45,7 +45,7 @@ export default function ConfirmDialog({
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         onClick={(e) => e.stopPropagation()}
-        className="flex w-[min(90vw,360px)] flex-col items-center gap-4 rounded-3xl border border-white/10 bg-surface p-6 text-center shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
+        className="dialog-in flex w-[min(90vw,360px)] flex-col items-center gap-4 rounded-3xl border border-white/10 bg-surface p-6 text-center shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
       >
         <div
           className={`flex h-11 w-11 items-center justify-center rounded-2xl ${

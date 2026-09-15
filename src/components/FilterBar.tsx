@@ -638,12 +638,12 @@ export default function FilterBar({
       )}
 
       {filtersOpen && mounted && createPortal(
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/70 backdrop-blur-sm sm:hidden">
+        <div className="overlay-in fixed inset-0 z-50 flex items-end justify-center bg-background/70 backdrop-blur-sm sm:hidden">
           <div
             role="dialog"
             aria-modal="true"
             aria-label="Filters and sort"
-            className="max-h-[85vh] w-full max-w-md space-y-5 overflow-y-auto rounded-t-3xl border border-white/10 bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.7)]"
+            className="sheet-in max-h-[85vh] w-full max-w-md space-y-5 overflow-y-auto rounded-t-3xl border border-white/10 bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.7)]"
           >
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">Filters and sort</h2>
