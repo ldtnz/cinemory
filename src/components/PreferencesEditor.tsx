@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Select from "@/components/Select";
 import { Check } from "lucide-react";
 import { LANGUAGES, REGIONS } from "@/lib/locales";
 
@@ -46,28 +47,20 @@ export default function PreferencesEditor({
       </p>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <select
+        <Select
           value={language}
-          onChange={(e) => setLanguage(e.target.value)}
-          className="h-10 flex-1 rounded-xl border border-white/5 bg-surface-2 px-3 text-sm text-foreground outline-none focus:border-white/30"
-        >
-          {LANGUAGES.map((l) => (
-            <option key={l.value} value={l.value}>
-              {l.label}
-            </option>
-          ))}
-        </select>
-        <select
+          onChange={setLanguage}
+          options={LANGUAGES}
+          ariaLabel="Content language"
+          className="flex-1"
+        />
+        <Select
           value={region}
-          onChange={(e) => setRegion(e.target.value)}
-          className="h-10 flex-1 rounded-xl border border-white/5 bg-surface-2 px-3 text-sm text-foreground outline-none focus:border-white/30"
-        >
-          {REGIONS.map((r) => (
-            <option key={r.value} value={r.value}>
-              {r.label}
-            </option>
-          ))}
-        </select>
+          onChange={setRegion}
+          options={REGIONS}
+          ariaLabel="Region"
+          className="flex-1"
+        />
         <button
           type="button"
           onClick={save}

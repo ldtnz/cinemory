@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Select from "@/components/Select";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AlertCircle, Check, Copy, KeyRound, Languages } from "lucide-react";
@@ -127,39 +128,31 @@ export default function SetupWizard({ posterUrl }: { posterUrl: string[] }) {
               )}
 
               <div className="w-full space-y-3 text-left">
-                <label className="block space-y-1.5">
+                <div className="block space-y-1.5">
                   <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
                     Content language
                   </span>
-                  <select
+                  <Select
                     value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
-                    className="h-11 w-full rounded-xl border border-white/5 bg-surface-2 px-3 text-sm text-foreground outline-none focus:border-white/30"
-                  >
-                    {LANGUAGES.map((l) => (
-                      <option key={l.value} value={l.value}>
-                        {l.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    onChange={setLanguage}
+                    options={LANGUAGES}
+                    ariaLabel="Content language"
+                    className="h-11 w-full"
+                  />
+                </div>
 
-                <label className="block space-y-1.5">
+                <div className="block space-y-1.5">
                   <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
                     Region
                   </span>
-                  <select
+                  <Select
                     value={region}
-                    onChange={(e) => setRegion(e.target.value)}
-                    className="h-11 w-full rounded-xl border border-white/5 bg-surface-2 px-3 text-sm text-foreground outline-none focus:border-white/30"
-                  >
-                    {REGIONS.map((r) => (
-                      <option key={r.value} value={r.value}>
-                        {r.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    onChange={setRegion}
+                    options={REGIONS}
+                    ariaLabel="Region"
+                    className="h-11 w-full"
+                  />
+                </div>
               </div>
 
               <button

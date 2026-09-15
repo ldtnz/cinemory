@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Select from "@/components/Select";
 import Link from "next/link";
 import { BarChart3, Settings, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -42,20 +43,6 @@ function ClearIcon() {
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function ChevronIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5 text-muted" aria-hidden>
-      <path
-        d="M5.5 8L10 12.5L14.5 8"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
       />
     </svg>
   );
@@ -223,6 +210,14 @@ export default function FilterBar({
   const desktopFilterRef = useRef<HTMLDivElement>(null);
   const mobileRowRef = useRef<HTMLDivElement>(null);
   const [mobileRowWidth, setMobileRowWidth] = useState(0);
+
+  // "Any genre" is an option like the others now that the list is drawn
+  // rather than left to the browser, and the empty value is what clears the
+  // filter — same as the <option value=""> it replaces.
+  const genreOptions = [
+    { value: "", label: "Any genre" },
+    ...availableGenres.map((g) => ({ value: g, label: g })),
+  ];
 
   // Close the desktop filter dropdown on an outside click or Escape.
   useEffect(() => {
@@ -428,23 +423,13 @@ export default function FilterBar({
                       <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
                         Genre
                       </span>
-                      <div className="relative h-9">
-                        <select
-                          value={genre}
-                          onChange={(e) => onGenreChange(e.target.value)}
-                          className="h-9 w-full appearance-none rounded-xl bg-surface-2 pl-3 pr-8 text-sm text-foreground outline-none"
-                        >
-                          <option value="">Any genre</option>
-                          {availableGenres.map((g) => (
-                            <option key={g} value={g}>
-                              {g}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2">
-                          <ChevronIcon />
-                        </span>
-                      </div>
+                      <Select
+                        value={genre}
+                        onChange={onGenreChange}
+                        options={genreOptions}
+                        ariaLabel="Genre"
+                        className="h-9 w-full"
+                      />
                     </div>
                   )}
 
@@ -452,22 +437,13 @@ export default function FilterBar({
                     <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
                       Sort by
                     </span>
-                    <div className="relative h-9">
-                      <select
-                        value={sort}
-                        onChange={(e) => onSortChange(e.target.value)}
-                        className="h-9 w-full appearance-none rounded-xl bg-surface-2 pl-3 pr-8 text-sm text-foreground outline-none"
-                      >
-                        {SORT_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
-                      <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2">
-                        <ChevronIcon />
-                      </span>
-                    </div>
+                    <Select
+                      value={sort}
+                      onChange={onSortChange}
+                      options={SORT_OPTIONS}
+                      ariaLabel="Sort by"
+                      className="h-9 w-full"
+                    />
                   </div>
                 </div>
               )}
@@ -694,23 +670,13 @@ export default function FilterBar({
                 <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
                   Genre
                 </span>
-                <div className="relative h-10">
-                  <select
-                    value={genre}
-                    onChange={(e) => onGenreChange(e.target.value)}
-                    className="h-10 w-full appearance-none rounded-xl bg-surface-2 pl-3 pr-8 text-base text-foreground outline-none sm:text-sm"
-                  >
-                    <option value="">Any genre</option>
-                    {availableGenres.map((g) => (
-                      <option key={g} value={g}>
-                        {g}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2">
-                    <ChevronIcon />
-                  </span>
-                </div>
+                <Select
+                  value={genre}
+                  onChange={onGenreChange}
+                  options={genreOptions}
+                  ariaLabel="Genre"
+                  className="w-full"
+                />
               </div>
             )}
 
@@ -718,22 +684,13 @@ export default function FilterBar({
               <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
                 Sort by
               </span>
-              <div className="relative h-10">
-                <select
-                  value={sort}
-                  onChange={(e) => onSortChange(e.target.value)}
-                  className="h-10 w-full appearance-none rounded-xl bg-surface-2 pl-3 pr-8 text-base text-foreground outline-none sm:text-sm"
-                >
-                  {SORT_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-                <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2">
-                  <ChevronIcon />
-                </span>
-              </div>
+              <Select
+                value={sort}
+                onChange={onSortChange}
+                options={SORT_OPTIONS}
+                ariaLabel="Sort by"
+                className="w-full"
+              />
             </div>
 
             <div className="flex items-center gap-2 pt-1">
