@@ -12,6 +12,25 @@ const PREVIEW_SIZE = 4;
 const ROTATE_MS = 10000;
 const FADE_MS = 300;
 
+/**
+ * How the preview arranges itself for the number of posters it actually has.
+ *
+ * Four splits the tile into quarters, and a quarter of a 2:3 box is itself
+ * 2:3 — which is why four looks right and why anything less, left in the same
+ * grid, looked like three quarters of the tile had failed to load. Fewer
+ * posters take the whole space instead: one fills the tile outright at its own
+ * ratio, two stack, three put one across the top with a pair beneath.
+ *
+ * It matters twice over: near the end of a list, and on the last turn of the
+ * rotation whenever the total is not a multiple of four.
+ */
+const PREVIEW_LAYOUTS: Record<number, { grid: string; first?: string }> = {
+  1: { grid: "grid-cols-1 grid-rows-1" },
+  2: { grid: "grid-cols-1 grid-rows-2" },
+  3: { grid: "grid-cols-2 grid-rows-2", first: "col-span-2" },
+  4: { grid: "grid-cols-2 grid-rows-2" },
+};
+
 /** The catalog-grid tile for AI recommendations: a preview of 4 (rotating
  *  through the rest of the list if there are more), the full list in the
  *  modal opened on click. Nothing is fetched here — the list comes from the
@@ -62,6 +81,7 @@ export default function RecommendationsCard({
 
   if (titles.length === 0) return null;
   const preview = chunks[chunkIndex] ?? [];
+  const layout = PREVIEW_LAYOUTS[preview.length] ?? PREVIEW_LAYOUTS[PREVIEW_SIZE];
 
   return (
     <>
@@ -85,19 +105,24 @@ export default function RecommendationsCard({
           </span>
         </div>
         <div
-          className={`grid flex-1 grid-cols-2 grid-rows-2 gap-1.5 transition-opacity duration-300 ${
+          className={`grid flex-1 gap-1.5 transition-opacity duration-300 ${layout.grid} ${
             visible ? "opacity-100" : "opacity-0"
           }`}
         >
-          {preview.map((rec) => (
-            <div key={rec.tmdbId} className="relative overflow-hidden rounded-lg bg-surface">
+          {preview.map((rec, i) => (
+            <div
+              key={rec.tmdbId}
+              className={`relative overflow-hidden rounded-lg bg-surface ${
+                i === 0 && layout.first ? layout.first : ""
+              }`}
+            >
               {rec.posterUrl && (
                 <Image
                   src={rec.posterUrl}
                   alt={rec.title}
                   fill
                   unoptimized
-                  sizes="80px"
+                  sizes="160px"
                   className="object-cover"
                 />
               )}
