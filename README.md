@@ -22,9 +22,10 @@ an app, with an offline fallback and cached posters.
 **Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 ·
 Prisma + SQLite / [Turso](https://turso.tech) · Serwist (service worker).
 
-No `TOTP_SECRET` to generate up front: sign-in is set up from the app itself
-on first run — see [Getting the credentials](#getting-the-credentials) below
-for the values a host will ask for.
+Sign-in is set up on first run: the app generates its own secret, shows a QR
+code to scan into an authenticator app, and stores it once you type back the
+code it produces. The values to fill in before that are in
+[Getting the credentials](#getting-the-credentials) below.
 
 <p align="center">
   <img src="docs/screenshots/catalog.jpg" width="88%" alt="Catalog grid with posters, filters and search">
