@@ -22,15 +22,21 @@ an app, with an offline fallback and cached posters.
 **Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 ·
 Prisma + SQLite / [Turso](https://turso.tech) · Serwist (service worker).
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fldtnz%2Fcinemory&env=TMDB_ACCESS_TOKEN,SESSION_SECRET,TURSO_DATABASE_URL,TURSO_AUTH_TOKEN&envDescription=See%20the%20README%20for%20how%20to%20get%20each%20value&envLink=https%3A%2F%2Fgithub.com%2Fldtnz%2Fcinemory%23environment-variables&project-name=cinemory&repository-name=cinemory)
-
 No `TOTP_SECRET` to generate up front: sign-in is set up from the app itself
 on first run — see [Getting the credentials](#getting-the-credentials) below
-for how to get the values Vercel will ask for.
+for the values a host will ask for.
 
 <p align="center">
-  <img src="docs/screenshots/catalog.jpg" width="49%" alt="Catalog grid with posters, filters and search">
-  <img src="docs/screenshots/add-title.jpg" width="49%" alt="Adding a title: live TMDB search as you type">
+  <img src="docs/screenshots/catalog.jpg" width="88%" alt="Catalog grid with posters, filters and search">
+  <br><br>
+  <img src="docs/screenshots/add-title.jpg" width="88%" alt="Adding a title: live TMDB search as you type">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/ai-recommendations.jpg" width="24%" alt="AI recommendations: what to watch next, with Claude's reasoning for each">
+  <img src="docs/screenshots/ai-search.jpg" width="24%" alt="AI search: a plain-language question answered from your own catalog">
+  <img src="docs/screenshots/stats.jpg" width="24%" alt="Statistics: totals, movies against series, where you watched, top genres">
+  <img src="docs/screenshots/settings.jpg" width="24%" alt="Settings: import, missing posters, series seasons, AI recommendations, export">
 </p>
 
 ---
