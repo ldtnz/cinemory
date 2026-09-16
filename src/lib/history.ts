@@ -1,6 +1,7 @@
 /**
- * Parsing of Netflix and Amazon Prime Video watch-history exports, and of a
- * Disney+ watchlist collected with public/disney-watchlist.js.
+ * Parsing of the Netflix and Amazon Prime Video watch-history exports, the
+ * IMDb ratings export, and a Disney+ watchlist collected with
+ * public/disney-watchlist.js.
  *
  * Shared between the initial seed (prisma/seed.ts, which wipes and refills the
  * catalog) and the incremental import on the settings page (which only adds
@@ -27,9 +28,14 @@ export type HistoryRow = {
   watchedSeasons: number | null;
   inWatchlist: boolean;
   link: string | null;
+  /** Only IMDb carries one: the streaming exports say nothing about what you
+   *  made of anything. */
+  personalRating?: number | null;
+  /** IMDb states the year outright; the others leave it to TMDB enrichment. */
+  year?: number | null;
 };
 
-export type Format = "netflix" | "amazon" | "disney-watchlist";
+export type Format = "netflix" | "amazon" | "disney-watchlist" | "imdb";
 
 // Netflix and Prime Video localise the exported titles to the account's own
 // language, so the season keywords are matched in English and in Italian (the
@@ -83,6 +89,10 @@ export function withoutSeason(title: string): string {
  */
 export function detectFormat(content: string): Format | null {
   const header = content.slice(0, 500).toLowerCase();
+  // "Const" is IMDb's name for its tt-id column and heads no other export.
+  if (header.trimStart().startsWith("const,") || header.includes("your rating")) {
+    return "imdb";
+  }
   if (header.includes("global title identifier") || header.includes("date watched")) {
     return "amazon";
   }
@@ -102,6 +112,7 @@ export function detectFormat(content: string): Format | null {
 export function readHistory(content: string, format: Format): HistoryRow[] {
   if (format === "netflix") return readNetflix(content);
   if (format === "amazon") return readAmazon(content);
+  if (format === "imdb") return readImdb(content);
   return readDisneyWatchlist(content);
 }
 
@@ -248,6 +259,73 @@ export function readAmazon(content: string): HistoryRow[] {
     });
   }
   return rows;
+}
+
+/**
+ * The IMDb ratings export.
+ *
+ * Unlike the streaming exports this is a list of what you rated, not of what
+ * you played — which makes it the only one that knows what you thought of a
+ * title, and the only one that states the year outright rather than leaving it
+ * to be guessed during enrichment. "Date Rated" stands in for when it was
+ * watched: it is the closest thing the file has, and usually the same evening.
+ *
+ * What it cannot say is where you watched it, so the platform is "Unknown"
+ * rather than a guess. scripts/import-imdb.ts, which does the same job from
+ * the command line, asks TMDB's watch providers instead; that needs one
+ * request per title, which is why the upload path does not.
+ */
+export function readImdb(content: string): HistoryRow[] {
+  const records: Record<string, string>[] = parse(content, {
+    columns: true,
+    skip_empty_lines: true,
+    bom: true,
+    trim: true,
+    relax_column_count: true,
+  });
+
+  const seen = new Map<string, HistoryRow>();
+
+  for (const row of records) {
+    const rawTitle = (row["Title"] || row["Original Title"] || "").trim();
+    if (!rawTitle) continue;
+
+    // IMDb localises this column ("Movie"/"TV Series" in English, "Film"/
+    // "Serie TV" in Italian), so it is matched loosely — anything naming a
+    // series counts as one, everything else is a film.
+    const mediaType = /\b(tv|serie|series|mini)/i.test(row["Title Type"] ?? "")
+      ? "Series"
+      : "Movie";
+
+    const title = mediaType === "Series" ? withoutSeason(rawTitle) || rawTitle : rawTitle;
+    const key = seriesKey(title, mediaType);
+    if (!key || seen.has(key)) continue;
+
+    const rated = (row["Date Rated"] || "").trim();
+    const watchedAt = rated ? new Date(rated) : null;
+
+    const stars = Number(row["Your Rating"]);
+    const year = Number(row["Year"]);
+    const id = (row["Const"] || "").trim();
+
+    seen.set(key, {
+      title,
+      searchTitle: normalizeTitle(title),
+      platform: "Unknown",
+      mediaType,
+      status: "Watched",
+      lastWatchedAt: watchedAt && !isNaN(watchedAt.getTime()) ? watchedAt : null,
+      watchedSeasons: null,
+      inWatchlist: false,
+      link: /^tt\d+$/.test(id) ? `https://www.imdb.com/title/${id}` : null,
+      // IMDb rates out of 10 and so does this catalog, so it carries over as
+      // it stands. Anything outside that range is not a rating.
+      personalRating: stars >= 1 && stars <= 10 ? stars : null,
+      year: year >= 1870 && year <= 2200 ? year : null,
+    });
+  }
+
+  return [...seen.values()];
 }
 
 /**

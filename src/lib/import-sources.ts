@@ -71,6 +71,25 @@ export const IMPORT_SOURCES: ImportSource[] = [
     },
   },
   {
+    id: "imdb",
+    name: "IMDb",
+    gives: "history",
+    tagline: "Everything you rated, with the ratings kept",
+    steps: [
+      "Sign in on imdb.com and open Your Ratings from the account menu.",
+      "Open the three-dot menu at the top of the list and choose Export.",
+      "IMDb emails a link, or offers the file directly — it can take a few minutes.",
+      "The file is called ratings.csv.",
+    ],
+    columns: "Const,Your Rating,Date Rated,Title,...,Title Type,Year,...",
+    sample: ['"tt0111161",10,"2025-03-14","The Shawshank Redemption",...,"Movie",1994,...'],
+    caveat:
+      "The only export that knows what you made of a title, so your ratings come " +
+      "across too. It cannot say where you watched anything, so the platform is left " +
+      "as \u201CNot sure\u201D and \u201CDate Rated\u201D stands in for the date watched.",
+    link: { url: "https://www.imdb.com/list/ratings", label: "Your IMDb ratings" },
+  },
+  {
     id: "disney-watchlist",
     name: "Disney+",
     gives: "watchlist",

@@ -16,6 +16,7 @@ import {
   detectFormat,
   readAmazon,
   readDisneyWatchlist,
+  readImdb,
   readNetflix,
   seasonNumber,
   seriesKey,
@@ -89,7 +90,7 @@ test("withoutSeason keeps a number that is part of the name", () => {
 
 // --- detectFormat -----------------------------------------------------------
 
-test("detectFormat recognises both exports and rejects anything else", () => {
+test("detectFormat recognises each export and rejects anything else", () => {
   assert.equal(detectFormat('"Title","Date"\n"Arcane","01/02/25"'), "netflix");
   assert.equal(detectFormat("Title,Date\nArcane,01/02/25"), "netflix");
   // Netflix writes a BOM at the start of the file.
@@ -98,7 +99,10 @@ test("detectFormat recognises both exports and rejects anything else", () => {
     detectFormat('"Date Watched","Type","Title","Global Title Identifier"\n'),
     "amazon",
   );
-  assert.equal(detectFormat("Const,Your Rating,Title\ntt0111161,10,x"), null);
+  // This used to be expected to return null, back when IMDb could only be
+  // imported by running a script.
+  assert.equal(detectFormat("Const,Your Rating,Title\ntt0111161,10,x"), "imdb");
+  assert.equal(detectFormat("Name,Something\nx,y"), null);
   assert.equal(detectFormat(""), null);
 });
 
@@ -457,6 +461,130 @@ test("the bundled Disney+ watchlist example parses into watchlist rows", async (
   assert.equal(new Set(keys).size, keys.length, "duplicate rows after grouping");
   // The example lists Andor twice, once with a season.
   assert.equal(rows.filter((r) => r.title === "Andor").length, 1);
+});
+
+/** A row in the shape IMDb exports. */
+function imdbRow(o: {
+  id?: string;
+  rating?: string;
+  rated?: string;
+  title: string;
+  type?: string;
+  year?: string;
+}): string[] {
+  return [
+    o.id ?? "tt0111161",
+    o.rating ?? "9",
+    o.rated ?? "2025-03-14",
+    o.title,
+    o.title,
+    `https://www.imdb.com/title/${o.id ?? "tt0111161"}`,
+    o.type ?? "Movie",
+    "8.5",
+    "142",
+    o.year ?? "1994",
+    "Drama",
+    "2900000",
+    "1994-09-23",
+    "Frank Darabont",
+  ];
+}
+const IMDB_HEADER = ["Const", "Your Rating", "Date Rated", "Title", "Original Title", "URL", "Title Type", "IMDb Rating", "Runtime (mins)", "Year", "Genres", "Num Votes", "Release Date", "Directors"];
+function imdbCsv(rows: string[][]): string {
+  return csv(IMDB_HEADER, rows);
+}
+
+test("detectFormat recognises an IMDb export and does not confuse it", () => {
+  assert.equal(detectFormat(imdbCsv([imdbRow({ title: "Dune" })])), "imdb");
+  // The other three must still win on their own headers — IMDb also carries a
+  // "Title" column, and the Amazon check keys on words IMDb does not use.
+  assert.equal(detectFormat(csv(["Title", "Date"], [["Dune", "06/01/24"]])), "netflix");
+  assert.equal(
+    detectFormat(csv(["Date Watched", "Type", "Title", "Path"], [["2024-06-01", "Movie", "Dune", "/x"]])),
+    "amazon",
+  );
+  assert.equal(detectFormat(csv(["Title", "Type", "Link"], [["Andor", "Series", ""]])), "disney-watchlist");
+});
+
+test("readImdb keeps the rating, the year and the IMDb link", () => {
+  const [r] = readImdb(
+    imdbCsv([imdbRow({ id: "tt0068646", title: "The Godfather", rating: "10", year: "1972" })]),
+  );
+  assert.equal(r.title, "The Godfather");
+  assert.equal(r.personalRating, 10);
+  assert.equal(r.year, 1972);
+  assert.equal(r.link, "https://www.imdb.com/title/tt0068646");
+  assert.equal(r.status, "Watched");
+  assert.equal(r.inWatchlist, false);
+  // Nothing in the file says where it was watched.
+  assert.equal(r.platform, "Unknown");
+});
+
+test("readImdb reads Date Rated as the date watched", () => {
+  const [r] = readImdb(imdbCsv([imdbRow({ title: "Dune", rated: "2024-06-01" })]));
+  assert.equal(r.lastWatchedAt?.toISOString().slice(0, 10), "2024-06-01");
+});
+
+test("readImdb survives a missing or unusable date", () => {
+  const [a] = readImdb(imdbCsv([imdbRow({ title: "Dune", rated: "" })]));
+  assert.equal(a.lastWatchedAt, null);
+  const [b] = readImdb(imdbCsv([imdbRow({ title: "Arrival", rated: "not a date" })]));
+  assert.equal(b.lastWatchedAt, null);
+});
+
+test("readImdb tells a series from a film by Title Type, in any language", () => {
+  const rows = readImdb(
+    imdbCsv([
+      imdbRow({ id: "tt1", title: "Chernobyl", type: "TV Mini Series" }),
+      imdbRow({ id: "tt2", title: "Gomorra", type: "Serie TV" }),
+      imdbRow({ id: "tt3", title: "Dune", type: "Film" }),
+    ]),
+  );
+  assert.deepEqual(
+    rows.map((r) => [r.title, r.mediaType]),
+    [
+      ["Chernobyl", "Series"],
+      ["Gomorra", "Series"],
+      ["Dune", "Movie"],
+    ],
+  );
+});
+
+test("readImdb rejects a rating outside IMDb's own scale", () => {
+  const [a] = readImdb(imdbCsv([imdbRow({ title: "Dune", rating: "" })]));
+  assert.equal(a.personalRating, null);
+  const [b] = readImdb(imdbCsv([imdbRow({ title: "Arrival", rating: "42" })]));
+  assert.equal(b.personalRating, null);
+});
+
+test("readImdb keeps one row per title", () => {
+  const rows = readImdb(
+    imdbCsv([
+      imdbRow({ id: "tt1", title: "Dune" }),
+      imdbRow({ id: "tt2", title: "Dune" }),
+    ]),
+  );
+  assert.equal(rows.length, 1);
+});
+
+test("the bundled IMDb example parses into coherent watched rows", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const content = await readFile("prisma/seed-data/ImdbRatings.example.csv", "utf8");
+  assert.equal(detectFormat(content), "imdb");
+
+  const rows = readImdb(content);
+  assert.ok(rows.length > 0);
+  for (const r of rows) {
+    assert.ok(r.title.length > 0);
+    assert.equal(r.searchTitle, r.searchTitle.toLowerCase());
+    assert.ok(r.mediaType === "Movie" || r.mediaType === "Series");
+    assert.equal(r.status, "Watched");
+    assert.equal(r.inWatchlist, false);
+    if (r.personalRating != null) assert.ok(r.personalRating >= 1 && r.personalRating <= 10);
+    if (r.year != null) assert.ok(r.year > 1870 && r.year < 2200);
+  }
+  const keys = rows.map((r) => r.searchTitle);
+  assert.equal(new Set(keys).size, keys.length, "duplicate rows after grouping");
 });
 
 test("re-parsing the same export twice gives the same rows", () => {

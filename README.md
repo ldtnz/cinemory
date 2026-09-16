@@ -47,10 +47,10 @@ code it produces. The values to fill in before that are in
 - **Catalog** — one grid for every title, filtered by platform and by
   movie/series, searchable, sortable by date watched, title, TMDB rating or
   release year.
-- **History import** — upload your Netflix and Prime Video exports, or a
-  Disney+ watchlist collected with the bundled script; only titles
-  that are not already in the catalog get added, so you can re-import after
-  every new export.
+- **History import** — a dialog per service: Netflix, Prime Video, IMDb (with
+  your ratings) and a Disney+ watchlist, each with what to click to get the
+  file. Only titles that are not already in the catalog get added, so you can
+  re-import after every new export.
 - **Seasons** — series show "3 of 5 seasons"; the totals come from TMDB, the
   watched count from your history, and you can adjust it by hand.
 - **Add a title** — search TMDB as you type and add anything, pick the platform
@@ -239,8 +239,11 @@ right afterwards.
   history can only be had by asking Disney for it under GDPR
   (EMEA.dataprotection@disney.com), which is not a file this project can parse
   sight unseen.
-- **IMDb** (optional) — Your Ratings → Export. Handled by a script rather than
-  the UI, see below.
+- **IMDb** — Your Ratings → the three-dot menu → Export. You get a
+  `ratings.csv`. The only export that knows what you made of a title, so your
+  ratings come across with it; it says nothing about where you watched
+  anything, so the platform is left as "Not sure" and "Date Rated" stands in
+  for the date watched.
 
 `prisma/seed-data/` ships a few fake `*.example.csv` files showing exactly what
 each format looks like. Your own exports go in the same folder under the names
@@ -257,8 +260,11 @@ npm run db:enrich   # fetches posters/ratings/genres for anything missing them
 the incremental import in the app. `db:enrich -- --force` re-fetches everything
 rather than just the new titles.
 
-For IMDb ratings there is a separate script that looks each title up by its
-exact IMDb ID and guesses the platform from TMDB's streaming providers:
+IMDb ratings also have a script, worth using over the upload when the catalog
+is being built for the first time: it looks each title up by its exact IMDb ID
+rather than by name, so there are no wrong matches, and it asks TMDB which
+services carry the title to fill in the platform instead of leaving it as "Not
+sure". One request per title, which is why the upload does neither.
 
 ```bash
 npx tsx scripts/import-imdb.ts --dry-run   # report only, writes nothing
