@@ -9,46 +9,39 @@ import PlatformPicker from "@/components/PlatformPicker";
 import { toDateInputValue, fromDateInputValue } from "@/lib/date-input";
 import { hasSeasonTotal } from "@/lib/season-counts";
 
-export type SeasonEdit = { watchedSeasons: number; totalSeasons: number | null };
+export type SeasonEdit = { watchedSeasons: number };
 
-/** One −/value/+ row, which the two season counts both are. */
+/** The −/value/+ row for how many seasons are watched. */
 function Stepper({
   label,
   value,
   onChange,
-  min,
   max,
-  unknownLabel,
 }: {
   label: string;
-  value: number | null;
+  value: number;
   onChange: (next: number) => void;
-  min: number;
+  /** The total, when TMDB has one. Absent means no ceiling. */
   max?: number;
-  /** What to show in place of a number when there is none. */
-  unknownLabel?: string;
 }) {
-  const shown = value ?? min;
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-sm text-muted">{label}</span>
       <div className="flex items-center gap-1">
         <button
           type="button"
-          onClick={() => onChange(shown - 1)}
-          disabled={value == null || shown <= min}
+          onClick={() => onChange(value - 1)}
+          disabled={value <= 0}
           aria-label={`One fewer: ${label}`}
           className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-2 text-foreground transition-opacity disabled:opacity-30"
         >
           <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
         </button>
-        <span className="w-10 text-center text-sm font-semibold tabular-nums">
-          {value == null ? (unknownLabel ?? min) : value}
-        </span>
+        <span className="w-10 text-center text-sm font-semibold tabular-nums">{value}</span>
         <button
           type="button"
-          onClick={() => onChange(value == null ? min : shown + 1)}
-          disabled={max !== undefined && value != null && shown >= max}
+          onClick={() => onChange(value + 1)}
+          disabled={max !== undefined && value >= max}
           aria-label={`One more: ${label}`}
           className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-2 text-foreground transition-opacity disabled:opacity-30"
         >
@@ -60,8 +53,8 @@ function Stepper({
 }
 
 /** Corrects an already-watched title: platform, watched date, and for a series
- *  how many seasons are watched out of how many exist — for an import that
- *  guessed wrong, or a manual add where the date did not matter at the time.
+ *  how many seasons of it are watched — for an import that guessed wrong, or a
+ *  manual add where the date did not matter at the time.
  *  Edit mode only; a watchlist entry has none of these to correct yet (that's
  *  what "mark as watched" is for). */
 export default function EditWatchedDialog({
@@ -80,11 +73,9 @@ export default function EditWatchedDialog({
   const [saving, setSaving] = useState(false);
   const series = title.mediaType === "Series";
   const [watched, setWatched] = useState(title.watchedSeasons ?? 0);
-  // Null is "unknown", which is both a total nobody has asked TMDB for and one
-  // TMDB had no answer to; neither is a number to show.
-  const [total, setTotal] = useState<number | null>(
-    hasSeasonTotal(title.totalSeasons) ? title.totalSeasons : null,
-  );
+  // Read, never set: how many seasons exist is TMDB's answer, and the app
+  // fetches it by itself. Here it is only the ceiling.
+  const total = hasSeasonTotal(title.totalSeasons) ? (title.totalSeasons as number) : null;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -147,11 +138,11 @@ export default function EditWatchedDialog({
           <PlatformPicker value={platform} onChange={setPlatform} />
         </div>
 
-        {/* Only a series has seasons, and only here can the total be corrected
-            by hand — TMDB fills it in, but it is wrong or missing often enough
-            to be worth a control. Watched can never exceed the total: the plus
-            stops at it, and lowering the total pulls watched down with it, so
-            the pair cannot be left contradicting itself. */}
+        {/* Only a series has progress to correct. How many seasons exist is
+            not editable on purpose: TMDB is the source of it and the app asks
+            for it on its own, so a number typed here would only be a second
+            answer to disagree with. It is shown because it is the ceiling —
+            the plus stops on it. */}
         {series && (
           <div className="space-y-2">
             <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
@@ -161,25 +152,14 @@ export default function EditWatchedDialog({
               <Stepper
                 label="Watched"
                 value={watched}
-                min={0}
-                max={hasSeasonTotal(total) ? (total as number) : undefined}
+                max={total ?? undefined}
                 onChange={setWatched}
               />
-              <Stepper
-                label="Out in total"
-                value={total}
-                min={1}
-                unknownLabel="?"
-                onChange={(next) => {
-                  setTotal(next);
-                  if (next < watched) setWatched(next);
-                }}
-              />
-              {!hasSeasonTotal(total) && (
-                <p className="pt-1 text-[11px] leading-relaxed text-muted">
-                  How many exist is not known — set it here, or let Settings fetch it from TMDB.
-                </p>
-              )}
+              <p className="text-[11px] leading-relaxed text-muted">
+                {total != null
+                  ? `${total} ${total === 1 ? "season" : "seasons"} out in total, from TMDB.`
+                  : "How many are out is not known yet — it is fetched from TMDB automatically."}
+              </p>
             </div>
           </div>
         )}
@@ -200,7 +180,7 @@ export default function EditWatchedDialog({
               onConfirm(
                 platform,
                 fromDateInputValue(dateValue),
-                series ? { watchedSeasons: watched, totalSeasons: total } : null,
+                series ? { watchedSeasons: watched } : null,
               );
             }}
             className="flex-1 rounded-2xl bg-foreground py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"

@@ -101,7 +101,7 @@ export default function SeriesSeasons({
       description={
         missing === 0
           ? "Every series matched on TMDB knows how many seasons it has."
-          : `${missing.toLocaleString()} ${missing === 1 ? "series does" : "series do"} not know ${missing === 1 ? "its" : "their"} season count yet. The number comes from TMDB and is what shows "watched X of Y" on the posters.`
+          : `${missing.toLocaleString()} ${missing === 1 ? "series does" : "series do"} not know ${missing === 1 ? "its" : "their"} season count yet. The number comes from TMDB and is fetched automatically as you use the app — this is the button for not waiting.`
       }
     >
       <button

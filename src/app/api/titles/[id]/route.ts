@@ -3,7 +3,7 @@ import { isAuthenticated } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isValidPlatform } from "@/lib/platforms";
 import { dismissNewSeason } from "@/lib/season-check";
-import { normalizeSeasonCounts } from "@/lib/season-counts";
+import { clampWatchedSeasons } from "@/lib/season-counts";
 
 /** Removes a title from the catalog (edit mode, enabled in settings). */
 export async function DELETE(
@@ -33,9 +33,9 @@ export async function DELETE(
  *    half, recording where it was finally watched.
  *  - { moveToWatchlist: true } is the way back: it drops the platform and the
  *    watched date, which is what "not watched yet" means here.
- *  - { editWatched: { platform, lastWatchedAt, watchedSeasons, totalSeasons } }
- *    corrects an already-watched title from the edit dialog (edit mode). The
- *    season counts are only read for a series, and only when sent.
+ *  - { editWatched: { platform, lastWatchedAt, watchedSeasons } } corrects an
+ *    already-watched title from the edit dialog (edit mode). How many seasons
+ *    exist is not among them: that is TMDB's answer, fetched automatically.
  *  - { watchedSeasons } updates a series' progress (the +/- controls in
  *    edit mode).
  *  - { dismissNewSeason: true } clears the "new season available" badge set
@@ -62,7 +62,6 @@ export async function PATCH(
           platform?: string;
           lastWatchedAt?: string | null;
           watchedSeasons?: number | null;
-          totalSeasons?: number | null;
         };
         moveToWatchlist?: boolean;
         dismissNewSeason?: boolean;
@@ -130,7 +129,7 @@ export async function PATCH(
   }
 
   if (body?.editWatched) {
-    const { platform, lastWatchedAt, watchedSeasons, totalSeasons } = body.editWatched;
+    const { platform, lastWatchedAt, watchedSeasons } = body.editWatched;
     if (!isValidPlatform(platform)) {
       return NextResponse.json({ error: "Invalid platform." }, { status: 400 });
     }
@@ -155,13 +154,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Title is still on the watchlist." }, { status: 400 });
     }
 
-    // Season counts travel with the rest of the dialog rather than in a second
+    // Progress travels with the rest of the dialog rather than in a second
     // request, so one Save is one edit. A movie has none, and a body that left
-    // them out changes neither.
+    // it out changes nothing — which is what stops a platform edit clearing it.
     const seasons =
-      current.mediaType === "Series" &&
-      (watchedSeasons !== undefined || totalSeasons !== undefined)
-        ? normalizeSeasonCounts({ watchedSeasons, totalSeasons }, current)
+      current.mediaType === "Series" && watchedSeasons !== undefined
+        ? { watchedSeasons: clampWatchedSeasons(watchedSeasons, current.totalSeasons) }
         : null;
 
     const title = await prisma.title.update({
@@ -201,7 +199,7 @@ export async function PATCH(
 
   // Same rule as the dialog uses, from the same place: zero means "none
   // watched", and the ceiling is the known total.
-  const { watchedSeasons } = normalizeSeasonCounts({ watchedSeasons: value }, existing);
+  const watchedSeasons = clampWatchedSeasons(value, existing.totalSeasons);
 
   const title = await prisma.title.update({
     where: { id },

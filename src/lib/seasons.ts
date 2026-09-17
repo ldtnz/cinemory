@@ -12,7 +12,7 @@ import { normalizeTitle, withoutSeason } from "@/lib/history";
 
 // Re-exported so the modules that already import "seasons" keep working; the
 // rule itself lives apart because the browser needs it too.
-export { NO_SEASON_COUNT, hasSeasonTotal, normalizeSeasonCounts } from "@/lib/season-counts";
+export { NO_SEASON_COUNT, hasSeasonTotal, clampWatchedSeasons } from "@/lib/season-counts";
 
 export type SeriesGroup = {
   name: string;

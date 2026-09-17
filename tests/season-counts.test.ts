@@ -1,90 +1,46 @@
 /**
  * The rule that watched seasons cannot exceed the seasons that exist.
  *
- * It has to hold from both directions — raising what you watched, and lowering
- * the total underneath it — and the dialog's disabled buttons are only the
- * polite half of it: the same function runs on the server, where a hand-made
- * request has no buttons to obey. What is checked here is that every way of
- * stating the pair comes out consistent.
+ * The dialog's disabled plus is only the polite half of it: the same function
+ * runs on the server, where a hand-made request has no buttons to obey. The
+ * total is not in here as something to set — it is TMDB's answer, fetched
+ * automatically — only as the ceiling it imposes.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { NO_SEASON_COUNT, hasSeasonTotal, normalizeSeasonCounts } from "@/lib/season-counts";
-
-const none = { watchedSeasons: null, totalSeasons: null };
+import { NO_SEASON_COUNT, hasSeasonTotal, clampWatchedSeasons } from "@/lib/season-counts";
 
 test("watched is capped at the total", () => {
-  assert.deepEqual(
-    normalizeSeasonCounts({ watchedSeasons: 9 }, { watchedSeasons: 1, totalSeasons: 5 }),
-    { watchedSeasons: 5, totalSeasons: 5 },
-  );
-});
-
-test("lowering the total pulls watched down with it", () => {
-  // The other direction, and the one a dialog can get wrong: the total is the
-  // field being edited, and watched has to follow rather than stay impossible.
-  assert.deepEqual(
-    normalizeSeasonCounts({ totalSeasons: 2 }, { watchedSeasons: 6, totalSeasons: 6 }),
-    { watchedSeasons: 2, totalSeasons: 2 },
-  );
+  assert.equal(clampWatchedSeasons(9, 5), 5);
+  assert.equal(clampWatchedSeasons(5, 5), 5);
+  assert.equal(clampWatchedSeasons(3, 5), 3);
 });
 
 test("no total means no ceiling", () => {
-  // A series nobody has a count for still has progress worth recording.
-  assert.deepEqual(normalizeSeasonCounts({ watchedSeasons: 40 }, none), {
-    watchedSeasons: 40,
-    totalSeasons: null,
-  });
+  // A series nobody has a count for still has progress worth recording, and
+  // the two ways of not knowing have to behave the same.
+  assert.equal(clampWatchedSeasons(40, null), 40);
+  assert.equal(clampWatchedSeasons(40, undefined), 40);
+  assert.equal(clampWatchedSeasons(40, NO_SEASON_COUNT), 40);
+  assert.equal(clampWatchedSeasons(40, 0), 40);
 });
 
 test("zero watched is stored as nothing, not as a zero", () => {
   // The posters show "x of y" only when x is a number, so "none watched" and
   // "no idea" have to be the same stored value.
-  assert.deepEqual(
-    normalizeSeasonCounts({ watchedSeasons: 0 }, { watchedSeasons: 3, totalSeasons: 4 }),
-    { watchedSeasons: null, totalSeasons: 4 },
-  );
-  assert.deepEqual(
-    normalizeSeasonCounts({ watchedSeasons: -5 }, { watchedSeasons: 3, totalSeasons: 4 }),
-    { watchedSeasons: null, totalSeasons: 4 },
-  );
+  assert.equal(clampWatchedSeasons(0, 4), null);
+  assert.equal(clampWatchedSeasons(-5, 4), null);
 });
 
-test("a field that was not sent is left alone", () => {
-  // Editing a platform must not clear a season count as a side effect.
-  const current = { watchedSeasons: 2, totalSeasons: 7 };
-  assert.deepEqual(normalizeSeasonCounts({}, current), current);
-  assert.deepEqual(normalizeSeasonCounts({ watchedSeasons: 3 }, current), {
-    watchedSeasons: 3,
-    totalSeasons: 7,
-  });
-});
-
-test("clearing a total that was already answered-as-unknown keeps the sentinel", () => {
-  // Demoting it to null would put the series back in the queue the settings
-  // page works through, and it would be asked again forever.
-  assert.deepEqual(
-    normalizeSeasonCounts({ totalSeasons: null }, { watchedSeasons: 1, totalSeasons: NO_SEASON_COUNT }),
-    { watchedSeasons: 1, totalSeasons: NO_SEASON_COUNT },
-  );
-  // A total that was a real number and is cleared becomes "never asked", so
-  // TMDB can be asked for it.
-  assert.deepEqual(
-    normalizeSeasonCounts({ totalSeasons: null }, { watchedSeasons: 1, totalSeasons: 4 }),
-    { watchedSeasons: 1, totalSeasons: null },
-  );
-});
-
-test("a total that is not a whole positive number is unknown, not a ceiling", () => {
-  for (const junk of [0, -3, 1.5, NaN]) {
-    const out = normalizeSeasonCounts({ totalSeasons: junk, watchedSeasons: 4 }, none);
-    assert.equal(out.totalSeasons, null, `${junk} became a total`);
-    assert.equal(out.watchedSeasons, 4, `${junk} capped something`);
+test("anything that is not a whole number is nothing", () => {
+  for (const junk of [null, undefined, 1.5, NaN, "3" as unknown as number]) {
+    assert.equal(clampWatchedSeasons(junk, 6), null, `${String(junk)} became a count`);
   }
 });
 
-test("an absurd total is clamped rather than stored", () => {
-  assert.equal(normalizeSeasonCounts({ totalSeasons: 10_000 }, none).totalSeasons, 999);
+test("a total of one still caps", () => {
+  // The off-by-one worth checking: a single-season series watched "twice".
+  assert.equal(clampWatchedSeasons(2, 1), 1);
 });
 
 test("only a positive number counts as knowing the total", () => {

@@ -1,28 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { lookupTotalSeasons, isTmdbConfigured } from "@/lib/tmdb";
-import { NO_SEASON_COUNT } from "@/lib/seasons";
+import { isTmdbConfigured } from "@/lib/tmdb";
+import {
+  MISSING_TOTAL,
+  SEASON_FILL_BATCH,
+  fillMissingSeasonCounts,
+} from "@/lib/season-check";
 
 export const maxDuration = 60;
 
-// One TMDB request per series: the batch stays small to fit inside the
-// serverless duration limit.
-const BATCH_SIZE = 25;
-
 /**
- * Fills totalSeasons on series that still have it empty.
+ * Fills totalSeasons on series that still have it empty, on demand.
  *
- * This is for an existing catalog: series imported before this feature have a
- * tmdbId but no season count, which the TMDB search does not return. As with
- * the import enrichment, progress is a cursor on the id.
+ * The same work the automatic sweep does on its own (see
+ * src/lib/season-check.ts) — this is the button for someone who does not want
+ * to wait for the next page load to work through a backlog, and the progress
+ * bar that comes with it. The filling itself is shared, so the two cannot
+ * disagree about what a missing count is or how a no-answer is recorded.
  *
- * A series TMDB has no answer for is written as NO_SEASON_COUNT rather than
- * left empty. Leaving it empty is what "still has it empty" means, so the
- * next run picked it up again, found the same nothing, and left it again:
- * the count never reached zero however many times the button was pressed.
- * A request that merely failed to get through is still left alone — that one
- * really should be retried.
+ * Progress is a cursor on the id, as with the import enrichment.
  */
 export async function POST(request: NextRequest) {
   if (!(await isAuthenticated())) {
@@ -35,50 +32,18 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as { cursor?: number } | null;
   const cursor = Number.isFinite(body?.cursor) ? Number(body!.cursor) : 0;
 
-  const filter = {
-    mediaType: "Series",
-    totalSeasons: null,
-    tmdbId: { gt: 0 },
-  } as const;
+  const { completed, unavailable, lastId, scanned } = await fillMissingSeasonCounts(cursor);
 
-  const series = await prisma.title.findMany({
-    where: { ...filter, id: { gt: cursor } },
-    select: { id: true, tmdbId: true },
-    orderBy: { id: "asc" },
-    take: BATCH_SIZE,
-  });
-
-  let completed = 0;
-  let unavailable = 0;
-  for (const s of series) {
-    const found = await lookupTotalSeasons(s.tmdbId!).catch(() => ({ status: "failed" }) as const);
-    if (found.status === "failed") continue;
-    if (found.status === "none") {
-      await prisma.title.update({
-        where: { id: s.id },
-        data: { totalSeasons: NO_SEASON_COUNT },
-      });
-      unavailable += 1;
-      continue;
-    }
-    await prisma.title.update({
-      where: { id: s.id },
-      data: { totalSeasons: found.totalSeasons },
-    });
-    completed += 1;
-  }
-
-  const nextCursor = series.length > 0 ? series[series.length - 1].id : cursor;
   const remaining = await prisma.title.count({
-    where: { ...filter, id: { gt: nextCursor } },
+    where: { ...MISSING_TOTAL, id: { gt: lastId } },
   });
 
   return NextResponse.json({
     completed,
     unavailable,
-    cursor: nextCursor,
+    cursor: lastId,
     remaining,
-    done: series.length < BATCH_SIZE,
+    done: scanned < SEASON_FILL_BATCH,
   });
 }
 
@@ -87,8 +52,6 @@ export async function GET() {
   if (!(await isAuthenticated())) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
   }
-  const missing = await prisma.title.count({
-    where: { mediaType: "Series", totalSeasons: null, tmdbId: { gt: 0 } },
-  });
+  const missing = await prisma.title.count({ where: MISSING_TOTAL });
   return NextResponse.json({ missing });
 }

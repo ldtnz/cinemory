@@ -21,55 +21,33 @@
  */
 export const NO_SEASON_COUNT = -1;
 
-/** Past this a season count is a typo, not a series. */
-const MAX_SEASONS = 999;
-
 /** Whether a stored total is a real answer rather than "unknown". */
 export function hasSeasonTotal(total: number | null | undefined): boolean {
   return total != null && total > 0;
 }
 
 /**
- * The two season counts, reconciled.
+ * How many seasons were watched, as it can actually be stored.
  *
  * One home for the rule that you cannot have watched more seasons than exist,
- * because it has to hold from both directions — raising what you watched, and
- * lowering the total underneath it — and on both sides of the wire. The dialog
- * enforces it with disabled buttons; this is what makes it true.
+ * because it has to hold on both sides of the wire: the dialog uses it to
+ * decide which buttons are dead, and the route runs it again on the way in,
+ * where a hand-made request has no buttons to obey.
  *
- * A field left out is left alone, so editing a platform cannot silently clear
- * a season count. Clearing a total that was already "asked, no answer" keeps
- * that sentinel rather than demoting it to "never asked", which would put the
- * series back in the queue the settings page works through.
+ * The total is not an argument to be set — it is TMDB's answer, fetched
+ * automatically — only a ceiling, and only when TMDB has actually answered.
+ * A series nobody has a count for has no ceiling at all, because progress
+ * through it is still worth recording.
+ *
+ * Zero comes back as null: "none watched" and "no idea" have to be the same
+ * stored value, or the posters would show "0 of 6" for a series never started.
  */
-export function normalizeSeasonCounts(
-  input: { watchedSeasons?: number | null; totalSeasons?: number | null },
-  current: { watchedSeasons: number | null; totalSeasons: number | null },
-): { watchedSeasons: number | null; totalSeasons: number | null } {
-  let totalSeasons = current.totalSeasons;
-  if (input.totalSeasons !== undefined) {
-    const wanted = input.totalSeasons;
-    totalSeasons =
-      typeof wanted === "number" && Number.isInteger(wanted) && wanted > 0
-        ? Math.min(wanted, MAX_SEASONS)
-        : // Unknown. Which of the two unknowns it is depends on where it came
-          // from, and only the sentinel is worth preserving.
-          current.totalSeasons === NO_SEASON_COUNT
-          ? NO_SEASON_COUNT
-          : null;
-  }
-
-  let watchedSeasons = current.watchedSeasons;
-  if (input.watchedSeasons !== undefined) {
-    const wanted = input.watchedSeasons;
-    watchedSeasons =
-      typeof wanted === "number" && Number.isInteger(wanted) ? Math.max(0, wanted) : null;
-  }
-  if (watchedSeasons != null) {
-    if (hasSeasonTotal(totalSeasons)) watchedSeasons = Math.min(watchedSeasons, totalSeasons!);
-    // Zero is stored as "none", so nothing shows on the poster.
-    if (watchedSeasons <= 0) watchedSeasons = null;
-  }
-
-  return { watchedSeasons, totalSeasons };
+export function clampWatchedSeasons(
+  watched: number | null | undefined,
+  totalSeasons: number | null | undefined,
+): number | null {
+  if (typeof watched !== "number" || !Number.isInteger(watched)) return null;
+  let value = Math.max(0, watched);
+  if (hasSeasonTotal(totalSeasons)) value = Math.min(value, totalSeasons as number);
+  return value > 0 ? value : null;
 }
