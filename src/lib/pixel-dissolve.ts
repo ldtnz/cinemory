@@ -20,22 +20,40 @@
  * browser: an eased scale and its reciprocal only cancel if both are read off
  * the same eased value.
  *
- * Nothing here touches React. It clones the rendered node, animates the clone
- * over the top, and resolves — so the caller can do its state update after,
- * with the grid reflowing once, when the card is already gone.
+ * Where each square gets its picture from decides how small the squares can
+ * afford to be. Cloning the rendered card once per square is exact but costs a
+ * full paint each, which put a ceiling of about a hundred squares on it. A card
+ * is a poster, so the squares can share one already-decoded image instead,
+ * placed to line up with where the poster sits in the card — hundreds of those
+ * cost about what a dozen clones did. The clone is kept as the fallback for a
+ * card with no artwork yet.
+ *
+ * Nothing here touches React. It draws over the rendered node and resolves —
+ * so the caller can do its state update after, with the grid reflowing once,
+ * when the card is already gone.
  */
 
-/** The grid is capped, not the square size: a card is only ~190px wide, but a
- *  hundred-odd cloned subtrees is already the honest limit of what is worth
- *  painting for half a second. */
-const MAX_PIXELS = 96;
-const PIXEL_SIZE = 32;
+/** Square edge, in pixels. Small enough to read as pixels rather than as
+ *  tiles, which the shared-image path below makes affordable — a card is
+ *  around eleven squares across.
+ *
+ *  It is a real cost, not a free one: measured on a software-rendered browser
+ *  with no GPU, the worst frame over the dissolve goes 50ms at 32px, 83ms at
+ *  24px, 117ms here, 183ms at 16px and past 200ms at 14px, against a 33ms
+ *  baseline. Anything with a GPU composites these far more cheaply, but the
+ *  shape of the curve is why this stops here rather than going smaller. */
+const PIXEL_SIZE = 18;
+/** A ceiling regardless, so an unusually large card grows its squares rather
+ *  than its count. */
+const MAX_PIXELS = 240;
+/** Cloning is the expensive path; it gets a much lower ceiling of its own, and
+ *  correspondingly chunkier squares. */
+const MAX_CLONED_PIXELS = 96;
 
-/** Quick on purpose. This sits between a click and its result, so it is a
- *  beat, not a performance. */
-const TOTAL_MS = 520;
+/** Long enough to watch, short enough to stay out of the way. */
+const TOTAL_MS = 900;
 /** What one square takes to close, leaving TOTAL_MS - PIXEL_MS to stagger. */
-const PIXEL_MS = 240;
+const PIXEL_MS = 380;
 
 /** How small a square gets before it is gone. */
 const END_SCALE = 0.3;
@@ -76,15 +94,45 @@ function prefersReducedMotion(): boolean {
   );
 }
 
+/**
+ * The card's artwork, laid out the way the card itself lays it out.
+ *
+ * Next's Image fills the card with object-fit: cover, which crops rather than
+ * stretches; a background has to be told the same thing in numbers, or every
+ * square would show a subtly different picture from the one it is replacing.
+ * Null when there is no artwork loaded — a title whose poster is still missing
+ * falls back to cloning.
+ */
+function posterBacking(
+  element: HTMLElement,
+  width: number,
+  height: number,
+): { src: string; drawWidth: number; drawHeight: number; offsetX: number; offsetY: number } | null {
+  const image = element.querySelector("img");
+  const src = image?.currentSrc || image?.src;
+  if (!image || !src || !image.naturalWidth || !image.naturalHeight) return null;
+
+  const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+  const drawWidth = image.naturalWidth * scale;
+  const drawHeight = image.naturalHeight * scale;
+  return {
+    src,
+    drawWidth,
+    drawHeight,
+    offsetX: (width - drawWidth) / 2,
+    offsetY: (height - drawHeight) / 2,
+  };
+}
+
 type Square = { left: number; top: number; delay: number };
 
-function buildGrid(width: number, height: number): { squares: Square[]; size: number } {
+function buildGrid(width: number, height: number, cap: number): { squares: Square[]; size: number } {
   let size = PIXEL_SIZE;
   let columns = Math.max(1, Math.ceil(width / size));
   let rows = Math.max(1, Math.ceil(height / size));
 
-  if (columns * rows > MAX_PIXELS) {
-    size = Math.ceil(size * Math.sqrt((columns * rows) / MAX_PIXELS));
+  if (columns * rows > cap) {
+    size = Math.ceil(size * Math.sqrt((columns * rows) / cap));
     columns = Math.max(1, Math.ceil(width / size));
     rows = Math.max(1, Math.ceil(height / size));
   }
@@ -117,7 +165,12 @@ export function pixelDissolve(element: HTMLElement): Promise<void> {
     return Promise.resolve();
   }
 
-  const { squares, size } = buildGrid(rect.width, rect.height);
+  const poster = posterBacking(element, rect.width, rect.height);
+  const { squares, size } = buildGrid(
+    rect.width,
+    rect.height,
+    poster ? MAX_PIXELS : MAX_CLONED_PIXELS,
+  );
 
   const overlay = document.createElement("div");
   overlay.setAttribute("aria-hidden", "true");
@@ -131,6 +184,10 @@ export function pixelDissolve(element: HTMLElement): Promise<void> {
     width: `${rect.width}px`,
     height: `${rect.height}px`,
     pointerEvents: "none",
+    // Square panes have no corners of their own; the card's are put back by
+    // clipping the whole ghost to the same shape.
+    borderRadius: getComputedStyle(element).borderRadius,
+    overflow: "hidden",
     // Under the dialogs (z-50), over the grid.
     zIndex: "40",
   });
@@ -157,7 +214,9 @@ export function pixelDissolve(element: HTMLElement): Promise<void> {
       width: `${size}px`,
       height: `${size}px`,
       overflow: "hidden",
-      willChange: "transform, opacity",
+      // No will-change: at this many squares it asks for a composited layer
+      // each, and paying for hundreds of them up front costs far more than the
+      // transform it was meant to make cheap.
     });
 
     const content = document.createElement("div");
@@ -171,23 +230,35 @@ export function pixelDissolve(element: HTMLElement): Promise<void> {
       transformOrigin: `${square.left + size / 2}px ${square.top + size / 2}px`,
     });
 
-    const clone = element.cloneNode(true) as HTMLElement;
-    // A hundred copies of the card are about to be in the document, and each
-    // one carries the card's own id. Left alone, the next lookup by that id
-    // could find a ghost instead of the card.
-    delete clone.dataset.titleId;
-    // A clone is a brand-new element, so the grid's arrival animation starts
-    // again on it — the ghost would fade up from nothing while it is meant to
-    // be fading away, and with a stagger delay it would spend the first frames
-    // invisible. The ghost is a still picture; it animates only as a whole.
-    clone.classList.remove("reveal-item");
-    clone.style.animation = "none";
-    // The card is painted lazily (content-visibility: auto in globals.css) and
-    // a clone would inherit that and come out blank.
-    clone.style.contentVisibility = "visible";
-    clone.style.width = `${rect.width}px`;
-    clone.style.height = `${rect.height}px`;
-    content.append(clone);
+    if (poster) {
+      // One image for the whole grid: the browser decodes it once and every
+      // square draws its own window onto the same bitmap.
+      Object.assign(content.style, {
+        backgroundImage: `url("${poster.src}")`,
+        backgroundSize: `${poster.drawWidth}px ${poster.drawHeight}px`,
+        backgroundPosition: `${poster.offsetX}px ${poster.offsetY}px`,
+        backgroundRepeat: "no-repeat",
+      });
+    } else {
+      const clone = element.cloneNode(true) as HTMLElement;
+      // Copies of the card are about to be in the document, and each one
+      // carries the card's own id. Left alone, the next lookup by that id
+      // could find a ghost instead of the card.
+      delete clone.dataset.titleId;
+      // A clone is a brand-new element, so the grid's arrival animation starts
+      // again on it — the ghost would fade up from nothing while it is meant to
+      // be fading away, and with a stagger delay it would spend the first
+      // frames invisible. The ghost is a still picture; it animates only as a
+      // whole.
+      clone.classList.remove("reveal-item");
+      clone.style.animation = "none";
+      // The card is painted lazily (content-visibility: auto in globals.css)
+      // and a clone would inherit that and come out blank.
+      clone.style.contentVisibility = "visible";
+      clone.style.width = `${rect.width}px`;
+      clone.style.height = `${rect.height}px`;
+      content.append(clone);
+    }
     pane.append(content);
     overlay.append(pane);
 

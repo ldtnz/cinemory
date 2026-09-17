@@ -293,6 +293,11 @@ export default function Catalog({
     if (byId.size < rows.length) {
       window.alert(`Could not move ${rows.length - byId.size} of ${rows.length} titles.`);
     }
+    // The same going back as coming: this half of the catalog is the one being
+    // left, so the card comes apart here too. Only the ones that actually
+    // moved — a card whose request failed is still there afterwards.
+    const cards = [...byId.keys()].map(cardElement).filter((el): el is HTMLElement => el !== null);
+    if (cards.length) await pixelDissolveAll(cards);
     setCatalog((prev) => prev.map((t) => byId.get(t.id) ?? t));
   }, []);
 
