@@ -1,10 +1,12 @@
 /**
- * The MCP endpoint: Cinemory as a custom connector in Claude.
+ * The MCP endpoint: Cinemory as a connector in an AI assistant.
  *
- * Added on claude.ai under Customize -> Connectors -> Add custom connector,
- * with what the settings page hands out. Anthropic's servers fetch this, not
- * the reader's browser, which is why it is reachable without a session cookie
- * and needs a credential of its own.
+ * MCP is an open standard, so this is not built for one client — claude.ai
+ * takes it under Customize -> Connectors -> Add custom connector, and anything
+ * else that adds an MCP server takes the same two strings. A hosted assistant
+ * fetches this from its own servers rather than from the reader's browser,
+ * which is why it is reachable without a session cookie and needs a credential
+ * of its own.
  *
  * That credential arrives one of two ways. A header is the better one and what
  * the MCP spec expects — the URL stays a plain, stable address, and the secret

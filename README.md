@@ -68,10 +68,11 @@ code it produces. The values to fill in before that are in
   appear as a strip you can add from in one click, and "not interested" on any
   of them keeps it out of every future batch. Off by default, enabled by
   setting `ANTHROPIC_API_KEY`.
-- **Connect to Claude** *(optional)* — an MCP endpoint that lets Claude read
-  this catalog during an ordinary chat: what you have watched, what is waiting,
-  and the numbers behind it — and add to it, if you hand out a credential that
-  may. Off until you switch it on, and revocable in a click. See [Connecting to Claude](#connecting-to-claude).
+- **MCP connector** *(optional)* — an MCP endpoint that lets an AI assistant
+  read this catalog during an ordinary chat: what you have watched, what is
+  waiting, and the numbers behind it — and add to it, if you hand out a
+  credential that may. Off until you switch it on, and revocable in a click.
+  See [Connecting an assistant over MCP](#connecting-an-assistant-over-mcp).
 - **Maintenance** — a settings page for importing, merging series split across
   rows, fixing missing posters, exporting the whole catalog as JSON, and an
   edit mode for deleting titles.
@@ -162,13 +163,14 @@ deploying — `prisma migrate deploy` talks to a SQLite file, not to Turso.
 
 ---
 
-## Connecting to Claude
+## Connecting an assistant over MCP
 
-Settings -> **Connect to Claude** turns on an MCP endpoint and hands you its
-address and a token. Add it on claude.ai under Customize -> Connectors -> Add
-custom connector, and Claude can answer "have I seen this?", "what's on my
-list?" and "what did I watch last year?" from your own catalog instead of
-guessing.
+Settings -> **MCP connector** turns on an MCP endpoint and hands you its address
+and a token. MCP is an open standard, so anything that speaks it can connect;
+claude.ai is the worked example here because it is the one most people will be
+setting up. Add it there under Customize -> Connectors -> Add custom connector,
+and the assistant can answer "have I seen this?", "what's on my list?" and "what
+did I watch last year?" from your own catalog instead of guessing.
 
 Four read tools — `search_catalog`, `catalog_stats`, `watchlist` and
 `recently_watched` — and, if you generate the wider credential instead, two
@@ -213,9 +215,10 @@ shaped this way:
   with a `WWW-Authenticate` challenge, so a client can say "your token is
   missing" instead of "there is no server here".
 
-Anthropic's servers fetch the endpoint, not your browser, so it has to be
-reachable from the public internet — fine on Vercel, and fine on a self-hosted
-instance that is exposed. A purely local instance is not reachable this way.
+A hosted assistant fetches the endpoint from its own servers, not from your
+browser, so it has to be reachable from the public internet — fine on Vercel,
+and fine on a self-hosted instance that is exposed. A purely local instance can
+only be reached by a client running on the same machine.
 
 It is off until you turn it on, and "Switch off" clears it entirely.
 

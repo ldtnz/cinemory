@@ -51,6 +51,11 @@ function Field({
 /**
  * Switching the MCP endpoint on, and handing over the credential.
  *
+ * MCP is an open standard and this is a plain MCP server, so the section is
+ * named after the protocol rather than after one client. claude.ai is spelled
+ * out because it is the one most readers will be setting up, not because it is
+ * the only one that works.
+ *
  * Shown once, when it is minted: only a digest is kept, so this component is
  * the single moment the token exists anywhere the reader can copy it from.
  * Losing it costs a regeneration, not a recovery — which is also what makes a
@@ -123,9 +128,9 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
 
   return (
     <SettingsSection
-      title="Connect to Claude"
+      title="MCP connector"
       icon={<Plug className="h-4 w-4 text-accent-ai" strokeWidth={1.8} />}
-      description="Lets Claude read your catalog in an ordinary chat, and optionally add to it."
+      description="Lets an AI assistant read your catalog in an ordinary chat, and optionally add to it. MCP is an open standard, so anything that speaks it can connect — claude.ai is just the worked example below."
     >
       {token ? (
         <div className="space-y-3">
@@ -211,7 +216,8 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
             <p className="text-[11px] text-muted">
               A connector is already set up
               {createdAt ? `, since ${new Date(createdAt).toLocaleDateString()}` : ""}. Generating
-              replaces it — what you added on claude.ai stops working, so swap it for the new one.
+              replaces it — whatever you set up with the old one stops working, so swap it for the
+              new one.
             </p>
           )}
         </div>
@@ -222,7 +228,7 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
       {confirming && (
         <ConfirmDialog
           title="Switch off the connector?"
-          description="Claude will stop being able to read this catalog, and what you added there will stop working."
+          description="Nothing will be able to read this catalog through MCP any more, and whatever you set up with the current credential will stop working."
           confirmLabel="Switch off"
           danger
           onConfirm={revoke}
