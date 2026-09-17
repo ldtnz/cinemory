@@ -36,6 +36,26 @@ export type McpTitle = {
   seasons?: string;
 };
 
+/**
+ * A watched-between filter, or nothing when neither end was given.
+ *
+ * An unparseable date is dropped rather than allowed through as Invalid Date,
+ * which Prisma would send to the database as null and quietly widen the search
+ * instead of narrowing it.
+ */
+function dateRange(from?: string, to?: string): { gte?: Date; lte?: Date } | null {
+  const start = from ? new Date(from) : null;
+  const end = to ? new Date(to) : null;
+  const range: { gte?: Date; lte?: Date } = {};
+  if (start && !isNaN(start.getTime())) range.gte = start;
+  // A bare "2024-12-31" parses to midnight, which would exclude that whole
+  // day; the end of the range means the end of the day named.
+  if (end && !isNaN(end.getTime())) {
+    range.lte = /T/.test(to ?? "") ? end : new Date(end.getTime() + 86_399_999);
+  }
+  return range.gte || range.lte ? range : null;
+}
+
 function toMcpTitle(t: Title): McpTitle {
   const seasons =
     t.mediaType === "Series" && (t.watchedSeasons != null || (t.totalSeasons ?? 0) > 0)
@@ -68,19 +88,31 @@ export async function searchCatalog({
   status = "any",
   mediaType,
   genre,
+  from,
+  to,
+  platform,
   limit = DEFAULT_RESULTS,
 }: {
   query?: string;
   status?: "watched" | "watchlist" | "any";
   mediaType?: "Movie" | "Series";
   genre?: string;
+  /** ISO dates bounding when it was watched. A catalog spanning a decade makes
+   *  "what did I watch that summer?" an obvious question, and without these it
+   *  could only be answered by pulling every row across. */
+  from?: string;
+  to?: string;
+  platform?: string;
   limit?: number;
 }): Promise<{ matches: McpTitle[]; total: number }> {
+  const watchedAt = dateRange(from, to);
   const where = {
     ...(status === "any" ? {} : { inWatchlist: status === "watchlist" }),
     ...(mediaType ? { mediaType } : {}),
     ...(query?.trim() ? { searchTitle: { contains: normalizeTitle(query) } } : {}),
     ...(genre?.trim() ? { genres: { contains: genre.trim() } } : {}),
+    ...(platform?.trim() ? { platform: { contains: platform.trim() } } : {}),
+    ...(watchedAt ? { lastWatchedAt: watchedAt } : {}),
   };
 
   const total = await prisma.title.count({ where });
@@ -106,7 +138,11 @@ export async function catalogStats() {
     averageTmdbRating: s.averageRating,
     ratedTitles: s.ratedCount,
     topPlatforms: s.platforms.slice(0, 5).map((b) => ({ name: b.label, titles: b.count })),
-    topGenres: s.genres.slice(0, 8).map((b) => ({ name: b.label, titles: b.count })),
+    // Every genre, not a top slice: these are the only strings the genre
+    // filter accepts, and they are in whatever language TMDB was asked in —
+    // "Dramma", not "Drama", on an Italian catalog. A caller that cannot see
+    // the list guesses the English name and gets a confident zero back.
+    genres: s.genres.map((b) => ({ name: b.label, titles: b.count })),
     busiestYears: [...s.perYear]
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)

@@ -69,14 +69,7 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
     <SettingsSection
       title="Connect to Claude"
       icon={<Plug className="h-4 w-4 text-accent-ai" strokeWidth={1.8} />}
-      description={
-        <>
-          Lets Claude read this catalog during an ordinary chat — what you have watched,
-          what is waiting, and the numbers behind it. Add the URL below on claude.ai under
-          Customize &rarr; Connectors &rarr; Add custom connector. Reading only: nothing
-          reached this way can change or delete a title.
-        </>
-      }
+      description="Lets Claude read your catalog in an ordinary chat. Read-only — nothing reached this way can change a title."
     >
       {url ? (
         <div className="space-y-3">
@@ -89,9 +82,9 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
               {url}
             </p>
           </div>
-          <p className="text-[11px] text-muted">
-            Anyone with this URL can read your catalog, so treat it as a password. If it
-            escapes, generate a new one — the old URL stops working immediately.
+          <p className="text-[11px] leading-relaxed text-muted">
+            Add it on claude.ai under Customize &rarr; Connectors &rarr; Add custom
+            connector. Treat it as a password: anyone holding it can read your catalog.
           </p>
           <div className="flex flex-wrap gap-2">
             <button
@@ -139,8 +132,7 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
           )}
           {on && (
             <span className="text-[11px] text-muted">
-              On{createdAt ? ` since ${new Date(createdAt).toLocaleDateString()}` : ""}. Generating
-              a new URL stops the old one working.
+              On{createdAt ? ` since ${new Date(createdAt).toLocaleDateString()}` : ""}
             </span>
           )}
         </div>

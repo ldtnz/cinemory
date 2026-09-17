@@ -47,9 +47,9 @@ const handler = createMcpHandler(
         title: "Search the catalog",
         description:
           "Search what the user has watched or has waiting. Use this to answer " +
-          "'have I seen X?', 'what have I watched by/about X?', and anything " +
-          "filtered by genre or by film vs series. Omit the query to browse by " +
-          "filter alone.",
+          "'have I seen X?', 'what have I watched by/about X?', 'what did I watch " +
+          "in 2024?', and anything filtered by genre, platform or film vs series. " +
+          "Omit the query to browse by filter alone.",
         inputSchema: z.object({
           query: z.string().optional().describe("Part of a title. Case and punctuation do not matter."),
           status: z
@@ -57,7 +57,27 @@ const handler = createMcpHandler(
             .optional()
             .describe("Watched titles, the to-watch list, or both. Defaults to both."),
           mediaType: z.enum(["Movie", "Series"]).optional(),
-          genre: z.string().optional().describe("A single genre, e.g. Drama."),
+          genre: z
+            .string()
+            .optional()
+            .describe(
+              "One genre, spelled exactly as this catalog spells it. Genres come " +
+                "from TMDB in the catalog's own language and may not be English — " +
+                "call catalog_stats first and use a name from the genres it lists, " +
+                "rather than guessing.",
+            ),
+          platform: z
+            .string()
+            .optional()
+            .describe("Where it was watched, e.g. Netflix. catalog_stats lists the ones in use."),
+          from: z
+            .string()
+            .optional()
+            .describe("Only titles watched on or after this date (YYYY-MM-DD)."),
+          to: z
+            .string()
+            .optional()
+            .describe("Only titles watched on or before this date (YYYY-MM-DD), that day included."),
           limit,
         }),
       },
@@ -70,8 +90,9 @@ const handler = createMcpHandler(
         title: "Catalog statistics",
         description:
           "Totals and breakdowns for the whole catalog: how many titles, films " +
-          "against series, seasons watched, top platforms and genres, busiest " +
-          "years, and the first and most recent thing watched.",
+          "against series, seasons watched, platforms, every genre with a count, " +
+          "busiest years, and the first and most recent thing watched. Also the " +
+          "way to learn the exact genre and platform names search_catalog accepts.",
         inputSchema: z.object({}),
       },
       async () => json(await catalogStats()),
