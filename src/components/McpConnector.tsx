@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Plug, Trash2, TriangleAlert } from "lucide-react";
+import { Check, Copy, PencilLine, Plug, Trash2, TriangleAlert } from "lucide-react";
 import SettingsSection from "@/components/SettingsSection";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { mcpUrl } from "@/lib/mcp-url";
@@ -19,14 +19,20 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
   const [url, setUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [writable, setWritable] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function generate() {
+  async function generate(scope: "read" | "write") {
     setBusy(true);
     setError(null);
+    setWritable(scope === "write");
     try {
-      const res = await fetch("/api/mcp-token", { method: "POST" });
+      const res = await fetch("/api/mcp-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope }),
+      });
       if (!res.ok) throw new Error("Could not generate the token.");
       const { token } = (await res.json()) as { token: string };
       setUrl(mcpUrl(window.location.origin, token));
@@ -69,7 +75,7 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
     <SettingsSection
       title="Connect to Claude"
       icon={<Plug className="h-4 w-4 text-accent-ai" strokeWidth={1.8} />}
-      description="Lets Claude read your catalog in an ordinary chat. Read-only — nothing reached this way can change a title."
+      description="Lets Claude read your catalog in an ordinary chat, and optionally add to it."
     >
       {url ? (
         <div className="space-y-3">
@@ -78,13 +84,19 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
               <TriangleAlert className="h-3.5 w-3.5 flex-none" strokeWidth={2} />
               Shown once. Copy it now — only a digest is stored.
             </p>
+            <p className="mt-1 text-[11px] text-muted">
+              {writable
+                ? "Can read, add to the watchlist and mark things watched. It cannot delete or edit anything."
+                : "Read-only. Nothing reached with this URL can change a title."}
+            </p>
             <p className="mt-2 break-all font-mono text-[11px] leading-relaxed text-foreground">
               {url}
             </p>
           </div>
           <p className="text-[11px] leading-relaxed text-muted">
             Add it on claude.ai under Customize &rarr; Connectors &rarr; Add custom
-            connector. Treat it as a password: anyone holding it can read your catalog.
+            connector. Treat it as a password: anyone holding it can{" "}
+            {writable ? "read your catalog and add to it" : "read your catalog"}.
           </p>
           <div className="flex flex-wrap gap-2">
             <button
@@ -112,12 +124,24 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={generate}
+            onClick={() => generate("read")}
             disabled={busy}
             className="inline-flex h-10 items-center gap-2 rounded-xl bg-surface-2 px-4 text-xs font-semibold transition-colors hover:bg-surface-3 disabled:opacity-50"
           >
             <Plug className="h-4 w-4" strokeWidth={1.8} />
-            {on ? "Generate a new URL" : "Turn on and get the URL"}
+            {on ? "New read-only URL" : "Turn on, read-only"}
+          </button>
+          {/* A second URL rather than a setting: what the connector may do is
+              decided when it is handed out, and swapping back is generating the
+              read-only one again. */}
+          <button
+            type="button"
+            onClick={() => generate("write")}
+            disabled={busy}
+            className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+          >
+            <PencilLine className="h-4 w-4" strokeWidth={1.8} />
+            …that can also add titles
           </button>
           {on && (
             <button

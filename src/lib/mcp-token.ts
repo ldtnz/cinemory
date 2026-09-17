@@ -10,7 +10,13 @@
  *
  * It travels in the URL, because that is what the connector stores. Which
  * makes two things load-bearing: the token is long enough that the URL cannot
- * be guessed, and everything it reaches is read-only.
+ * be guessed, and what it reaches is as small as the job allows.
+ *
+ * The token also carries its own scope, in a prefix. That is the one part of
+ * OAuth worth having here — a credential that can only read — without an
+ * authorization server to write and get wrong. The prefix cannot be edited to
+ * widen it: it is part of what was hashed, so changing it stops the token
+ * matching at all.
  */
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
@@ -18,8 +24,25 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
  *  the weak link — the risk worth worrying about is the URL being copied. */
 const TOKEN_BYTES = 32;
 
-export function generateMcpToken(): string {
-  return randomBytes(TOKEN_BYTES).toString("base64url");
+/** What a token is allowed to do. Reading is the default everywhere. */
+export type McpScope = "read" | "write";
+
+const PREFIX: Record<McpScope, string> = { read: "ro_", write: "rw_" };
+
+export function generateMcpToken(scope: McpScope = "read"): string {
+  return PREFIX[scope] + randomBytes(TOKEN_BYTES).toString("base64url");
+}
+
+/**
+ * The scope a token claims.
+ *
+ * Only meaningful once isValidMcpToken has accepted it: the claim is part of
+ * the hashed string, so a token whose prefix has been altered does not match
+ * anything and never reaches here. Anything unrecognised reads as read-only —
+ * the safe direction for a token from an older version, which had no prefix.
+ */
+export function scopeOf(token: string): McpScope {
+  return token.startsWith(PREFIX.write) ? "write" : "read";
 }
 
 export function hashMcpToken(token: string): string {

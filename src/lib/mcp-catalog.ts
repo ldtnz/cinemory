@@ -16,6 +16,8 @@ import { prisma } from "@/lib/prisma";
 import { normalizeTitle } from "@/lib/title-key";
 import { computeStats } from "@/lib/stats";
 import { splitGenres } from "@/lib/genres";
+import { findBestTmdbMatch } from "@/lib/tmdb";
+import { isValidPlatform } from "@/lib/platforms";
 
 /** Caps on what one call can return, so no single question can drag the whole
  *  catalog across. */
@@ -185,4 +187,103 @@ export async function recentlyWatched(limit = DEFAULT_RESULTS): Promise<McpTitle
     take: Math.min(Math.max(1, limit), MAX_RESULTS),
   });
   return rows.map(toMcpTitle);
+}
+
+/**
+ * Adding a title to the watchlist.
+ *
+ * The one write worth having in chat: you are talking about a film, you want
+ * it on the list. Deliberately additive — there is no tool here that removes
+ * or edits anything, so the worst a write-capable URL can do is add rows you
+ * can see and delete yourself.
+ *
+ * It goes through TMDB like the app's own "add" does, so the entry arrives
+ * with a poster and metadata rather than as a bare string.
+ */
+export async function addToWatchlist(
+  title: string,
+  mediaType?: "Movie" | "Series",
+): Promise<{ added: boolean; title: string; reason?: string }> {
+  const wanted = title.trim();
+  if (!wanted) return { added: false, title, reason: "No title given." };
+
+  const searchTitle = normalizeTitle(wanted);
+  const existing = await prisma.title.findFirst({
+    where: { searchTitle },
+    select: { title: true, inWatchlist: true, platform: true },
+  });
+  if (existing) {
+    return {
+      added: false,
+      title: existing.title,
+      reason: existing.inWatchlist
+        ? "Already on the watchlist."
+        : `Already watched${existing.platform ? ` on ${existing.platform}` : ""}.`,
+    };
+  }
+
+  const match = await findBestTmdbMatch(wanted, mediaType ?? "Movie");
+  if (!match) {
+    return { added: false, title: wanted, reason: "No match on TMDB for that title." };
+  }
+
+  // Same shape the app writes (see src/app/api/titles/route.ts): a watchlist
+  // entry has no platform and no date, because neither is known until it has
+  // actually been watched.
+  await prisma.title.create({
+    data: {
+      title: match.title,
+      searchTitle: normalizeTitle(match.title),
+      platform: "",
+      mediaType: match.mediaType,
+      status: "To watch",
+      inWatchlist: true,
+      lastWatchedAt: null,
+      tmdbId: match.tmdbId,
+      posterUrl: match.posterUrl,
+      backdropUrl: match.backdropUrl,
+      overview: match.overview,
+      tmdbRating: match.tmdbRating,
+      year: match.year,
+      genres: match.genres,
+      totalSeasons: match.totalSeasons ?? null,
+    },
+  });
+  return { added: true, title: match.title };
+}
+
+/**
+ * Moving a title from the watchlist into the watched half.
+ *
+ * Only ever moves something already in the catalog, and only in that
+ * direction — it cannot delete, and the move back exists in the app.
+ */
+export async function markAsWatched(
+  title: string,
+  platform?: string,
+  on?: string,
+): Promise<{ moved: boolean; title: string; reason?: string }> {
+  const wanted = title.trim();
+  if (!wanted) return { moved: false, title, reason: "No title given." };
+
+  const row = await prisma.title.findFirst({
+    where: { searchTitle: { contains: normalizeTitle(wanted) } },
+    select: { id: true, title: true, inWatchlist: true },
+  });
+  if (!row) return { moved: false, title: wanted, reason: "Not in the catalog." };
+  if (!row.inWatchlist) return { moved: false, title: row.title, reason: "Already marked as watched." };
+
+  const when = on ? new Date(on) : new Date();
+  await prisma.title.update({
+    where: { id: row.id },
+    data: {
+      inWatchlist: false,
+      status: "Watched",
+      // Unrecognised or absent platform stays "Unknown" rather than inventing
+      // one; the same value the IMDb import uses when it cannot tell.
+      platform: platform && isValidPlatform(platform) ? platform : "Unknown",
+      lastWatchedAt: isNaN(when.getTime()) ? new Date() : when,
+    },
+  });
+  return { moved: true, title: row.title };
 }

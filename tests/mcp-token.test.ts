@@ -9,15 +9,15 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { generateMcpToken, hashMcpToken, isValidMcpToken } from "@/lib/mcp-token";
+import { generateMcpToken, hashMcpToken, isValidMcpToken, scopeOf } from "@/lib/mcp-token";
 import { mcpUrl } from "@/lib/mcp-url";
 
 test("a generated token is long, URL-safe and never repeats", () => {
   const seen = new Set<string>();
   for (let i = 0; i < 500; i++) {
     const token = generateMcpToken();
-    // 32 bytes of base64url, unpadded.
-    assert.equal(token.length, 43);
+    // A three-character scope prefix and 32 bytes of base64url, unpadded.
+    assert.equal(token.length, 46);
     assert.match(token, /^[A-Za-z0-9_-]+$/, "must survive being put in a URL path");
     assert.ok(!seen.has(token), "generated the same token twice");
     seen.add(token);
@@ -85,4 +85,37 @@ test("the URL is the endpoint's path with the token on the end", () => {
   // A trailing slash on the origin must not produce a double slash, which
   // would be a different path and would not route.
   assert.equal(mcpUrl("https://cinemory.example/", token), `https://cinemory.example/api/mcp/${token}`);
+});
+
+// --- scope -----------------------------------------------------------------
+
+test("a token reads as read-only unless it was minted to write", () => {
+  assert.equal(scopeOf(generateMcpToken()), "read");
+  assert.equal(scopeOf(generateMcpToken("read")), "read");
+  assert.equal(scopeOf(generateMcpToken("write")), "write");
+});
+
+test("both scopes still authenticate normally", () => {
+  for (const scope of ["read", "write"] as const) {
+    const token = generateMcpToken(scope);
+    assert.equal(isValidMcpToken(token, hashMcpToken(token)), true);
+  }
+});
+
+test("the scope cannot be widened by editing the token", () => {
+  // The prefix is part of what was hashed, so promoting a read token to a
+  // write one stops it matching at all rather than granting anything. This is
+  // the whole reason the scope can live in the credential without a server.
+  const readToken = generateMcpToken("read");
+  const stored = hashMcpToken(readToken);
+  const promoted = "rw_" + readToken.slice(3);
+
+  assert.equal(scopeOf(promoted), "write", "the edit does claim more");
+  assert.equal(isValidMcpToken(promoted, stored), false, "but it no longer authenticates");
+});
+
+test("a token from before scopes existed reads as read-only", () => {
+  // Anything unrecognised has to fall to the narrower scope, not the wider.
+  assert.equal(scopeOf("MPTMMGvAVQfLbnDArnbDvXCWFFuWPMbpuxgDrTMLbQo"), "read");
+  assert.equal(scopeOf(""), "read");
 });

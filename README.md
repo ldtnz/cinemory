@@ -169,9 +169,22 @@ Add it on claude.ai under Customize -> Connectors -> Add custom connector, and
 Claude can answer "have I seen this?", "what's on my list?" and "what did I
 watch last year?" from your own catalog instead of guessing.
 
-Four tools, all of them read-only: `search_catalog`, `catalog_stats`,
-`watchlist` and `recently_watched`. Nothing reached this way can add, change or
-delete a title.
+Four read tools — `search_catalog`, `catalog_stats`, `watchlist` and
+`recently_watched` — and, if you generate the wider URL instead, two more:
+`add_to_watchlist` and `mark_as_watched`.
+
+**Writing is a separate URL, not a setting.** What a connector may do is decided
+when you hand it out, and going back to read-only is generating the read-only
+URL again. Even the wider one is deliberately additive: it can add a title and
+move one into the watched half, and there is no tool that deletes or edits, so
+the worst it can do is add rows you can see and remove in the app.
+
+No OAuth, and on purpose. What OAuth would buy here is scopes and getting the
+credential out of the URL; the cost is an authorization server — the kind of
+code where mistakes are expensive — guarding a personal film catalog that has a
+JSON export as a backup. The scope instead rides in the token, in a prefix that
+is part of what was hashed: editing `ro_` to `rw_` does not widen anything, it
+stops the token matching at all.
 
 **The URL is the credential.** A connector stores a URL and nothing else, so the
 token lives in the path; anyone holding it can read your catalog. Three things

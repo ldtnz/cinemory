@@ -7,16 +7,25 @@
  * cookie and why the token sits in the path — a connector stores a URL, and
  * that is the whole of what it stores.
  *
- * Read-only by design. Every tool here answers a question; none of them change
- * anything, so the worst an escaped URL can do is disclose a film collection.
+ * Read-only unless the URL says otherwise. A token generated with writes
+ * enabled reaches two more tools, both additive: adding to the watchlist and
+ * moving something out of it. Nothing here deletes or edits, so even the wider
+ * URL cannot destroy anything — it can only add rows that are visible in the
+ * app and removable there.
+ *
+ * Which tools exist is decided by the token, not checked inside them: two
+ * handlers are built, and the scope picks one. A read-only connector is never
+ * even told the write tools are there.
  */
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { isValidMcpToken } from "@/lib/mcp-token";
+import { isValidMcpToken, scopeOf } from "@/lib/mcp-token";
 import {
   MAX_RESULTS,
+  addToWatchlist,
   catalogStats,
+  markAsWatched,
   recentlyWatched,
   searchCatalog,
   watchlist,
@@ -39,7 +48,10 @@ function json(value: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(value, null, 1) }] };
 }
 
-const handler = createMcpHandler(
+const READ_ONLY = { readOnlyHint: true, openWorldHint: false } as const;
+
+function build(allowWrites: boolean) {
+  return createMcpHandler(
   (server) => {
     server.registerTool(
       "search_catalog",
@@ -80,6 +92,7 @@ const handler = createMcpHandler(
             .describe("Only titles watched on or before this date (YYYY-MM-DD), that day included."),
           limit,
         }),
+        annotations: READ_ONLY,
       },
       async (args) => json(await searchCatalog(args)),
     );
@@ -93,6 +106,7 @@ const handler = createMcpHandler(
           "against series, seasons watched, platforms, every genre with a count, " +
           "busiest years, and the first and most recent thing watched. Also the " +
           "way to learn the exact genre and platform names search_catalog accepts.",
+        annotations: READ_ONLY,
         inputSchema: z.object({}),
       },
       async () => json(await catalogStats()),
@@ -103,6 +117,7 @@ const handler = createMcpHandler(
       {
         title: "The to-watch list",
         description: "Titles the user has saved to watch but has not watched yet, newest first.",
+        annotations: READ_ONLY,
         inputSchema: z.object({ limit }),
       },
       async ({ limit }) => json(await watchlist(limit)),
@@ -115,9 +130,53 @@ const handler = createMcpHandler(
         description:
           "The most recently watched titles, newest first. Titles whose watch " +
           "date is unknown are left out rather than dated wrongly.",
+        annotations: READ_ONLY,
         inputSchema: z.object({ limit }),
       },
       async ({ limit }) => json({ titles: await recentlyWatched(limit) }),
+    );
+
+    if (!allowWrites) return;
+
+    server.registerTool(
+      "add_to_watchlist",
+      {
+        title: "Add to the to-watch list",
+        description:
+          "Put a title on the user's to-watch list. Matched on TMDB first, so " +
+          "it arrives with a poster and metadata. Refuses rather than duplicates " +
+          "anything already in the catalog.",
+        // Additive and safe to repeat: a second call finds it already there.
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+        inputSchema: z.object({
+          title: z.string().describe("The title to add."),
+          mediaType: z
+            .enum(["Movie", "Series"])
+            .optional()
+            .describe("Helps TMDB pick the right entry when a name is both."),
+        }),
+      },
+      async ({ title, mediaType }) => json(await addToWatchlist(title, mediaType)),
+    );
+
+    server.registerTool(
+      "mark_as_watched",
+      {
+        title: "Mark as watched",
+        description:
+          "Move a title already on the to-watch list into the watched half. " +
+          "Does not add anything that is not in the catalog, and cannot remove.",
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+        inputSchema: z.object({
+          title: z.string().describe("A title already in the catalog."),
+          platform: z
+            .string()
+            .optional()
+            .describe("Where it was watched. Left as \"Not sure\" if unrecognised."),
+          on: z.string().optional().describe("When, as YYYY-MM-DD. Defaults to today."),
+        }),
+      },
+      async ({ title, platform, on }) => json(await markAsWatched(title, platform, on)),
     );
   },
   {
@@ -125,9 +184,17 @@ const handler = createMcpHandler(
     instructions:
       "This is one person's record of what they have watched and what they plan " +
       "to watch. It is the authority on their own viewing — prefer it over " +
-      "assumptions about what they have seen.",
+      "assumptions about what they have seen." +
+      (allowWrites
+        ? " This connector can also add to the watchlist and mark things watched."
+        : " It is read-only."),
   },
-);
+  );
+}
+
+// Built once each, not per request: which one answers is the token's business.
+const readHandler = build(false);
+const writeHandler = build(true);
 
 async function authorized(token: string): Promise<boolean> {
   const settings = await prisma.settings.findFirst({ select: { mcpTokenHash: true } });
@@ -141,7 +208,9 @@ async function guard(request: Request, ctx: { params: Promise<{ token: string }>
   if (!(await authorized(token))) {
     return new Response("Not found", { status: 404 });
   }
-  return handler(request);
+  // The prefix is part of what was hashed, so a token that got this far is
+  // making a claim it cannot have edited.
+  return scopeOf(token) === "write" ? writeHandler(request) : readHandler(request);
 }
 
 export { guard as GET, guard as POST, guard as DELETE };
