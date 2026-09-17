@@ -95,7 +95,8 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
           </div>
           <p className="text-[11px] leading-relaxed text-muted">
             Add it on claude.ai under Customize &rarr; Connectors &rarr; Add custom
-            connector. Treat it as a password: anyone holding it can{" "}
+            connector, replacing the URL there if you had one — only the newest works.
+            Treat it as a password: anyone holding it can{" "}
             {writable ? "read your catalog and add to it" : "read your catalog"}.
           </p>
           <div className="flex flex-wrap gap-2">
@@ -121,43 +122,49 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
           </div>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => generate("read")}
-            disabled={busy}
-            className="inline-flex h-10 items-center gap-2 rounded-xl bg-surface-2 px-4 text-xs font-semibold transition-colors hover:bg-surface-3 disabled:opacity-50"
-          >
-            <Plug className="h-4 w-4" strokeWidth={1.8} />
-            {on ? "New read-only URL" : "Turn on, read-only"}
-          </button>
-          {/* A second URL rather than a setting: what the connector may do is
-              decided when it is handed out, and swapping back is generating the
-              read-only one again. */}
-          <button
-            type="button"
-            onClick={() => generate("write")}
-            disabled={busy}
-            className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
-          >
-            <PencilLine className="h-4 w-4" strokeWidth={1.8} />
-            …that can also add titles
-          </button>
-          {on && (
+        <div className="space-y-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
+            {on ? "Replace the URL with one that can" : "Generate a URL that can"}
+          </p>
+          {/* One URL at a time, never two: generating either replaces whatever
+              is active. The choice is what that single connector may do. */}
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setConfirming(true)}
+              onClick={() => generate("read")}
               disabled={busy}
-              className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-surface-2 px-4 text-xs font-semibold transition-colors hover:bg-surface-3 disabled:opacity-50"
             >
-              <Trash2 className="h-4 w-4" strokeWidth={1.8} />
-              Switch off
+              <Plug className="h-4 w-4" strokeWidth={1.8} />
+              Read only
             </button>
-          )}
+            <button
+              type="button"
+              onClick={() => generate("write")}
+              disabled={busy}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-surface-2 px-4 text-xs font-semibold transition-colors hover:bg-surface-3 disabled:opacity-50"
+            >
+              <PencilLine className="h-4 w-4" strokeWidth={1.8} />
+              Read and add titles
+            </button>
+            {on && (
+              <button
+                type="button"
+                onClick={() => setConfirming(true)}
+                disabled={busy}
+                className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+              >
+                <Trash2 className="h-4 w-4" strokeWidth={1.8} />
+                Switch off
+              </button>
+            )}
+          </div>
           {on && (
-            <span className="text-[11px] text-muted">
-              On{createdAt ? ` since ${new Date(createdAt).toLocaleDateString()}` : ""}
-            </span>
+            <p className="text-[11px] text-muted">
+              A connector is already set up
+              {createdAt ? `, since ${new Date(createdAt).toLocaleDateString()}` : ""}. Generating
+              replaces it — the URL you added on claude.ai stops working, so swap it for the new one.
+            </p>
           )}
         </div>
       )}
