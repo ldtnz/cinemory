@@ -10,7 +10,8 @@ import { useRevealOnView } from "@/lib/reveal-on-view";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import TitleContextMenu from "@/components/TitleContextMenu";
 import MarkWatchedDialog from "@/components/MarkWatchedDialog";
-import EditWatchedDialog from "@/components/EditWatchedDialog";
+import EditWatchedDialog, { type SeasonEdit } from "@/components/EditWatchedDialog";
+import { hasSeasonTotal } from "@/lib/season-counts";
 import TrailerModal from "@/components/TrailerModal";
 
 function MissingPosterIcon() {
@@ -88,7 +89,12 @@ function TitleCard({
   /** Moves a watchlist entry into the watched half, on the chosen platform. */
   onMarkWatched?: (title: Title, platform: string, lastWatchedAt: Date | null) => void;
   /** Corrects the platform or watched date on an already-watched title. */
-  onEditWatched?: (title: Title, platform: string, lastWatchedAt: Date | null) => void;
+  onEditWatched?: (
+    title: Title,
+    platform: string,
+    lastWatchedAt: Date | null,
+    seasons: SeasonEdit | null,
+  ) => void;
   /** Clears the "new season available" badge (src/lib/season-check.ts). */
   onDismissNewSeason?: (title: Title) => void;
   /** Sends an already-watched title back to the watchlist. */
@@ -353,8 +359,12 @@ function TitleCard({
               e.stopPropagation();
               onSeasons?.(title, (title.watchedSeasons ?? 0) + 1);
             }}
+            disabled={
+              hasSeasonTotal(title.totalSeasons) &&
+              (title.watchedSeasons ?? 0) >= (title.totalSeasons as number)
+            }
             aria-label={`One season more for ${title.title}`}
-            className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-white/10 text-white"
+            className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-white/10 text-white disabled:opacity-30"
           >
             <Plus className="h-3 w-3" strokeWidth={2.5} />
           </button>
@@ -441,9 +451,9 @@ function TitleCard({
       {editingWatched && (
         <EditWatchedDialog
           title={title}
-          onConfirm={(platform, lastWatchedAt) => {
+          onConfirm={(platform, lastWatchedAt, seasons) => {
             setEditingWatched(false);
-            onEditWatched?.(title, platform, lastWatchedAt);
+            onEditWatched?.(title, platform, lastWatchedAt, seasons);
           }}
           onCancel={() => setEditingWatched(false)}
         />

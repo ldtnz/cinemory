@@ -3,6 +3,7 @@ import { isAuthenticated } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isValidPlatform } from "@/lib/platforms";
 import { dismissNewSeason } from "@/lib/season-check";
+import { normalizeSeasonCounts } from "@/lib/season-counts";
 
 /** Removes a title from the catalog (edit mode, enabled in settings). */
 export async function DELETE(
@@ -32,8 +33,9 @@ export async function DELETE(
  *    half, recording where it was finally watched.
  *  - { moveToWatchlist: true } is the way back: it drops the platform and the
  *    watched date, which is what "not watched yet" means here.
- *  - { editWatched: { platform, lastWatchedAt } } corrects the platform or
- *    date on a title that is already watched (edit mode).
+ *  - { editWatched: { platform, lastWatchedAt, watchedSeasons, totalSeasons } }
+ *    corrects an already-watched title from the edit dialog (edit mode). The
+ *    season counts are only read for a series, and only when sent.
  *  - { watchedSeasons } updates a series' progress (the +/- controls in
  *    edit mode).
  *  - { dismissNewSeason: true } clears the "new season available" badge set
@@ -56,7 +58,12 @@ export async function PATCH(
     | {
         watchedSeasons?: number | null;
         markWatched?: { platform?: string; lastWatchedAt?: string };
-        editWatched?: { platform?: string; lastWatchedAt?: string | null };
+        editWatched?: {
+          platform?: string;
+          lastWatchedAt?: string | null;
+          watchedSeasons?: number | null;
+          totalSeasons?: number | null;
+        };
         moveToWatchlist?: boolean;
         dismissNewSeason?: boolean;
       }
@@ -123,7 +130,7 @@ export async function PATCH(
   }
 
   if (body?.editWatched) {
-    const { platform, lastWatchedAt } = body.editWatched;
+    const { platform, lastWatchedAt, watchedSeasons, totalSeasons } = body.editWatched;
     if (!isValidPlatform(platform)) {
       return NextResponse.json({ error: "Invalid platform." }, { status: 400 });
     }
@@ -134,20 +141,33 @@ export async function PATCH(
         return NextResponse.json({ error: "Invalid date." }, { status: 400 });
       }
     }
+
     // A watchlist entry has no watched date or real platform to correct —
     // that is what "mark as watched" is for.
-    const updated = await prisma.title.updateMany({
-      where: { id, inWatchlist: false },
-      data: { platform, lastWatchedAt: watchedAt },
+    const current = await prisma.title.findUnique({
+      where: { id },
+      select: { mediaType: true, inWatchlist: true, watchedSeasons: true, totalSeasons: true },
     });
-    if (updated.count === 0) {
-      const exists = await prisma.title.findUnique({ where: { id }, select: { id: true } });
-      return NextResponse.json(
-        { error: exists ? "Title is still on the watchlist." : "Title not found." },
-        { status: exists ? 400 : 404 },
-      );
+    if (!current) {
+      return NextResponse.json({ error: "Title not found." }, { status: 404 });
     }
-    const title = await prisma.title.findUnique({ where: { id } });
+    if (current.inWatchlist) {
+      return NextResponse.json({ error: "Title is still on the watchlist." }, { status: 400 });
+    }
+
+    // Season counts travel with the rest of the dialog rather than in a second
+    // request, so one Save is one edit. A movie has none, and a body that left
+    // them out changes neither.
+    const seasons =
+      current.mediaType === "Series" &&
+      (watchedSeasons !== undefined || totalSeasons !== undefined)
+        ? normalizeSeasonCounts({ watchedSeasons, totalSeasons }, current)
+        : null;
+
+    const title = await prisma.title.update({
+      where: { id },
+      data: { platform, lastWatchedAt: watchedAt, ...(seasons ?? {}) },
+    });
     return NextResponse.json({ title });
   }
 
@@ -158,7 +178,7 @@ export async function PATCH(
 
   const existing = await prisma.title.findUnique({
     where: { id },
-    select: { mediaType: true, totalSeasons: true, inWatchlist: true },
+    select: { mediaType: true, totalSeasons: true, watchedSeasons: true, inWatchlist: true },
   });
   if (!existing) {
     return NextResponse.json({ error: "Title not found." }, { status: 404 });
@@ -179,17 +199,9 @@ export async function PATCH(
     );
   }
 
-  // Zero means "none watched", i.e. nothing to display.
-  // The ceiling is the known total: you cannot watch more seasons than
-  // there are.
-  let watchedSeasons: number | null = value ?? null;
-  if (watchedSeasons !== null) {
-    if (watchedSeasons < 0) watchedSeasons = 0;
-    if (existing.totalSeasons != null && watchedSeasons > existing.totalSeasons) {
-      watchedSeasons = existing.totalSeasons;
-    }
-    if (watchedSeasons === 0) watchedSeasons = null;
-  }
+  // Same rule as the dialog uses, from the same place: zero means "none
+  // watched", and the ceiling is the known total.
+  const { watchedSeasons } = normalizeSeasonCounts({ watchedSeasons: value }, existing);
 
   const title = await prisma.title.update({
     where: { id },

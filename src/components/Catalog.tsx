@@ -4,6 +4,7 @@ import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import type { Title } from "@prisma/client";
 import FilterBar from "@/components/FilterBar";
 import TitleCard from "@/components/TitleCard";
+import type { SeasonEdit } from "@/components/EditWatchedDialog";
 import AddTitleCard from "@/components/AddTitleCard";
 import DiscoverCard from "@/components/DiscoverCard";
 import ImportHistory from "@/components/ImportHistory";
@@ -204,12 +205,22 @@ export default function Catalog({
   // back into real Dates here rather than trusted as-is — formatDate() on
   // the card needs an actual Date, not its JSON stand-in.
   const editWatched = useCallback(
-    async (title: Title, platform: string, lastWatchedAt: Date | null) => {
+    async (
+      title: Title,
+      platform: string,
+      lastWatchedAt: Date | null,
+      seasons: SeasonEdit | null,
+    ) => {
       const res = await fetch(`/api/titles/${title.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          editWatched: { platform, lastWatchedAt: lastWatchedAt ? lastWatchedAt.toISOString() : null },
+          editWatched: {
+            platform,
+            lastWatchedAt: lastWatchedAt ? lastWatchedAt.toISOString() : null,
+            // Absent for a movie, so the season columns are not touched at all.
+            ...(seasons ?? {}),
+          },
         }),
       });
       if (!res.ok) {
