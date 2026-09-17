@@ -130,7 +130,7 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
     <SettingsSection
       title="MCP connector"
       icon={<Plug className="h-4 w-4 text-accent-ai" strokeWidth={1.8} />}
-      description="Lets an AI assistant read your catalog in an ordinary chat, and optionally add to it. MCP is an open standard, so anything that speaks it can connect — claude.ai is just the worked example below."
+      description="Lets an AI assistant read your catalog in an ordinary chat, and optionally add to it and correct it. MCP is an open standard, so anything that speaks it can connect — claude.ai is just the worked example below."
     >
       {token ? (
         <div className="space-y-3">
@@ -149,7 +149,7 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
             On claude.ai: Customize &rarr; Connectors &rarr; Add custom connector, pick
             &ldquo;No sign-in&rdquo;, and add the header under Request headers. The value is a
             password — it can{" "}
-            {writable ? "read your catalog and add to it" : "read your catalog"}.
+            {writable ? "read your catalog and change it" : "read your catalog"}.
           </p>
           {fallback ? (
             <div className="rounded-xl bg-surface-2 p-3">
@@ -198,7 +198,7 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
               className="inline-flex h-10 items-center gap-2 rounded-xl bg-surface-2 px-4 text-xs font-semibold transition-colors hover:bg-surface-3 disabled:opacity-50"
             >
               <PencilLine className="h-4 w-4" strokeWidth={1.8} />
-              Read and add titles
+              Read and write
             </button>
             {on && (
               <button

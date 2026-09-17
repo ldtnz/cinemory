@@ -173,14 +173,15 @@ and the assistant can answer "have I seen this?", "what's on my list?" and "what
 did I watch last year?" from your own catalog instead of guessing.
 
 Four read tools — `search_catalog`, `catalog_stats`, `watchlist` and
-`recently_watched` — and, if you generate the wider credential instead, two
-more: `add_to_watchlist` and `mark_as_watched`.
+`recently_watched` — and, if you generate the wider credential instead, three
+more: `add_to_watchlist`, `mark_as_watched` and `edit_watched`.
 
 **Writing is a separate credential, not a setting.** What a connector may do is
 decided when you hand it out, and going back to read-only is generating the
-read-only one again. Even the wider one is deliberately additive: it can add a
-title and move one into the watched half, and there is no tool that deletes or
-edits, so the worst it can do is add rows you can see and remove in the app.
+read-only one again. The wider one adds a title, moves one into the watched
+half, and corrects where or when something was watched — nothing there deletes,
+and nothing moves a title back out of the catalog, so the worst it can do is
+make the catalog wrong in ways you can see and fix in the app.
 
 No OAuth, and on purpose. What OAuth would buy here is expiry and rotation; the
 cost is an authorization server — the kind of code where mistakes are expensive

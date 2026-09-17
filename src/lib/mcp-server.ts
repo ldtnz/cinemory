@@ -16,11 +16,12 @@
  * instead use a URL with the token in it; both are checked the same way, and
  * the settings page hands out both forms.
  *
- * Read-only unless the URL says otherwise. A token generated with writes
- * enabled reaches two more tools, both additive: adding to the watchlist and
- * moving something out of it. Nothing here deletes or edits, so even the wider
- * URL cannot destroy anything — it can only add rows that are visible in the
- * app and removable there.
+ * Read-only unless the credential says otherwise. A token generated with writes
+ * enabled reaches three more tools: adding to the watchlist, moving something
+ * into the watched half, and correcting where or when something was watched.
+ * None of them deletes, and none moves a title back out of the catalog, so the
+ * worst the wider credential can do is make the catalog wrong in ways the app
+ * can see and fix.
  *
  * Which tools exist is decided by the token, not checked inside them: two
  * handlers are built, and the scope picks one. A read-only connector is never
@@ -33,6 +34,7 @@ import { z } from "zod";
 import {
   MAX_RESULTS,
   addToWatchlist,
+  editWatched,
   catalogStats,
   markAsWatched,
   recentlyWatched,
@@ -184,6 +186,39 @@ function build(allowWrites: boolean) {
       },
       async ({ title, platform, on }) => json(await markAsWatched(title, platform, on)),
     );
+
+    server.registerTool(
+      "edit_watched",
+      {
+        title: "Correct a watched title",
+        description:
+          "Change where or when something already watched was watched — the " +
+          "fix for an import that guessed the platform, or a date that was " +
+          "only ever approximate. Only the fields given are changed. It cannot " +
+          "move a title back to the to-watch list or remove it.",
+        // Not idempotent in the useful sense: called twice with different
+        // values, the second wins, and it overwrites rather than adds.
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+        inputSchema: z.object({
+          title: z
+            .string()
+            .describe(
+              "A title already marked as watched. If the name matches several, " +
+                "the answer says which, so ask again with one of them.",
+            ),
+          platform: z
+            .string()
+            .optional()
+            .describe(
+              "Where it was watched, spelled as this catalog spells it — " +
+                "catalog_stats lists the ones in use, and a wrong one comes " +
+                "back with the full list rather than being guessed at.",
+            ),
+          on: z.string().optional().describe("When it was watched, as YYYY-MM-DD."),
+        }),
+      },
+      async ({ title, platform, on }) => json(await editWatched(title, platform, on)),
+    );
   },
   {
     serverInfo: { name: "cinemory", version: "1.0.0" },
@@ -192,7 +227,9 @@ function build(allowWrites: boolean) {
       "to watch. It is the authority on their own viewing — prefer it over " +
       "assumptions about what they have seen." +
       (allowWrites
-        ? " This connector can also add to the watchlist and mark things watched."
+        ? " This connector can also add to the watchlist, mark things watched, " +
+          "and correct where or when something was watched. It cannot remove " +
+          "anything."
         : " It is read-only."),
   },
   );
