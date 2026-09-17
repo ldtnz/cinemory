@@ -14,6 +14,7 @@ import {
 } from "@/lib/recommendations";
 import MissingPostersPanel from "@/components/MissingPostersPanel";
 import SettingsSection from "@/components/SettingsSection";
+import McpConnector from "@/components/McpConnector";
 import ImportHistory from "@/components/ImportHistory";
 import EditModeToggle from "@/components/EditModeToggle";
 import SeriesSeasons from "@/components/SeriesSeasons";
@@ -109,6 +110,11 @@ export default async function SettingsPage() {
             }
           />
         )}
+
+        <McpConnector
+          enabled={Boolean(settings.mcpTokenHash)}
+          createdAt={settings.mcpTokenCreatedAt ? settings.mcpTokenCreatedAt.toISOString() : null}
+        />
 
         <SettingsSection
           title="Export your catalog"

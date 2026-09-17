@@ -3,7 +3,7 @@
 // instead of deploy-time environment variables.
 import { prisma } from "@/lib/prisma";
 
-const SETTINGS_ID = 1;
+export const SETTINGS_ID = 1;
 
 export type AppSettings = {
   id: number;
@@ -11,6 +11,9 @@ export type AppSettings = {
   region: string;
   totpSecret: string | null;
   onboarded: boolean;
+  /** Set once the MCP connector is switched on — see src/lib/mcp-token.ts. */
+  mcpTokenHash: string | null;
+  mcpTokenCreatedAt: Date | null;
 };
 
 /**

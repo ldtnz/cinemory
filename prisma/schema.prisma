@@ -69,6 +69,13 @@ model Settings {
   region     String   @default("US")
   totpSecret String?
   onboarded  Boolean  @default(false)
+  // SHA-256 of the token that gates the MCP endpoint (src/lib/mcp-token.ts),
+  // never the token itself — same reasoning as any password digest: a database
+  // dump should not hand over a working credential. Null means the endpoint is
+  // off, which is the default; generating a token from Settings turns it on
+  // and regenerating invalidates the previous one.
+  mcpTokenHash String?
+  mcpTokenCreatedAt DateTime?
   // A simple mutex for the AI recommendations refresh (src/lib/
   // recommendations.ts): set to "now" while a generation is in flight, so
   // an automatic background refresh and a manual click never both call

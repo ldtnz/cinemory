@@ -68,6 +68,10 @@ code it produces. The values to fill in before that are in
   appear as a strip you can add from in one click, and "not interested" on any
   of them keeps it out of every future batch. Off by default, enabled by
   setting `ANTHROPIC_API_KEY`.
+- **Connect to Claude** *(optional)* — an MCP endpoint that lets Claude read
+  this catalog during an ordinary chat: what you have watched, what is waiting,
+  and the numbers behind it. Read-only, off until you switch it on, and
+  revocable in a click. See [Connecting to Claude](#connecting-to-claude).
 - **Maintenance** — a settings page for importing, merging series split across
   rows, fixing missing posters, exporting the whole catalog as JSON, and an
   edit mode for deleting titles.
@@ -157,6 +161,34 @@ Whenever the schema changes, run `npm run db:migrate-turso` again before
 deploying — `prisma migrate deploy` talks to a SQLite file, not to Turso.
 
 ---
+
+## Connecting to Claude
+
+Settings -> **Connect to Claude** turns on an MCP endpoint and hands you a URL.
+Add it on claude.ai under Customize -> Connectors -> Add custom connector, and
+Claude can answer "have I seen this?", "what's on my list?" and "what did I
+watch last year?" from your own catalog instead of guessing.
+
+Four tools, all of them read-only: `search_catalog`, `catalog_stats`,
+`watchlist` and `recently_watched`. Nothing reached this way can add, change or
+delete a title.
+
+**The URL is the credential.** A connector stores a URL and nothing else, so the
+token lives in the path; anyone holding it can read your catalog. Three things
+follow from that, and they are the reason the feature is shaped this way:
+
+- It is shown **once**, when you generate it — only a SHA-256 digest is stored,
+  so a database dump does not yield a working URL and neither does this page on
+  a later visit.
+- Generating a new one **immediately stops the old one working**. That is how a
+  leaked URL is revoked.
+- Read-only means the worst case is disclosure, not damage.
+
+Anthropic's servers fetch the endpoint, not your browser, so it has to be
+reachable from the public internet — fine on Vercel, and fine on a self-hosted
+instance that is exposed. A purely local instance is not reachable this way.
+
+It is off until you turn it on, and "Switch off" clears it entirely.
 
 ## Environment variables
 
@@ -288,6 +320,7 @@ src/app/page.tsx            the catalog page (server component)
 src/app/settings/           import, seasons, missing posters, edit mode
 src/app/stats/              the statistics page
 src/app/api/                TMDB search, import, seasons, titles, login
+src/app/api/mcp/            the MCP endpoint Claude connects to
 src/app/sw.ts               service worker (offline + poster cache)
 src/components/             Catalog, FilterBar, TitleCard, AddTitleCard, …
 src/lib/history.ts          parses the Netflix, Prime Video and Disney+ files
