@@ -187,12 +187,14 @@ scope instead rides in the token, in a prefix that is part of what was hashed:
 editing `ro_` to `rw_` does not widen anything, it stops the token matching at
 all.
 
-**Two ways to carry the same token.** `Authorization: Bearer <token>` against a
-plain `/api/mcp` address is the one to prefer — it is what the MCP spec expects,
-and it keeps the secret out of browser history, referrers and anything that logs
-a path. A client with nowhere to put a header can use the URL with the token in
-it instead; the settings page hands out both, and they are the same credential,
-so revoking covers both at once.
+**Two ways to carry the same token.** A header against the plain `/api/mcp`
+address is the one to prefer — it is what the MCP spec expects, and it keeps the
+secret out of browser history, referrers and anything that logs a path. Either
+`Authorization: Bearer <token>` or `X-API-Key: <token>` is accepted, because
+connector forms disagree about where an API key belongs. A client with nowhere
+to put a header can use the URL with the token in it instead. The settings page
+hands out both forms, and they are the same credential, so revoking covers both
+at once.
 
 **However it travels, the token is the credential** — anyone holding it can read
 your catalog. A few things follow, and they are the reason the feature is
@@ -204,8 +206,12 @@ shaped this way:
 - Generating a new one **immediately stops the old one working**. That is how a
   leak is revoked.
 - Read-only means the worst case is disclosure, not damage.
-- A request with no valid token gets the same plain 404 as a URL that never
-  existed, so probing tells nobody whether the endpoint is even on.
+- The two addresses refuse differently, on purpose. The URL-with-the-token form
+  *is* the credential, so a wrong one gets the same plain 404 as a path that was
+  never routed and a prober learns nothing. The plain address has nothing to
+  hide — it is made to be pasted into a connector's settings — and answers `401`
+  with a `WWW-Authenticate` challenge, so a client can say "your token is
+  missing" instead of "there is no server here".
 
 Anthropic's servers fetch the endpoint, not your browser, so it has to be
 reachable from the public internet — fine on Vercel, and fine on a self-hosted

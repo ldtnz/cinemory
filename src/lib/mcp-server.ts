@@ -6,12 +6,13 @@
  * the reader's browser, which is why it is reachable without a session cookie
  * and needs a credential of its own.
  *
- * That credential arrives one of two ways. An Authorization: Bearer header is
- * the better one and what the MCP spec expects — the URL stays a plain, stable
- * address, and the secret stays out of browser history, referrers and anything
- * that logs a path. A client with nowhere to put a header can instead use a URL
- * with the token in it; both are checked the same way, and the settings page
- * hands out both forms.
+ * That credential arrives one of two ways. A header is the better one and what
+ * the MCP spec expects — the URL stays a plain, stable address, and the secret
+ * stays out of browser history, referrers and anything that logs a path. Either
+ * Authorization: Bearer or X-API-Key will do, because connector forms disagree
+ * about which an API key belongs in. A client with nowhere to put a header can
+ * instead use a URL with the token in it; both are checked the same way, and
+ * the settings page hands out both forms.
  *
  * Read-only unless the URL says otherwise. A token generated with writes
  * enabled reaches two more tools, both additive: adding to the watchlist and
@@ -25,7 +26,7 @@
  */
 import { createMcpHandler } from "mcp-handler";
 import { prisma } from "@/lib/prisma";
-import { bearerToken, isValidMcpToken, scopeOf } from "@/lib/mcp-token";
+import { isValidMcpToken, scopeOf, tokenFromHeaders } from "@/lib/mcp-token";
 import { z } from "zod";
 import {
   MAX_RESULTS,
@@ -200,20 +201,42 @@ const readHandler = build(false);
 const writeHandler = build(true);
 
 /**
- * Serves a request against whichever token it carries.
+ * What a refused request is told, which is not the same on both addresses.
  *
- * The same 404 whether the endpoint was never switched on, the token is wrong,
- * or none was sent at all: a prober learns nothing about which it was.
+ * On the URL-with-the-token form the address *is* the credential, so a wrong
+ * one gets the same 404 as a path that was never routed: a prober cannot tell
+ * whether it guessed a real endpoint.
+ *
+ * The plain address has nothing to hide — it is meant to be pasted into a
+ * connector's settings — and there the 404 was actively harmful: it made "your
+ * token is missing" indistinguishable from "there is no server here", which is
+ * exactly what a client reports back to the reader. So it answers the way RFC
+ * 6750 and the MCP spec say to, and the reader is told which of the two it is.
+ */
+function refuse(isPathForm: boolean, credentialOffered: boolean): Response {
+  if (isPathForm) return new Response("Not found", { status: 404 });
+  const challenge = credentialOffered
+    ? 'Bearer realm="cinemory", error="invalid_token"'
+    : 'Bearer realm="cinemory"';
+  return new Response(credentialOffered ? "Invalid token." : "Missing token.", {
+    status: 401,
+    headers: { "WWW-Authenticate": challenge },
+  });
+}
+
+/**
+ * Serves a request against whichever token it carries.
  */
 export async function serveMcp(request: Request, tokenFromPath?: string): Promise<Response> {
   // A header beats the path: a client that can send one is using the form
   // worth encouraging, and a stale URL should not quietly outrank it.
-  const token = bearerToken(request.headers.get("authorization")) ?? tokenFromPath;
-  if (!token) return new Response("Not found", { status: 404 });
+  const fromHeader = tokenFromHeaders(request.headers);
+  const token = fromHeader ?? tokenFromPath;
+  if (!token) return refuse(tokenFromPath !== undefined, false);
 
   const settings = await prisma.settings.findFirst({ select: { mcpTokenHash: true } });
   if (!isValidMcpToken(token, settings?.mcpTokenHash ?? null)) {
-    return new Response("Not found", { status: 404 });
+    return refuse(tokenFromPath !== undefined, true);
   }
 
   // The prefix is part of what was hashed, so a token that got this far is

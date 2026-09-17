@@ -135,11 +135,15 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
               Shown once. Copy it now — only a digest is stored.
             </p>
             <Field copied={copied} onCopy={copy} label="Server URL" name="url" value={mcpBaseUrl(origin)} />
-            <Field copied={copied} onCopy={copy} label="Authorization header" name="header" value={`Bearer ${token}`} />
+            {/* Split in two because that is how a connector asks for a header:
+                one box for the name, one for the value. */}
+            <Field copied={copied} onCopy={copy} label="Header name" name="name" value="Authorization" />
+            <Field copied={copied} onCopy={copy} label="Header value" name="value" value={`Bearer ${token}`} />
           </div>
           <p className="text-[11px] leading-relaxed text-muted">
-            On claude.ai: Customize &rarr; Connectors &rarr; Add custom connector, and put the header
-            under Advanced settings. It is a password — it can{" "}
+            On claude.ai: Customize &rarr; Connectors &rarr; Add custom connector, pick
+            &ldquo;No sign-in&rdquo;, and add the header under Request headers. The value is a
+            password — it can{" "}
             {writable ? "read your catalog and add to it" : "read your catalog"}.
           </p>
           {fallback ? (

@@ -78,3 +78,19 @@ export function bearerToken(header: string | null | undefined): string | undefin
   const token = header?.match(/^Bearer +(\S+) *$/i)?.[1];
   return token || undefined;
 }
+
+/**
+ * The token a request carries in its headers, whichever header it chose.
+ *
+ * Two are accepted because connector UIs disagree about what an API key looks
+ * like: `Authorization: Bearer <token>` is what MCP specifies, and a bare
+ * `X-API-Key: <token>` is what a form offering "header name" and "value"
+ * tends to produce. Same token either way — the difference is which box the
+ * client gave the reader to type it into, which is not worth a second
+ * credential.
+ */
+export function tokenFromHeaders(headers: Headers): string | undefined {
+  const bearer = bearerToken(headers.get("authorization"));
+  if (bearer) return bearer;
+  return headers.get("x-api-key")?.trim() || undefined;
+}

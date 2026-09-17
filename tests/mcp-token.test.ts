@@ -9,7 +9,14 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { bearerToken, generateMcpToken, hashMcpToken, isValidMcpToken, scopeOf } from "@/lib/mcp-token";
+import {
+  bearerToken,
+  generateMcpToken,
+  hashMcpToken,
+  isValidMcpToken,
+  scopeOf,
+  tokenFromHeaders,
+} from "@/lib/mcp-token";
 import { mcpBaseUrl, mcpUrl } from "@/lib/mcp-url";
 
 test("a generated token is long, URL-safe and never repeats", () => {
@@ -162,4 +169,20 @@ test("a header token is validated exactly like one from a URL", () => {
   assert.equal(fromHeader, token);
   assert.equal(isValidMcpToken(fromHeader, stored), true);
   assert.equal(scopeOf(fromHeader!), "write");
+});
+
+test("either header carries the token, and neither invents one", () => {
+  // A connector form that asks for a header name and a value tends to produce
+  // X-API-Key; MCP itself specifies Authorization. Both name the same token.
+  const token = generateMcpToken();
+  const headers = (init: Record<string, string>) => new Headers(init);
+
+  assert.equal(tokenFromHeaders(headers({ Authorization: `Bearer ${token}` })), token);
+  assert.equal(tokenFromHeaders(headers({ "X-API-Key": token })), token);
+  assert.equal(tokenFromHeaders(headers({ "x-api-key": ` ${token} ` })), token);
+  // Authorization wins when both are present, and a malformed one is not
+  // quietly rescued by the other header.
+  assert.equal(tokenFromHeaders(headers({ Authorization: "Bearer a", "X-API-Key": "b" })), "a");
+  assert.equal(tokenFromHeaders(headers({})), undefined);
+  assert.equal(tokenFromHeaders(headers({ "X-API-Key": "  " })), undefined);
 });
