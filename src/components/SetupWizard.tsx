@@ -32,6 +32,16 @@ export default function SetupWizard({ posterUrl }: { posterUrl: string[] }) {
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
 
+  /** The server's own reason, when it gave one. Setting this up is the one
+   *  moment where what went wrong is usually a deployment detail — a missing
+   *  SESSION_SECRET, an install already configured — and only the server knows
+   *  which. A generic "could not" here leaves the reader with nothing to act
+   *  on and the answer sitting unread in the response body. */
+  async function reason(res: Response, fallback: string): Promise<string> {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    return body?.error ?? fallback;
+  }
+
   async function startTotp() {
     setSavingPreferences(true);
     setError(null);
@@ -41,10 +51,10 @@ export default function SetupWizard({ posterUrl }: { posterUrl: string[] }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ language, region }),
       });
-      if (!prefsRes.ok) throw new Error("Could not save preferences.");
+      if (!prefsRes.ok) throw new Error(await reason(prefsRes, "Could not save preferences."));
 
       const totpRes = await fetch("/api/setup/totp/start", { method: "POST" });
-      if (!totpRes.ok) throw new Error("Could not start TOTP setup.");
+      if (!totpRes.ok) throw new Error(await reason(totpRes, "Could not start TOTP setup."));
       const data = (await totpRes.json()) as { secret: string; qr: string; token: string };
       setSecret(data.secret);
       setQr(data.qr);
