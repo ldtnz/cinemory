@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import type { TmdbCandidate } from "@/lib/tmdb";
+import SettingsSection from "@/components/SettingsSection";
 
 type TitoloMancante = {
   id: number;
@@ -162,6 +163,15 @@ function GestisciItem({
   );
 }
 
+/**
+ * The section, not just its body, because the section is what disappears.
+ *
+ * Nothing missing is the ordinary state of a settled catalog, and a card
+ * reading "every title has a poster" is a permanent fixture reporting that
+ * there is nothing to do. It goes away instead — and goes away the moment the
+ * last one is fixed, which only works because the count lives here and not in
+ * the server-rendered heading above it.
+ */
 export default function MissingPostersPanel({
   initialTitles,
 }: {
@@ -173,15 +183,20 @@ export default function MissingPostersPanel({
     setTitoli((prev) => prev.filter((t) => t.id !== id));
   }
 
-  // The section's own description already says there is nothing to do; a
-  // second line saying it again is just noise.
   if (titles.length === 0) return null;
 
   return (
-    <div className="space-y-3">
-      {titles.map((t) => (
-        <GestisciItem key={t.id} title={t} onRisolto={rimuovi} />
-      ))}
-    </div>
+    <SettingsSection
+      title="Missing posters"
+      description={`${titles.length} ${
+        titles.length === 1 ? "title has no poster" : "titles without a poster"
+      }. Search for the right one and link it, or ignore the title.`}
+    >
+      <div className="space-y-3">
+        {titles.map((t) => (
+          <GestisciItem key={t.id} title={t} onRisolto={rimuovi} />
+        ))}
+      </div>
+    </SettingsSection>
   );
 }

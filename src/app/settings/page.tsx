@@ -85,16 +85,7 @@ export default async function SettingsPage() {
 
             {/* Posters before seasons: both are import leftovers, and a title
                 with no artwork is the one you actually notice in the grid. */}
-            <SettingsSection
-              title="Missing posters"
-              description={
-                missing.length === 0
-                  ? "Every title has a poster."
-                  : `${missing.length} titles without a poster. Search for the right one and link it, or ignore the title.`
-              }
-            >
-              <MissingPostersPanel initialTitles={missing} />
-            </SettingsSection>
+            <MissingPostersPanel initialTitles={missing} />
 
             <SeriesSeasons missing={seriesWithoutSeasons} toMerge={toMerge} />
           </>

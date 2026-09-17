@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { IMPORT_SOURCES, type ImportSource } from "@/lib/import-sources";
 import type { FileOutcome } from "@/components/ImportHistory";
+import ServiceMark from "@/components/ServiceMark";
 
 /**
  * Picking a service, then importing from it.
@@ -120,15 +121,9 @@ export default function ImportDialog({
                   key={s.id}
                   type="button"
                   onClick={() => setSource(s)}
-                  className="flex w-full items-start gap-3 rounded-2xl bg-surface-2 p-3 text-left transition-colors hover:bg-surface-3"
+                  className="group flex w-full items-start gap-3 rounded-2xl bg-surface-2 p-3 text-left transition-colors hover:bg-surface-3"
                 >
-                  <span className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-xl bg-surface text-muted">
-                    {s.gives === "watchlist" ? (
-                      <Bookmark className="h-4 w-4" strokeWidth={1.8} />
-                    ) : (
-                      <Clapperboard className="h-4 w-4" strokeWidth={1.8} />
-                    )}
-                  </span>
+                  <ServiceMark id={s.id} />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium">{s.name}</span>
                     <span className="mt-0.5 block text-xs text-muted">{s.tagline}</span>
