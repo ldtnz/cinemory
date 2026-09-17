@@ -70,8 +70,8 @@ code it produces. The values to fill in before that are in
   setting `ANTHROPIC_API_KEY`.
 - **Connect to Claude** *(optional)* — an MCP endpoint that lets Claude read
   this catalog during an ordinary chat: what you have watched, what is waiting,
-  and the numbers behind it. Read-only, off until you switch it on, and
-  revocable in a click. See [Connecting to Claude](#connecting-to-claude).
+  and the numbers behind it — and add to it, if you hand out a credential that
+  may. Off until you switch it on, and revocable in a click. See [Connecting to Claude](#connecting-to-claude).
 - **Maintenance** — a settings page for importing, merging series split across
   rows, fixing missing posters, exporting the whole catalog as JSON, and an
   edit mode for deleting titles.
@@ -164,38 +164,48 @@ deploying — `prisma migrate deploy` talks to a SQLite file, not to Turso.
 
 ## Connecting to Claude
 
-Settings -> **Connect to Claude** turns on an MCP endpoint and hands you a URL.
-Add it on claude.ai under Customize -> Connectors -> Add custom connector, and
-Claude can answer "have I seen this?", "what's on my list?" and "what did I
-watch last year?" from your own catalog instead of guessing.
+Settings -> **Connect to Claude** turns on an MCP endpoint and hands you its
+address and a token. Add it on claude.ai under Customize -> Connectors -> Add
+custom connector, and Claude can answer "have I seen this?", "what's on my
+list?" and "what did I watch last year?" from your own catalog instead of
+guessing.
 
 Four read tools — `search_catalog`, `catalog_stats`, `watchlist` and
-`recently_watched` — and, if you generate the wider URL instead, two more:
-`add_to_watchlist` and `mark_as_watched`.
+`recently_watched` — and, if you generate the wider credential instead, two
+more: `add_to_watchlist` and `mark_as_watched`.
 
-**Writing is a separate URL, not a setting.** What a connector may do is decided
-when you hand it out, and going back to read-only is generating the read-only
-URL again. Even the wider one is deliberately additive: it can add a title and
-move one into the watched half, and there is no tool that deletes or edits, so
-the worst it can do is add rows you can see and remove in the app.
+**Writing is a separate credential, not a setting.** What a connector may do is
+decided when you hand it out, and going back to read-only is generating the
+read-only one again. Even the wider one is deliberately additive: it can add a
+title and move one into the watched half, and there is no tool that deletes or
+edits, so the worst it can do is add rows you can see and remove in the app.
 
-No OAuth, and on purpose. What OAuth would buy here is scopes and getting the
-credential out of the URL; the cost is an authorization server — the kind of
-code where mistakes are expensive — guarding a personal film catalog that has a
-JSON export as a backup. The scope instead rides in the token, in a prefix that
-is part of what was hashed: editing `ro_` to `rw_` does not widen anything, it
-stops the token matching at all.
+No OAuth, and on purpose. What OAuth would buy here is expiry and rotation; the
+cost is an authorization server — the kind of code where mistakes are expensive
+— guarding a personal film catalog that has a JSON export as a backup. The
+scope instead rides in the token, in a prefix that is part of what was hashed:
+editing `ro_` to `rw_` does not widen anything, it stops the token matching at
+all.
 
-**The URL is the credential.** A connector stores a URL and nothing else, so the
-token lives in the path; anyone holding it can read your catalog. Three things
-follow from that, and they are the reason the feature is shaped this way:
+**Two ways to carry the same token.** `Authorization: Bearer <token>` against a
+plain `/api/mcp` address is the one to prefer — it is what the MCP spec expects,
+and it keeps the secret out of browser history, referrers and anything that logs
+a path. A client with nowhere to put a header can use the URL with the token in
+it instead; the settings page hands out both, and they are the same credential,
+so revoking covers both at once.
+
+**However it travels, the token is the credential** — anyone holding it can read
+your catalog. A few things follow, and they are the reason the feature is
+shaped this way:
 
 - It is shown **once**, when you generate it — only a SHA-256 digest is stored,
-  so a database dump does not yield a working URL and neither does this page on
-  a later visit.
+  so a database dump does not yield a working credential and neither does this
+  page on a later visit.
 - Generating a new one **immediately stops the old one working**. That is how a
-  leaked URL is revoked.
+  leak is revoked.
 - Read-only means the worst case is disclosure, not damage.
+- A request with no valid token gets the same plain 404 as a URL that never
+  existed, so probing tells nobody whether the endpoint is even on.
 
 Anthropic's servers fetch the endpoint, not your browser, so it has to be
 reachable from the public internet — fine on Vercel, and fine on a self-hosted

@@ -9,8 +9,8 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { generateMcpToken, hashMcpToken, isValidMcpToken, scopeOf } from "@/lib/mcp-token";
-import { mcpUrl } from "@/lib/mcp-url";
+import { bearerToken, generateMcpToken, hashMcpToken, isValidMcpToken, scopeOf } from "@/lib/mcp-token";
+import { mcpBaseUrl, mcpUrl } from "@/lib/mcp-url";
 
 test("a generated token is long, URL-safe and never repeats", () => {
   const seen = new Set<string>();
@@ -79,7 +79,12 @@ test("a malformed stored value is refused rather than throwing", () => {
   }
 });
 
-test("the URL is the endpoint's path with the token on the end", () => {
+test("the address without a token is stable and carries no secret", () => {
+  assert.equal(mcpBaseUrl("https://cinemory.example"), "https://cinemory.example/api/mcp");
+  assert.equal(mcpBaseUrl("https://cinemory.example/"), "https://cinemory.example/api/mcp");
+});
+
+test("the fallback URL is the endpoint's path with the token on the end", () => {
   const token = generateMcpToken();
   assert.equal(mcpUrl("https://cinemory.example", token), `https://cinemory.example/api/mcp/${token}`);
   // A trailing slash on the origin must not produce a double slash, which
@@ -118,4 +123,43 @@ test("a token from before scopes existed reads as read-only", () => {
   // Anything unrecognised has to fall to the narrower scope, not the wider.
   assert.equal(scopeOf("MPTMMGvAVQfLbnDArnbDvXCWFFuWPMbpuxgDrTMLbQo"), "read");
   assert.equal(scopeOf(""), "read");
+});
+
+// --- the header form -------------------------------------------------------
+
+test("a Bearer header yields the token, however it is spelled", () => {
+  const token = generateMcpToken();
+  assert.equal(bearerToken(`Bearer ${token}`), token);
+  // RFC 9110 makes the scheme case-insensitive, and clients do vary.
+  assert.equal(bearerToken(`bearer ${token}`), token);
+  assert.equal(bearerToken(`BEARER  ${token}  `), token);
+});
+
+test("anything that is not a Bearer token yields nothing", () => {
+  const token = generateMcpToken();
+  for (const header of [
+    null,
+    undefined,
+    "",
+    token, // the bare token, with no scheme
+    `Basic ${token}`,
+    `Token ${token}`,
+    "Bearer",
+    "Bearer ",
+    `Bearer ${token} extra`, // two values is not one credential
+  ]) {
+    assert.equal(bearerToken(header), undefined, `accepted ${String(header).slice(0, 16)}`);
+  }
+});
+
+test("a header token is validated exactly like one from a URL", () => {
+  // The two forms differ in how the token arrives and in nothing else — the
+  // same digest has to open both, or revoking one would not revoke the other.
+  const token = generateMcpToken("write");
+  const stored = hashMcpToken(token);
+  const fromHeader = bearerToken(`Bearer ${token}`);
+
+  assert.equal(fromHeader, token);
+  assert.equal(isValidMcpToken(fromHeader, stored), true);
+  assert.equal(scopeOf(fromHeader!), "write");
 });

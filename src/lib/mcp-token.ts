@@ -8,9 +8,11 @@
  * so that revoking it costs nothing and losing it gives up read access to the
  * catalog rather than the account.
  *
- * It travels in the URL, because that is what the connector stores. Which
- * makes two things load-bearing: the token is long enough that the URL cannot
- * be guessed, and what it reaches is as small as the job allows.
+ * It travels in an Authorization: Bearer header where the client has one, and
+ * in the URL where it does not — a connector that can only store an address
+ * has nowhere else to put it. Which makes two things load-bearing: the token
+ * is long enough that a URL cannot be guessed, and what it reaches is as small
+ * as the job allows.
  *
  * The token also carries its own scope, in a prefix. That is the one part of
  * OAuth worth having here — a credential that can only read — without an
@@ -62,4 +64,17 @@ export function isValidMcpToken(token: string | undefined, storedHash: string | 
   const b = Buffer.from(storedHash, "hex");
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
+}
+
+/**
+ * The token out of an Authorization header, or undefined.
+ *
+ * Only Bearer: a credential offered under some other scheme was not meant for
+ * this endpoint, and guessing at it would accept things the spec does not.
+ * The scheme is case-insensitive because RFC 9110 says it is, and Anthropic's
+ * fetcher is not the only client that will ever send one.
+ */
+export function bearerToken(header: string | null | undefined): string | undefined {
+  const token = header?.match(/^Bearer +(\S+) *$/i)?.[1];
+  return token || undefined;
 }
