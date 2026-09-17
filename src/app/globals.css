@@ -303,3 +303,11 @@ html.landscape-ok .landscape-notice {
   color: var(--brand);
   background: color-mix(in srgb, var(--brand) 18%, transparent);
 }
+
+/* A card marked watched hands over to the pixel ghost drawn on top of it
+   (src/lib/pixel-dissolve.ts) and stays out of the way until the grid
+   reflows without it. A data attribute because React rewrites the class
+   attribute on its next render and would undo a class halfway through. */
+.title-card[data-dissolving="true"] {
+  visibility: hidden;
+}

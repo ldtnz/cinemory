@@ -5,6 +5,7 @@ import type { Title } from "@prisma/client";
 import FilterBar from "@/components/FilterBar";
 import TitleCard from "@/components/TitleCard";
 import type { SeasonEdit } from "@/components/EditWatchedDialog";
+import { cardElement, pixelDissolve, pixelDissolveAll } from "@/lib/pixel-dissolve";
 import AddTitleCard from "@/components/AddTitleCard";
 import DiscoverCard from "@/components/DiscoverCard";
 import ImportHistory from "@/components/ImportHistory";
@@ -182,6 +183,11 @@ export default function Catalog({
       const { title: updated } = (await res.json()) as {
         title: Title & { lastWatchedAt: string | null; createdAt: string; updatedAt: string };
       };
+      // The card comes apart before the state update, so the grid reflows once
+      // — with the card already gone — rather than pulling the row out from
+      // under an animation still playing on it.
+      const card = cardElement(title.id);
+      if (card) await pixelDissolve(card);
       // The row stays in the catalog, it just changes half: the grid filters
       // on inWatchlist, so it leaves the watchlist and appears under Watched.
       setCatalog((prev) =>
@@ -342,6 +348,12 @@ export default function Catalog({
       if (byId.size < rows.length) {
         window.alert(`Could not update ${rows.length - byId.size} of ${rows.length} titles.`);
       }
+      // Only the ones that actually moved: a card whose request failed is
+      // still there afterwards, and must not be shown leaving.
+      const cards = [...byId.keys()]
+        .map(cardElement)
+        .filter((el): el is HTMLElement => el !== null);
+      if (cards.length) await pixelDissolveAll(cards);
       setCatalog((prev) => prev.map((t) => byId.get(t.id) ?? t));
     },
     [],
