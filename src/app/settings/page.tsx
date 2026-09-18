@@ -20,6 +20,7 @@ import RestoreBackup from "@/components/RestoreBackup";
 import ImportHistory from "@/components/ImportHistory";
 import FetchMissingDetails from "@/components/FetchMissingDetails";
 import EditModeToggle from "@/components/EditModeToggle";
+import SignInSettings from "@/components/SignInSettings";
 import SeriesSeasons from "@/components/SeriesSeasons";
 import PreferencesEditor from "@/components/PreferencesEditor";
 import RecommendationsPanel from "@/components/RecommendationsPanel";
@@ -128,6 +129,8 @@ export default async function SettingsPage() {
         <RestoreBackup />
 
         <EditModeToggle />
+
+        <SignInSettings />
       </div>
     </main>
   );

@@ -62,6 +62,11 @@ ordinary issue.
   practical rate against a real deployment — that is a report worth making.
 - **`SESSION_SECRET` lives outside the database on purpose**, so that a leaked
   database alone cannot forge a session.
+- **Sessions are signed, not stored.** Signing out clears the cookie on that
+  device, which is what it is for; a cookie someone copied beforehand stays
+  valid until it expires, because there is no list of sessions to strike it
+  from. Changing `SESSION_SECRET` ends every session everywhere, and remains
+  the answer if you think a cookie leaked.
 - **The catalog is not encrypted at rest.** It is a list of films someone
   watched, held in their own database.
 - **Self-hosted instances exposed over plain HTTP** are insecure by
@@ -88,4 +93,9 @@ rather than in the code:
 - if you think a credential leaked: rotate the TMDB and Anthropic keys with
   their providers, change `SESSION_SECRET` (which logs out every session), and
   regenerate the MCP credential from Settings, which invalidates the old one
-  immediately.
+  immediately;
+- if the TOTP secret itself is the worry — a photographed QR code, a phone you
+  no longer have — **Settings → Signing in → Use a different authenticator**
+  replaces it. It asks for a code from the authenticator in use before it
+  starts, so a stolen session cannot move the sign-in and lock you out, and
+  only writes the new secret once you have proved a code from it.

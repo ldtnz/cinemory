@@ -104,9 +104,13 @@ test("a title with no details gets them, and one TMDB cannot place is left alone
   const first = await seed("known film", true);
   await seed("film nobody knows", false);
 
+  // Counted per row, not out of the batch's totals: the other test files
+  // create rows with no details of their own, and they run at the same time
+  // as this one — they land in the same batch and would move any total
+  // asserted here.
   const { body } = await enrich(first.id - 1);
-  assert.equal(body.enriched, 1);
-  assert.equal(body.unmatched, 1);
+  assert.ok(body.enriched >= 1);
+  assert.ok(body.unmatched >= 1);
 
   const matched = await prisma.title.findUniqueOrThrow({ where: { id: first.id } });
   assert.ok(matched.tmdbId);
