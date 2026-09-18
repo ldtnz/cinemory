@@ -127,6 +127,17 @@ the exact IMDb ID rather than by name: see
 
 ---
 
+## Contributing
+
+Bug reports and fixes are welcome, features are worth asking about first, and
+the whole of it is in [CONTRIBUTING.md](CONTRIBUTING.md). Taking part means
+agreeing to the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+Found a security problem? Please report it privately —
+[SECURITY.md](SECURITY.md) says how, and what is already known and deliberate.
+
+---
+
 ## Privacy
 
 Your watch history stays in your own database. The only outbound calls are to
