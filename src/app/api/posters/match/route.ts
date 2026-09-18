@@ -20,7 +20,9 @@ export async function POST(request: NextRequest) {
 
   const { id, candidate } = body;
 
-  await prisma.title.update({
+  // updateMany rather than update: an id that is not there throws out of
+  // update, which leaves the caller a 500 with nothing in it to act on.
+  const updated = await prisma.title.updateMany({
     where: { id },
     data: {
       tmdbId: candidate.tmdbId,
@@ -32,6 +34,9 @@ export async function POST(request: NextRequest) {
       genres: candidate.genres,
     },
   });
+  if (updated.count === 0) {
+    return NextResponse.json({ error: "Title not found." }, { status: 404 });
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -120,6 +120,20 @@ test("without a session neither of them writes", async () => {
   assert.equal(after.tmdbId, null);
 });
 
+test("an id that is not in the catalog is a 404, not a crash", async () => {
+  // Both routes used to call prisma.update, which throws when the row is not
+  // there: Next turned that into a 500 with nothing in it for the caller.
+  const one = await ignore(request("http://localhost/api/posters/ignore", { id: 999_999_999 }));
+  const two = await match(
+    request("http://localhost/api/posters/match", {
+      id: 999_999_999,
+      candidate: { tmdbId: 603, title: "The Matrix", mediaType: "Movie" },
+    }),
+  );
+  assert.equal(one.status, 404);
+  assert.equal(two.status, 404);
+});
+
 test("a body without an id is refused", async () => {
   const res = await ignore(request("http://localhost/api/posters/ignore", { nope: true }));
   assert.equal(res.status, 400);
