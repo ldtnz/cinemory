@@ -91,7 +91,10 @@ code it produces. There is no password to choose and no account to create.
 
 The button needs a database to point at, so read
 **[docs/deploy-vercel.md](docs/deploy-vercel.md)** first — it walks through the
-whole thing from nothing, without a terminal, in about fifteen minutes.
+whole thing from nothing, without a terminal, in about fifteen minutes. It also
+covers the one choice worth making up front: the button *copies* this
+repository, so if you want later updates to be a single click, fork it instead
+and import the fork. Same amount of clicking.
 
 | Guide | For |
 |---|---|

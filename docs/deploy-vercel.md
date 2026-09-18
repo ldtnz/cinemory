@@ -96,13 +96,36 @@ You should now have four values:
 | `TURSO_DATABASE_URL` | the `libsql://…` address from step 2 |
 | `TURSO_AUTH_TOKEN` | the token from step 2 |
 
-Click the button:
+There are two ways to get the code onto your own account, and the difference
+only shows up months later, when there is an update to pick up. Worth thirty
+seconds now.
+
+### Either: the button (fastest)
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fldtnz%2Fcinemory&project-name=cinemory&repository-name=cinemory&env=SESSION_SECRET,TMDB_ACCESS_TOKEN,TURSO_DATABASE_URL,TURSO_AUTH_TOKEN&envDescription=Four%20values%2C%20all%20free%20to%20obtain%20-%20the%20guide%20walks%20through%20each&envLink=https%3A%2F%2Fgithub.com%2Fldtnz%2Fcinemory%2Fblob%2Fmain%2Fdocs%2Fenvironment.md)
 
-Vercel will ask you to sign in, make a copy of this repository on your own
-GitHub account, and then ask for exactly those four values. Paste them in and
-let it build.
+Vercel signs you in, **copies** this repository to your GitHub account, and asks
+for exactly those four values. Paste them in and let it build.
+
+The copy is a brand-new repository, not a fork — it has no link back here, so
+GitHub cannot offer you later changes with a button. Picking up an update then
+means a few git commands, or re-doing this step the other way. Fine if you just
+want to try the thing.
+
+### Or: fork first, import second (one minute more)
+
+Do this if you expect to keep the app and want updates to be one click forever.
+
+1. On [the repository page](https://github.com/ldtnz/cinemory), click **Fork**
+   (top right), then **Create fork**.
+2. Go to [vercel.com/new](https://vercel.com/new), choose **Import Git
+   Repository** and pick your fork.
+3. Before deploying, open **Environment Variables** and add the four values
+   from the table above.
+4. Deploy.
+
+Same result, same amount of clicking, except your copy now knows where it came
+from — which is what makes the update in the next section a single button.
 
 When it finishes, open the URL it gives you.
 
@@ -143,16 +166,54 @@ right artwork or tell the app to stop asking about that title.
 
 ## Keeping it up to date
 
-Your copy is an ordinary GitHub repository. Pulling in later changes from the
-original is done from GitHub's own **Sync fork** button on your copy's page;
-Vercel notices the push and rebuilds on its own.
+**Your catalog is never at stake here.** It lives in the Turso database, which
+is yours and separate from the deployment: the code can be replaced, re-cloned
+or deleted entirely and the data stays where it is. That is worth knowing before
+reading the rest of this section, because it makes the worst case cheap.
 
-**If a change includes a database migration**, your database needs it too. The
-release notes will say so. Two ways:
+### If you forked
 
-- paste the new migration — or the whole of [`schema.sql`](schema.sql) again,
-  which stops harmlessly at the tables that already exist — into the Turso SQL
-  console; or
+On your fork's page GitHub shows **Sync fork** whenever this repository has
+moved ahead. Click it, then **Update branch**. Vercel notices the push and
+rebuilds on its own. That is the whole procedure.
+
+### If you used the button
+
+The button made an independent copy, so there is no Sync button to press. Pick
+whichever of these suits you:
+
+**Connect it to the original, once** (needs a terminal, but only this once):
+
+```bash
+git clone https://github.com/YOUR-NAME/cinemory.git
+cd cinemory
+git remote add upstream https://github.com/ldtnz/cinemory.git
+```
+
+and from then on, whenever you want the latest:
+
+```bash
+git fetch upstream
+git merge upstream/main
+git push
+```
+
+Vercel rebuilds on the push.
+
+**Or start again as a fork** (no terminal): delete the repository the button
+made and the Vercel project with it, then follow
+[fork first, import second](#or-fork-first-import-second-one-minute-more)
+above with the same four values. Your database is untouched, so the app comes
+back with everything in it — and updates are a button from then on.
+
+### When an update changes the database
+
+The release notes say when this is the case. Your database needs the new
+migration too, and until it gets it the app will error about a missing column.
+Two ways, both fine:
+
+- paste [`schema.sql`](schema.sql) into the Turso SQL console again — it stops
+  harmlessly at the tables that already exist and adds what is new; or
 - with the repository checked out and the two Turso values in a `.env`:
   `npm run db:migrate-turso`, which is safe to re-run at any time.
 
