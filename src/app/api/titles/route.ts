@@ -3,6 +3,7 @@ import { isAuthenticated } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import { normalizeTitle } from "@/lib/title-key";
+import { parseWatchedDate } from "@/lib/watched-date";
 import { isValidPlatform } from "@/lib/platforms";
 import { ensureFreshSeasonCheckInBackground } from "@/lib/season-check";
 
@@ -41,10 +42,14 @@ export async function POST(request: NextRequest) {
 
   let watchedAt = new Date();
   if (!watchlist && body.lastWatchedAt) {
-    watchedAt = new Date(body.lastWatchedAt);
-    if (isNaN(watchedAt.getTime())) {
+    // Strictly: the isNaN check this replaces caught "hello" but not
+    // "some time in 2021", which V8 reads as the first of January 2021 —
+    // a wrong date that looks like a fact ever after.
+    const parsed = parseWatchedDate(body.lastWatchedAt);
+    if (!parsed) {
       return NextResponse.json({ error: "Invalid date." }, { status: 400 });
     }
+    watchedAt = parsed;
   }
 
   const { candidate } = body;

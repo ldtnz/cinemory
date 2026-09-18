@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isValidPlatform } from "@/lib/platforms";
 import { dismissNewSeason } from "@/lib/season-check";
 import { clampWatchedSeasons } from "@/lib/season-counts";
+import { parseWatchedDate } from "@/lib/watched-date";
 
 /**
  * The columns the grid does not carry, for one title.
@@ -130,10 +131,11 @@ export async function PATCH(
     }
     let watchedAt = new Date();
     if (lastWatchedAt) {
-      watchedAt = new Date(lastWatchedAt);
-      if (isNaN(watchedAt.getTime())) {
+      const parsed = parseWatchedDate(lastWatchedAt);
+      if (!parsed) {
         return NextResponse.json({ error: "Invalid date." }, { status: 400 });
       }
+      watchedAt = parsed;
     }
     // Applies to movies and series alike, unlike the seasons path below.
     const updated = await prisma.title.updateMany({
@@ -161,8 +163,8 @@ export async function PATCH(
     }
     let watchedAt: Date | null = null;
     if (lastWatchedAt) {
-      watchedAt = new Date(lastWatchedAt);
-      if (isNaN(watchedAt.getTime())) {
+      watchedAt = parseWatchedDate(lastWatchedAt);
+      if (!watchedAt) {
         return NextResponse.json({ error: "Invalid date." }, { status: 400 });
       }
     }

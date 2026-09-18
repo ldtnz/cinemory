@@ -17,7 +17,7 @@ process.env.DATABASE_URL ??= "file:./prisma/dev.db";
 type Db = Awaited<typeof import("@/lib/prisma")>["prisma"];
 let prisma: Db;
 let editWatched: typeof import("@/lib/mcp-catalog").editWatched;
-let parseWatchedDate: typeof import("@/lib/mcp-catalog").parseWatchedDate;
+let parseWatchedDate: typeof import("@/lib/watched-date").parseWatchedDate;
 
 /** Far outside anything a real import would produce. */
 const MARK = "zzqq";
@@ -42,7 +42,8 @@ async function add(title: string, opts: { watched?: boolean; platform?: string }
 
 before(async () => {
   ({ prisma } = await import("@/lib/prisma"));
-  ({ editWatched, parseWatchedDate } = await import("@/lib/mcp-catalog"));
+  ({ editWatched } = await import("@/lib/mcp-catalog"));
+  ({ parseWatchedDate } = await import("@/lib/watched-date"));
   await add(`${MARK} Dune`);
   await add(`${MARK} Dune Part One`);
   await add(`${MARK} Dune Part Two`);

@@ -129,6 +129,34 @@ test("a platform that is not one of ours is refused, and nothing is written", as
   assert.equal(await row("bad platform"), null);
 });
 
+test("a date that is not a date is refused, on the way in and on a correction", async () => {
+  // "some time in 2021" is not rejected by the constructor: V8 reads it as
+  // the first of January 2021. Stored, it would look like a fact ever after.
+  const vague = await post({
+    candidate: candidate("vague date", { tmdbId: 5550003 }),
+    platform: "Netflix",
+    lastWatchedAt: "some time in 2021",
+  });
+  assert.equal(vague.status, 400);
+  assert.equal(await row("vague date"), null);
+
+  const seeded = await seed("keeps its date");
+  const corrected = await patch(seeded.id, {
+    editWatched: { platform: "Netflix", lastWatchedAt: "the other week" },
+  });
+  assert.equal(corrected.status, 400);
+  const after = await prisma.title.findUniqueOrThrow({ where: { id: seeded.id } });
+  assert.equal(after.lastWatchedAt?.toISOString(), "2024-01-02T00:00:00.000Z");
+});
+
+test("a day that does not exist is refused too", async () => {
+  const seeded = await seed("impossible day");
+  const res = await patch(seeded.id, {
+    markWatched: { platform: "Netflix", lastWatchedAt: "2024-02-31" },
+  });
+  assert.equal(res.status, 400);
+});
+
 test("the same title twice does not become two rows", async () => {
   await post({ candidate: candidate("added"), platform: "Netflix" });
   assert.equal(await prisma.title.count({ where: { title: `${MARK} added` } }), 1);
