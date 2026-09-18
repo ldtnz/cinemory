@@ -44,7 +44,14 @@ export default function LoginGate({
         <form
           method="POST"
           action="/api/login"
-          className="flex w-[min(90vw,360px)] flex-col items-center gap-5 rounded-3xl border border-white/15 bg-white/[0.06] p-8 text-center shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] backdrop-blur-2xl sm:p-10"
+          // Glass with something in it. The blur alone was not enough: over a
+          // dark page a 6%-white pane reads as nothing at all, and what makes
+          // frosted glass look like glass is as much the light caught on its
+          // top edge and the colour it pulls out of what is behind it as the
+          // blur itself. So: a darkened, saturated backdrop for body and
+          // colour, a gradient across the face, and a one-pixel highlight
+          // along the top.
+          className="flex w-[min(90vw,360px)] flex-col items-center gap-5 rounded-3xl border border-white/20 bg-white/[0.07] bg-[linear-gradient(160deg,rgba(255,255,255,0.16),rgba(255,255,255,0.02)_45%,rgba(255,255,255,0.07))] p-8 text-center shadow-[0_24px_70px_-18px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.22)] backdrop-blur-2xl backdrop-saturate-150 backdrop-brightness-[0.75] sm:p-10"
         >
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-foreground">
             <KeyRound className="h-5 w-5" strokeWidth={1.8} />
