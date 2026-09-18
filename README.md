@@ -41,8 +41,6 @@ code it produces. There is no password to choose and no account to create.
 
 ---
 
----
-
 ## Features
 
 - **Catalog** — one grid for every title, filtered by platform and by
