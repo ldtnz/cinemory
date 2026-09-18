@@ -17,6 +17,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import { normalizeTitle } from "@/lib/title-key";
+import { send, writeFailed } from "@/lib/offline";
 import { splitGenres } from "@/lib/genres";
 import { useTmdbSearch } from "@/lib/use-tmdb-search";
 import type { WatchMode } from "@/lib/watch-mode";
@@ -135,21 +136,21 @@ export default function Catalog({
   // TitleCard already confirms with the user (ConfirmDialog) before calling
   // this, from both the trash button and the context menu.
   const remove = useCallback(async (title: CatalogTitle) => {
-    const res = await fetch(`/api/titles/${title.id}`, { method: "DELETE" });
-    if (!res.ok) {
-      window.alert("Could not delete the title.");
+    const res = await send(`/api/titles/${title.id}`, { method: "DELETE" });
+    if (!res?.ok) {
+      window.alert(writeFailed("Could not delete the title."));
       return;
     }
     setCatalog((prev) => prev.filter((t) => t.id !== title.id));
   }, []);
 
   const changeSeasons = useCallback(async (title: CatalogTitle, watchedSeasons: number) => {
-    const res = await fetch(`/api/titles/${title.id}`, {
+    const res = await send(`/api/titles/${title.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ watchedSeasons }),
     });
-    if (!res.ok) return;
+    if (!res?.ok) return;
     // Read it back from the response rather than trusting what was sent: the
     // server clamps to zero and to the known total, so it may have adjusted it.
     const { title: aggiornato } = (await res.json()) as {
@@ -166,7 +167,7 @@ export default function Catalog({
   // from the dialog: the two things a "to watch" row has no value for yet.
   const markWatched = useCallback(
     async (title: CatalogTitle, platform: string, lastWatchedAt: Date | null) => {
-      const res = await fetch(`/api/titles/${title.id}`, {
+      const res = await send(`/api/titles/${title.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -176,8 +177,8 @@ export default function Catalog({
           },
         }),
       });
-      if (!res.ok) {
-        window.alert("Could not mark the title as watched.");
+      if (!res?.ok) {
+        window.alert(writeFailed("Could not mark the title as watched."));
         return;
       }
       const { title: updated } = (await res.json()) as {
@@ -216,7 +217,7 @@ export default function Catalog({
       lastWatchedAt: Date | null,
       seasons: SeasonEdit | null,
     ) => {
-      const res = await fetch(`/api/titles/${title.id}`, {
+      const res = await send(`/api/titles/${title.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -228,8 +229,8 @@ export default function Catalog({
           },
         }),
       });
-      if (!res.ok) {
-        window.alert("Could not update the title.");
+      if (!res?.ok) {
+        window.alert(writeFailed("Could not update the title."));
         return;
       }
       const { title: updated } = (await res.json()) as {
@@ -254,12 +255,12 @@ export default function Catalog({
   // so the update is applied locally rather than round-tripping the whole
   // response through the Date-coercion dance the other PATCHes need.
   const dismissNewSeason = useCallback(async (title: CatalogTitle) => {
-    const res = await fetch(`/api/titles/${title.id}`, {
+    const res = await send(`/api/titles/${title.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ dismissNewSeason: true }),
     });
-    if (!res.ok) return;
+    if (!res?.ok) return;
     setCatalog((prev) =>
       prev.map((t) => (t.id === title.id ? { ...t, newSeasonAvailable: false } : t)),
     );
@@ -270,12 +271,12 @@ export default function Catalog({
   const moveToWatchlist = useCallback(async (rows: CatalogTitle[]) => {
     const updated = await Promise.all(
       rows.map(async (t) => {
-        const res = await fetch(`/api/titles/${t.id}`, {
+        const res = await send(`/api/titles/${t.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ moveToWatchlist: true }),
         });
-        if (!res.ok) return null;
+        if (!res?.ok) return null;
         const { title } = (await res.json()) as {
           title: CatalogTitle & { lastWatchedAt: string | null; createdAt: string };
         };
@@ -288,7 +289,7 @@ export default function Catalog({
     );
     const byId = new Map(updated.filter((t): t is CatalogTitle => t !== null).map((t) => [t.id, t]));
     if (byId.size < rows.length) {
-      window.alert(`Could not move ${rows.length - byId.size} of ${rows.length} titles.`);
+      window.alert(writeFailed(`Could not move ${rows.length - byId.size} of ${rows.length} titles.`));
     }
     // The same going back as coming: this half of the catalog is the one being
     // left, so the card comes apart here too. Only the ones that actually
@@ -307,13 +308,13 @@ export default function Catalog({
   const bulkDelete = useCallback(async (rows: CatalogTitle[]) => {
     const results = await Promise.all(
       rows.map(async (t) => {
-        const res = await fetch(`/api/titles/${t.id}`, { method: "DELETE" });
-        return res.ok ? t.id : null;
+        const res = await send(`/api/titles/${t.id}`, { method: "DELETE" });
+        return res?.ok ? t.id : null;
       }),
     );
     const gone = new Set(results.filter((id): id is number => id !== null));
     if (gone.size < rows.length) {
-      window.alert(`Could not delete ${rows.length - gone.size} of ${rows.length} titles.`);
+      window.alert(writeFailed(`Could not delete ${rows.length - gone.size} of ${rows.length} titles.`));
     }
     setCatalog((prev) => prev.filter((t) => !gone.has(t.id)));
   }, []);
@@ -324,7 +325,7 @@ export default function Catalog({
     async (rows: CatalogTitle[], platform: string, lastWatchedAt: Date | null) => {
       const updated = await Promise.all(
         rows.map(async (t) => {
-          const res = await fetch(`/api/titles/${t.id}`, {
+          const res = await send(`/api/titles/${t.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -334,7 +335,7 @@ export default function Catalog({
               },
             }),
           });
-          if (!res.ok) return null;
+          if (!res?.ok) return null;
           const { title } = (await res.json()) as {
             title: CatalogTitle & { lastWatchedAt: string | null; createdAt: string };
           };
@@ -347,7 +348,7 @@ export default function Catalog({
       );
       const byId = new Map(updated.filter((t): t is CatalogTitle => t !== null).map((t) => [t.id, t]));
       if (byId.size < rows.length) {
-        window.alert(`Could not update ${rows.length - byId.size} of ${rows.length} titles.`);
+        window.alert(writeFailed(`Could not update ${rows.length - byId.size} of ${rows.length} titles.`));
       }
       // Only the ones that actually moved: a card whose request failed is
       // still there afterwards, and must not be shown leaving.

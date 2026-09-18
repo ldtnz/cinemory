@@ -17,7 +17,8 @@ and suggests what to watch next, refreshing itself automatically every few
 days.
 
 It is an installable PWA: add it to your phone's home screen and it opens like
-an app, with an offline fallback and cached posters.
+an app. Without a network it still opens on the last catalog it saw, posters
+included, and says so rather than pretending a change was saved.
 
 **Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 ·
 Prisma + SQLite / [Turso](https://turso.tech) · Serwist (service worker).

@@ -5,6 +5,7 @@ import DisableContextMenu from "@/components/DisableContextMenu";
 import OrientationLock from "@/components/OrientationLock";
 import ZoomLock from "@/components/ZoomLock";
 import LandscapeNotice from "@/components/LandscapeNotice";
+import OfflineNotice from "@/components/OfflineNotice";
 import { IOS_SPLASH } from "@/lib/splash-ios";
 import "./globals.css";
 
@@ -65,6 +66,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <ZoomLock />
           {children}
           <LandscapeNotice />
+          <OfflineNotice />
         </SerwistProvider>
       </body>
     </html>
