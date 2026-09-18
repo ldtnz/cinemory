@@ -144,6 +144,21 @@ function TitleCard({
     };
   }, []);
 
+  // A dialog hands the keyboard back to whatever opened it (see
+  // useDialogFocus), but from a card that is the context menu, which is gone
+  // by then — so focus would land nowhere and the grid would start again from
+  // the top on the next Tab. The card takes it back itself, and only when
+  // nothing else has claimed it in the meantime.
+  const dialogWasOpen = useRef(false);
+  useEffect(() => {
+    if (dialogWasOpen.current && !dialogOpen) {
+      const card = cardRef.current;
+      const active = document.activeElement;
+      if (card && (active === null || active === document.body)) card.focus();
+    }
+    dialogWasOpen.current = dialogOpen;
+  }, [dialogOpen, cardRef]);
+
   function requestDelete() {
     setConfirmingDelete(true);
   }

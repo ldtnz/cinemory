@@ -15,6 +15,7 @@ import {
 import { IMPORT_SOURCES, type ImportSource } from "@/lib/import-sources";
 import type { FileOutcome } from "@/components/ImportHistory";
 import ServiceMark from "@/components/ServiceMark";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 
 /**
  * Picking a service, then importing from it.
@@ -46,6 +47,8 @@ export default function ImportDialog({
   onImport: (files: File[]) => void;
   onClose: () => void;
 }) {
+  const dialogRef = useDialogFocus<HTMLDivElement>();
+
   const [source, setSource] = useState<ImportSource | null>(null);
   const [file, setFile] = useState<File[]>([]);
   const [copied, setCopied] = useState(false);
@@ -78,6 +81,7 @@ export default function ImportDialog({
       onClick={() => !busy && onClose()}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={source ? `Import from ${source.name}` : "Import watch history"}

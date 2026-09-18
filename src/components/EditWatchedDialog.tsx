@@ -8,6 +8,7 @@ import { Minus, Plus } from "lucide-react";
 import PlatformPicker from "@/components/PlatformPicker";
 import { toDateInputValue, fromDateInputValue } from "@/lib/date-input";
 import { hasSeasonTotal } from "@/lib/season-counts";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 
 export type SeasonEdit = { watchedSeasons: number };
 
@@ -66,6 +67,8 @@ export default function EditWatchedDialog({
   onConfirm: (platform: string, lastWatchedAt: Date | null, seasons: SeasonEdit | null) => void;
   onCancel: () => void;
 }) {
+  const dialogRef = useDialogFocus<HTMLDivElement>();
+
   const [platform, setPlatform] = useState(title.platform);
   const [dateValue, setDateValue] = useState(
     title.lastWatchedAt ? toDateInputValue(title.lastWatchedAt) : "",
@@ -91,6 +94,7 @@ export default function EditWatchedDialog({
       onClick={onCancel}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={`Edit ${title.title}`}

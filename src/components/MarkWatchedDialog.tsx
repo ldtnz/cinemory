@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import type { CatalogTitle } from "@/lib/catalog-title";
 import PlatformPicker from "@/components/PlatformPicker";
 import { toDateInputValue, fromDateInputValue } from "@/lib/date-input";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 
 /** Moving a title off the watchlist needs two more things than a plain
  *  confirmation: where it was watched, and when — watchlist entries carry
@@ -25,6 +26,8 @@ export default function MarkWatchedDialog({
   onConfirm: (platform: string, lastWatchedAt: Date | null) => void;
   onCancel: () => void;
 }) {
+  const dialogRef = useDialogFocus<HTMLDivElement>();
+
   const title = titles[0];
   const batch = titles.length > 1;
   const [platform, setPlatform] = useState("");
@@ -64,6 +67,7 @@ export default function MarkWatchedDialog({
       onClick={onCancel}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={batch ? `Mark ${titles.length} titles as watched` : `Mark ${title.title} as watched`}

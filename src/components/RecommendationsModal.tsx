@@ -11,6 +11,7 @@ import { normalizeTitle } from "@/lib/title-key";
 import { useAddToWatchlist } from "@/lib/use-add-to-watchlist";
 import { useDismissRecommendation } from "@/lib/use-dismiss-recommendation";
 import TrailerModal from "@/components/TrailerModal";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 
 /** The small square button on each row: adds the recommendation to the
  *  watchlist. Its own component, not inlined into the row below, because it
@@ -99,6 +100,8 @@ export default function RecommendationsModal({
   /** Normalized titles already in the catalog, for the rows TMDB never matched. */
   savedTitleKeys?: Set<string>;
 }) {
+  const dialogRef = useDialogFocus<HTMLDivElement>();
+
   const [mounted, setMounted] = useState(false);
   // Set while a trailer is open; closing it clears this and returns to the
   // list rather than closing the whole modal.
@@ -134,6 +137,7 @@ export default function RecommendationsModal({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Recommended for you"

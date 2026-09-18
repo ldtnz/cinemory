@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { setLandscapeAllowed } from "@/lib/landscape";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 
 /** Rendered only from a post-hydration event (a click), never during the
  *  initial render, so document.body is always available here — no separate
@@ -21,6 +22,8 @@ export default function TrailerModal({
   title: string;
   onClose: () => void;
 }) {
+  const dialogRef = useDialogFocus<HTMLDivElement>();
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -47,6 +50,7 @@ export default function TrailerModal({
           sideways widens the video instead of cropping it. The short-screen
           figure reserves less because the title row above is dropped there. */}
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={`${title} trailer`}

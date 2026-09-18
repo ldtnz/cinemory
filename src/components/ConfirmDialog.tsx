@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 
 /**
  * A small centred confirmation modal, styled to match the rest of the app
@@ -27,6 +28,8 @@ export default function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const dialogRef = useDialogFocus<HTMLDivElement>();
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onCancel();
@@ -41,6 +44,7 @@ export default function ConfirmDialog({
       onClick={onCancel}
     >
       <div
+        ref={dialogRef}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
