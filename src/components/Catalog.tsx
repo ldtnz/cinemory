@@ -16,7 +16,7 @@ import MarkWatchedDialog from "@/components/MarkWatchedDialog";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
 import type { TmdbCandidate } from "@/lib/tmdb";
-import { normalizeTitle } from "@/lib/title-key";
+import { matchesSearchWords, normalizeTitle, searchWords } from "@/lib/title-key";
 import { send, writeFailed } from "@/lib/offline";
 import { splitGenres } from "@/lib/genres";
 import { useTmdbSearch } from "@/lib/use-tmdb-search";
@@ -362,7 +362,7 @@ export default function Catalog({
   );
 
   const filtered = useMemo(() => {
-    const query = deferredQ.trim().toLowerCase();
+    const words = searchWords(deferredQ);
     // A finished AI search stands in for the title match below: it already
     // decided which rows the query is about, and by more than their text.
     const aiIds =
@@ -377,7 +377,9 @@ export default function Catalog({
       if (aiIds) return aiIds.has(t.id);
       // In watchlist mode the query drives the TMDB search below instead of
       // filtering the saved list, so it is deliberately ignored here.
-      if (mode === "watched" && query && !t.searchTitle.includes(query)) return false;
+      if (mode === "watched" && words.length && !matchesSearchWords(t.searchTitle, words)) {
+        return false;
+      }
       return true;
     });
   }, [catalog, deferredQ, mode, platform, mediaType, genre, aiSearch]);
