@@ -56,6 +56,13 @@ npm run build
 live in `tests/` and run against the local SQLite file where they need a
 database; the ones that do create their own rows and delete them afterwards.
 
+The `api-*.test.ts` files call route handlers directly, with a real
+`NextRequest` and the real database, because the routes are where a mistake
+costs rows rather than a wrong number on a screen. Only the session check is
+mocked — it reads a cookie through `next/headers`, which needs a request
+context no test runner provides — and that is why the test script carries
+`--experimental-test-module-mocks`.
+
 ## What the code expects of you
 
 The house style is less about formatting — the linter handles that — than about

@@ -29,6 +29,13 @@ The first request opens the setup wizard. See
 | `npm run db:migrate-turso` | apply `prisma/migrations` to Turso |
 | `npm run db:sql` | regenerate `docs/schema.sql` from the migrations |
 
+## Tests
+
+Node's own runner, against the local database. `tests/api-*.test.ts` drive the
+API routes themselves — a real `NextRequest`, real rows — with only the
+session check mocked, which is what the `--experimental-test-module-mocks`
+flag in the `test` script is for.
+
 ## Working against the hosted database
 
 If `TURSO_DATABASE_URL` is set, `npm run dev` pulls the Turso database down
