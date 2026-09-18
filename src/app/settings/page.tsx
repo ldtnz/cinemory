@@ -18,6 +18,7 @@ import SettingsSection from "@/components/SettingsSection";
 import McpConnector from "@/components/McpConnector";
 import RestoreBackup from "@/components/RestoreBackup";
 import ImportHistory from "@/components/ImportHistory";
+import FetchMissingDetails from "@/components/FetchMissingDetails";
 import EditModeToggle from "@/components/EditModeToggle";
 import SeriesSeasons from "@/components/SeriesSeasons";
 import PreferencesEditor from "@/components/PreferencesEditor";
@@ -39,6 +40,9 @@ export default async function SettingsPage() {
     where: { mediaType: "Series", totalSeasons: null, tmdbId: { gt: 0 } },
   });
   const toMerge = await mergeSummary();
+  // Titles no TMDB match was ever found for: what an interrupted import
+  // leaves behind, and what /api/import/enrich works through.
+  const withoutDetails = await prisma.title.count({ where: { tmdbId: null } });
   const storedRecommendations = await getStoredRecommendations();
 
   const missing = await prisma.title.findMany({
@@ -81,6 +85,8 @@ export default async function SettingsPage() {
         ) : (
           <>
             <ImportHistory />
+
+            {withoutDetails > 0 && <FetchMissingDetails pending={withoutDetails} />}
 
             {/* Posters before seasons: both are import leftovers, and a title
                 with no artwork is the one you actually notice in the grid. */}
