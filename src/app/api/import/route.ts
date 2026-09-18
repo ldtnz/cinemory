@@ -80,7 +80,9 @@ export async function POST(request: NextRequest) {
     }
 
     const content = await f.text();
-    const format = detectFormat(content);
+    // The file name matters for one format: Letterboxd's watched.csv and
+    // watchlist.csv are identical inside.
+    const format = detectFormat(content, f.name);
     if (!format) {
       outcomes.push({
         file: f.name,

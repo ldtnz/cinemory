@@ -17,6 +17,7 @@ import {
   readAmazon,
   readDisneyWatchlist,
   readImdb,
+  readLetterboxd,
   readNetflix,
   seasonNumber,
   seriesKey,
@@ -104,6 +105,109 @@ test("detectFormat recognises each export and rejects anything else", () => {
   assert.equal(detectFormat("Const,Your Rating,Title\ntt0111161,10,x"), "imdb");
   assert.equal(detectFormat("Name,Something\nx,y"), null);
   assert.equal(detectFormat(""), null);
+});
+
+test("detectFormat tells Letterboxd's files apart by name where it has to", () => {
+  const diary = "Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date\n";
+  const ratings = "Date,Name,Year,Letterboxd URI,Rating\n";
+  // watched.csv and watchlist.csv are identical inside — the whole reason the
+  // file name is read at all.
+  const plain = "Date,Name,Year,Letterboxd URI\n";
+
+  assert.equal(detectFormat(diary, "diary.csv"), "letterboxd");
+  assert.equal(detectFormat(ratings, "ratings.csv"), "letterboxd");
+  assert.equal(detectFormat(plain, "watched.csv"), "letterboxd");
+  assert.equal(detectFormat(plain, "watchlist.csv"), "letterboxd-watchlist");
+  assert.equal(detectFormat(plain, "Letterboxd-Watchlist-2025.csv"), "letterboxd-watchlist");
+  // Renamed, or uploaded with no name at all: read as a history, the safer
+  // of the two mistakes.
+  assert.equal(detectFormat(plain), "letterboxd");
+  assert.equal(detectFormat(plain, "export.csv"), "letterboxd");
+});
+
+// --- readLetterboxd ---------------------------------------------------------
+
+const LETTERBOXD_DIARY = [
+  "Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date",
+  "2025-03-14,Perfect Days,2023,https://boxd.it/a,4.5,No,,2025-03-12",
+  "2024-06-08,Dune: Part Two,2024,https://boxd.it/b,,No,,2024-06-07",
+  "2024-11-20,Dune: Part Two,2024,https://boxd.it/b,4.0,Yes,rewatch,2024-11-19",
+].join("\n");
+
+test("readLetterboxd keeps the year, the rating and the day it was watched", () => {
+  const rows = readLetterboxd(LETTERBOXD_DIARY, "watched");
+  const perfectDays = rows.find((r) => r.title === "Perfect Days");
+  assert.ok(perfectDays);
+  assert.equal(perfectDays.year, 2023);
+  // Half to five stars there, one to ten here.
+  assert.equal(perfectDays.personalRating, 9);
+  assert.equal(perfectDays.mediaType, "Movie");
+  assert.equal(perfectDays.status, "Watched");
+  assert.equal(perfectDays.inWatchlist, false);
+  assert.equal(perfectDays.link, "https://boxd.it/a");
+  // "Watched Date", not the day the row was logged — and read as local
+  // midnight, so the calendar day survives west of Greenwich.
+  assert.equal(perfectDays.lastWatchedAt?.getFullYear(), 2025);
+  assert.equal(perfectDays.lastWatchedAt?.getMonth(), 2);
+  assert.equal(perfectDays.lastWatchedAt?.getDate(), 12);
+});
+
+test("readLetterboxd folds a rewatch into one row, keeping the latest viewing", () => {
+  const rows = readLetterboxd(LETTERBOXD_DIARY, "watched");
+  const dune = rows.filter((r) => r.title === "Dune: Part Two");
+  assert.equal(dune.length, 1, "three diary rows, two of them the same film");
+  assert.equal(dune[0].lastWatchedAt?.getDate(), 19);
+  assert.equal(dune[0].lastWatchedAt?.getMonth(), 10);
+  // The first viewing carried no rating and the second did.
+  assert.equal(dune[0].personalRating, 8);
+});
+
+test("readLetterboxd says nothing about where a film was watched", () => {
+  const rows = readLetterboxd(LETTERBOXD_DIARY, "watched");
+  for (const r of rows) assert.equal(r.platform, "Unknown");
+});
+
+test("a Letterboxd watchlist lands in the half it belongs to", () => {
+  const rows = readLetterboxd(
+    [
+      "Date,Name,Year,Letterboxd URI",
+      "2025-04-02,The Zone of Interest,2023,https://boxd.it/c",
+    ].join("\n"),
+    "watchlist",
+  );
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].status, "To watch");
+  assert.equal(rows[0].inWatchlist, true);
+  // Not watched anywhere yet, so no platform and no date — the convention
+  // src/lib/platforms.ts states for the column.
+  assert.equal(rows[0].platform, "");
+  assert.equal(rows[0].lastWatchedAt, null);
+  assert.equal(rows[0].year, 2023);
+});
+
+test("readLetterboxd ignores a row with no film on it, and junk ratings", () => {
+  const rows = readLetterboxd(
+    [
+      "Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date",
+      "2025-01-01,,2020,https://boxd.it/d,3.0,No,,2025-01-01",
+      "2025-01-02,Sorcerer,1977,https://boxd.it/e,,No,,not a date",
+      "2025-01-03,Stalker,1979,https://boxd.it/f,99,No,,2025-01-03",
+    ].join("\n"),
+    "watched",
+  );
+  assert.deepEqual(
+    rows.map((r) => r.title),
+    ["Sorcerer", "Stalker"],
+  );
+  assert.equal(rows[0].lastWatchedAt, null, "an unreadable date is dropped, not guessed");
+  assert.equal(rows[1].personalRating, null, "99 stars is not a rating");
+});
+
+test("re-parsing a Letterboxd export twice gives the same rows", () => {
+  assert.deepEqual(
+    readLetterboxd(LETTERBOXD_DIARY, "watched"),
+    readLetterboxd(LETTERBOXD_DIARY, "watched"),
+  );
 });
 
 // --- readNetflix ------------------------------------------------------------

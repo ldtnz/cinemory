@@ -90,6 +90,29 @@ export const IMPORT_SOURCES: ImportSource[] = [
     link: { url: "https://www.imdb.com/list/ratings", label: "Your IMDb ratings" },
   },
   {
+    id: "letterboxd",
+    name: "Letterboxd",
+    gives: "history",
+    tagline: "Your diary, with the dates you watched and your own ratings",
+    steps: [
+      "Sign in on letterboxd.com and open Settings → Data.",
+      "Click Export your data. You get a zip.",
+      "Unzip it: diary.csv is the one with watched dates, watched.csv is " +
+        "everything you have ever marked, watchlist.csv is what you still mean to see.",
+      "Upload whichever you want — several at once is fine.",
+    ],
+    columns: "Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date",
+    sample: ['"2025-03-14","Perfect Days",2023,"https://boxd.it/example",4.5,"No",,"2025-03-12"'],
+    caveat:
+      "Films only — Letterboxd has no television. It is the one export that carries the " +
+      "release year, your star rating (out of five, kept here out of ten) and the day you " +
+      "actually watched something rather than the day you logged it. Keep the file names " +
+      "Letterboxd gave them: watched.csv and watchlist.csv are identical inside, and the " +
+      "name is the only thing that says which half a title belongs in. Rewatches fold into " +
+      "one row, keeping the most recent viewing.",
+    link: { url: "https://letterboxd.com/settings/data/", label: "Letterboxd data export" },
+  },
+  {
     id: "disney-watchlist",
     name: "Disney+",
     gives: "watchlist",

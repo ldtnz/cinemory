@@ -35,7 +35,13 @@ export type HistoryRow = {
   year?: number | null;
 };
 
-export type Format = "netflix" | "amazon" | "disney-watchlist" | "imdb";
+export type Format =
+  | "netflix"
+  | "amazon"
+  | "disney-watchlist"
+  | "imdb"
+  | "letterboxd"
+  | "letterboxd-watchlist";
 
 // Netflix and Prime Video localise the exported titles to the account's own
 // language, so the season keywords are matched in English and in Italian (the
@@ -87,11 +93,22 @@ export function withoutSeason(title: string): string {
  * user can upload files without declaring which is which. Returns null when it
  * is none of the expected formats.
  */
-export function detectFormat(content: string): Format | null {
+export function detectFormat(content: string, fileName?: string): Format | null {
   const header = content.slice(0, 500).toLowerCase();
   // "Const" is IMDb's name for its tt-id column and heads no other export.
   if (header.trimStart().startsWith("const,") || header.includes("your rating")) {
     return "imdb";
+  }
+  // Letterboxd names the column after itself, in every file of the export.
+  if (header.includes("letterboxd uri")) {
+    // diary.csv and ratings.csv say outright that they are about films
+    // watched. watched.csv and watchlist.csv have the same header as each
+    // other — "Date,Name,Year,Letterboxd URI" — and only the file name tells
+    // them apart, which is why it is read here. A renamed file is taken as a
+    // history: it is the larger of the two and the safer mistake, since a
+    // title in the wrong half can be moved back in one click.
+    if (/watchlist/i.test(fileName ?? "")) return "letterboxd-watchlist";
+    return "letterboxd";
   }
   if (header.includes("global title identifier") || header.includes("date watched")) {
     return "amazon";
@@ -113,6 +130,8 @@ export function readHistory(content: string, format: Format): HistoryRow[] {
   if (format === "netflix") return readNetflix(content);
   if (format === "amazon") return readAmazon(content);
   if (format === "imdb") return readImdb(content);
+  if (format === "letterboxd") return readLetterboxd(content, "watched");
+  if (format === "letterboxd-watchlist") return readLetterboxd(content, "watchlist");
   return readDisneyWatchlist(content);
 }
 
@@ -329,6 +348,91 @@ export function readImdb(content: string): HistoryRow[] {
 }
 
 /**
+ * Letterboxd, whose export is a zip of several CSVs sharing a shape:
+ * Date,Name,Year,Letterboxd URI, with Rating on ratings.csv and Rating,
+ * Rewatch, Tags and Watched Date on diary.csv.
+ *
+ * Films only — Letterboxd does not do television — so nothing here looks for
+ * seasons, unlike every other reader in this file.
+ *
+ * Three things it carries that the streaming exports do not: the release
+ * year, the star rating, and, in the diary, the date you actually watched
+ * something rather than the date the row was created. A diary holds one row
+ * per viewing, so a film watched three times arrives three times: the rows
+ * are folded into one, keeping the most recent viewing, which is what
+ * lastWatchedAt means here. Recording each of them would need somewhere to
+ * put them, and there is no such table.
+ */
+export function readLetterboxd(
+  content: string,
+  kind: "watched" | "watchlist",
+): HistoryRow[] {
+  const records: Record<string, string>[] = parse(content, {
+    columns: true,
+    skip_empty_lines: true,
+    bom: true,
+    trim: true,
+    relax_column_count: true,
+  });
+
+  const seen = new Map<string, HistoryRow>();
+
+  for (const row of records) {
+    const title = (row["Name"] || "").trim();
+    if (!title) continue;
+    const key = seriesKey(title, "Movie");
+    if (!key) continue;
+
+    // "Watched Date" is the day it was seen; "Date" is the day the row was
+    // written, which for watched.csv and ratings.csv is the only one there
+    // is. A watchlist entry has not been watched at all, so it keeps neither.
+    const watchedAt =
+      kind === "watched"
+        ? parseIsoDay(row["Watched Date"] || row["Date"] || "")
+        : null;
+
+    // Half to five stars, which this catalog holds out of ten.
+    const stars = Number(row["Rating"]);
+    const rating = stars >= 0.5 && stars <= 5 ? stars * 2 : null;
+    const year = Number(row["Year"]);
+    const uri = (row["Letterboxd URI"] || "").trim();
+
+    const existing = seen.get(key);
+    if (existing) {
+      // Same film again: the diary's other viewings. Keep the latest date and
+      // whichever of the rows carried a rating.
+      if (
+        watchedAt &&
+        (!existing.lastWatchedAt || watchedAt.getTime() > existing.lastWatchedAt.getTime())
+      ) {
+        existing.lastWatchedAt = watchedAt;
+      }
+      if (existing.personalRating == null && rating != null) existing.personalRating = rating;
+      continue;
+    }
+
+    seen.set(key, {
+      title,
+      searchTitle: normalizeTitle(title),
+      // Letterboxd knows what you watched, never where — same position IMDb
+      // leaves us in. A watchlist entry carries "" instead, the value this
+      // catalog uses for "not watched anywhere yet".
+      platform: kind === "watched" ? "Unknown" : "",
+      mediaType: "Movie",
+      status: kind === "watched" ? "Watched" : "To watch",
+      lastWatchedAt: watchedAt,
+      watchedSeasons: null,
+      inWatchlist: kind === "watchlist",
+      link: /^https?:\/\//.test(uri) ? uri : null,
+      personalRating: rating,
+      year: year >= 1870 && year <= 2200 ? year : null,
+    });
+  }
+
+  return [...seen.values()];
+}
+
+/**
  * A Disney+ watchlist, as collected by public/disney-watchlist.js.
  *
  * Disney+ has no export of its own and no public API, so the columns are ours
@@ -401,6 +505,20 @@ export function readDisneyWatchlist(content: string): HistoryRow[] {
  * it, re-importing the export would add a fresh "Chicago Fire" alongside the
  * ten old rows.
  */
+/**
+ * A "YYYY-MM-DD" day as local midnight — the convention the app's own date
+ * field uses (src/lib/date-input.ts), so a day imported and a day typed mean
+ * the same instant. `new Date("2024-03-02")` would read it as UTC, which is
+ * the previous evening for anyone west of Greenwich.
+ */
+function parseIsoDay(value: string): Date | null {
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+  const [, y, m, d] = match;
+  const date = new Date(Number(y), Number(m) - 1, Number(d));
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
 export function seriesKey(title: string, mediaType: string): string {
   if (mediaType !== "Series") return normalizeTitle(title);
   return normalizeTitle(withoutSeason(title) || title);

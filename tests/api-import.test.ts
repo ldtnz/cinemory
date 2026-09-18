@@ -164,6 +164,47 @@ test("two files uploaded together do not duplicate each other", async () => {
   );
 });
 
+test("a Letterboxd watchlist is told from a watched file by its name", async () => {
+  // The two have the same header, so this is the one format where the file
+  // name decides which half of the catalog a title lands in.
+  const header = "Date,Name,Year,Letterboxd URI";
+  const watchlist = [header, `2025-04-02,${MARK} Zone of Interest,2023,https://boxd.it/a`].join("\n");
+  const watched = [header, `2025-04-02,${MARK} Sorcerer,1977,https://boxd.it/b`].join("\n");
+
+  const first = await importFiles({ name: "watchlist.csv", content: watchlist });
+  assert.equal(first.body.outcomes[0].format, "letterboxd-watchlist");
+  const second = await importFiles({ name: "watched.csv", content: watched });
+  assert.equal(second.body.outcomes[0].format, "letterboxd");
+
+  const stored = await prisma.title.findMany({
+    where: { title: { startsWith: MARK } },
+    select: { title: true, inWatchlist: true, status: true, platform: true, year: true },
+  });
+  const planned = stored.find((t) => t.title.endsWith("Zone of Interest"));
+  const seen = stored.find((t) => t.title.endsWith("Sorcerer"));
+  assert.equal(planned?.inWatchlist, true);
+  assert.equal(planned?.platform, "");
+  assert.equal(seen?.inWatchlist, false);
+  assert.equal(seen?.platform, "Unknown");
+  assert.equal(seen?.year, 1977);
+});
+
+test("a Letterboxd diary brings the ratings across", async () => {
+  const { body } = await importFiles({
+    name: "diary.csv",
+    content: [
+      "Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date",
+      `2025-03-14,${MARK} Perfect Days,2023,https://boxd.it/c,4.5,No,,2025-03-12`,
+    ].join("\n"),
+  });
+  assert.equal(body.added, 1);
+  const row = await prisma.title.findFirstOrThrow({
+    where: { title: `${MARK} Perfect Days` },
+  });
+  assert.equal(row.personalRating, 9, "four and a half stars out of five, nine out of ten");
+  assert.equal(row.lastWatchedAt?.getDate(), 12);
+});
+
 test("a file too large to be a history is refused by size, not parsed", async () => {
   const huge = netflix([["Big", "6/14/25"]]) + "\n" + '"x","6/14/25"'.repeat(700_000);
   const { body } = await importFiles({ name: "huge.csv", content: huge });

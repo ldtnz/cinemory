@@ -48,9 +48,10 @@ code it produces. There is no password to choose and no account to create.
   movie/series, searchable, sortable by date watched, title, TMDB rating or
   release year.
 - **History import** — a dialog per service: Netflix, Prime Video, IMDb (with
-  your ratings) and a Disney+ watchlist, each with what to click to get the
-  file. Only titles that are not already in the catalog get added, so you can
-  re-import after every new export.
+  your ratings), Letterboxd (diary, ratings and watchlist) and a Disney+
+  watchlist, each with what to click to get the file. Only titles that are not
+  already in the catalog get added, so you can re-import after every new
+  export.
 - **Seasons** — series show "3 of 5 seasons"; the totals come from TMDB, the
   watched count from your history, and you can adjust it by hand.
 - **Add a title** — search TMDB as you type and add anything, pick the platform
