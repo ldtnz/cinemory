@@ -13,12 +13,12 @@ type TitoloMancante = {
   year: number | null;
 };
 
-function GestisciItem({
+function MissingPosterRow({
   title,
-  onRisolto,
+  onResolved,
 }: {
   title: TitoloMancante;
-  onRisolto: (id: number) => void;
+  onResolved: (id: number) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(title.title);
@@ -57,7 +57,7 @@ function GestisciItem({
         body: JSON.stringify({ id: title.id, candidate }),
       });
       if (!res.ok) throw new Error();
-      onRisolto(title.id);
+      onResolved(title.id);
     } catch {
       setError("Could not link the poster.");
       setAssociando(false);
@@ -73,7 +73,7 @@ function GestisciItem({
         body: JSON.stringify({ id: title.id }),
       });
       if (!res.ok) throw new Error();
-      onRisolto(title.id);
+      onResolved(title.id);
     } catch {
       setError("The operation failed.");
       setAssociando(false);
@@ -179,7 +179,7 @@ export default function MissingPostersPanel({
 }) {
   const [titles, setTitoli] = useState(initialTitles);
 
-  function rimuovi(id: number) {
+  function removeFromList(id: number) {
     setTitoli((prev) => prev.filter((t) => t.id !== id));
   }
 
@@ -194,7 +194,7 @@ export default function MissingPostersPanel({
     >
       <div className="space-y-3">
         {titles.map((t) => (
-          <GestisciItem key={t.id} title={t} onRisolto={rimuovi} />
+          <MissingPosterRow key={t.id} title={t} onResolved={removeFromList} />
         ))}
       </div>
     </SettingsSection>

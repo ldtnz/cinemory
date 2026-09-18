@@ -3,7 +3,7 @@ import { isAuthenticated } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { TmdbCandidate } from "@/lib/tmdb";
 
-type CorpoRichiesta = {
+type RequestBody = {
   id: number;
   candidate: TmdbCandidate;
 };
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => null)) as CorpoRichiesta | null;
+  const body = (await request.json().catch(() => null)) as RequestBody | null;
   if (!body || typeof body.id !== "number" || !body.candidate) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }

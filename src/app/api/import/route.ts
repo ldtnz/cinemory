@@ -115,8 +115,8 @@ export async function POST(request: NextRequest) {
     let added = 0;
     let seasonsUpdated = 0;
     for (const row of rows) {
-      // The map grows as it goes, so two files uploaded together do not
-      // duplicano a vicenda.
+      // The map grows as it goes, so two files uploaded together cannot
+      // duplicate each other.
       const key = seriesKey(row.title, row.mediaType);
       const found = existing.get(key);
       if (found) {

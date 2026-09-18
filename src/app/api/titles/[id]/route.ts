@@ -46,12 +46,12 @@ export async function DELETE(
     return NextResponse.json({ error: "Invalid id." }, { status: 400 });
   }
 
-  const eliminati = await prisma.title.deleteMany({ where: { id } });
-  if (eliminati.count === 0) {
+  const removed = await prisma.title.deleteMany({ where: { id } });
+  if (removed.count === 0) {
     return NextResponse.json({ error: "Title not found." }, { status: 404 });
   }
 
-  return NextResponse.json({ eliminato: id });
+  return NextResponse.json({ deleted: id });
 }
 
 /**

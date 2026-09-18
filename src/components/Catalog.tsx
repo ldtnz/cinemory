@@ -153,12 +153,12 @@ export default function Catalog({
     if (!res?.ok) return;
     // Read it back from the response rather than trusting what was sent: the
     // server clamps to zero and to the known total, so it may have adjusted it.
-    const { title: aggiornato } = (await res.json()) as {
+    const { title: saved } = (await res.json()) as {
       title: { id: number; watchedSeasons: number | null };
     };
     setCatalog((prev) =>
       prev.map((t) =>
-        t.id === aggiornato.id ? { ...t, watchedSeasons: aggiornato.watchedSeasons } : t,
+        t.id === saved.id ? { ...t, watchedSeasons: saved.watchedSeasons } : t,
       ),
     );
   }, []);

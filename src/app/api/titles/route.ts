@@ -12,7 +12,7 @@ import { ensureFreshSeasonCheckInBackground } from "@/lib/season-check";
 // runs after the response is sent — the same wall the import routes hit.
 export const maxDuration = 60;
 
-type CorpoRichiesta = {
+type RequestBody = {
   candidate: TmdbCandidate;
   platform: string;
   /** Adds it as "to watch" instead of "watched": no platform yet, since the
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
   }
 
-  const body = (await request.json().catch(() => null)) as CorpoRichiesta | null;
+  const body = (await request.json().catch(() => null)) as RequestBody | null;
   if (!body || !body.candidate || !body.candidate.title) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
