@@ -87,14 +87,10 @@ code it produces. There is no password to choose and no account to create.
 
 ## Run your own
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fldtnz%2Fcinemory&project-name=cinemory&repository-name=cinemory&env=SESSION_SECRET,TMDB_ACCESS_TOKEN,TURSO_DATABASE_URL,TURSO_AUTH_TOKEN&envDescription=Four%20values%2C%20all%20free%20to%20obtain%20-%20the%20guide%20walks%20through%20each&envLink=https%3A%2F%2Fgithub.com%2Fldtnz%2Fcinemory%2Fblob%2Fmain%2Fdocs%2Fenvironment.md)
-
-The button needs a database to point at, so read
-**[docs/deploy-vercel.md](docs/deploy-vercel.md)** first — it walks through the
-whole thing from nothing, without a terminal, in about fifteen minutes. It also
-covers the one choice worth making up front: the button *copies* this
-repository, so if you want later updates to be a single click, fork it instead
-and import the fork. Same amount of clicking.
+Start with **[docs/deploy-vercel.md](docs/deploy-vercel.md)** if you want it
+online: it walks through the whole thing from nothing, without a terminal, in
+about fifteen minutes, and ends at a one-click deploy once there is a database
+for it to point at.
 
 | Guide | For |
 |---|---|
