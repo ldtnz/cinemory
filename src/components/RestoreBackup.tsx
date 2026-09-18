@@ -76,10 +76,10 @@ export default function RestoreBackup() {
 
       {report && (
         <p className="mt-3 text-xs text-muted">
-          {report.read.toLocaleString()} {report.read === 1 ? "title" : "titles"} in the file:{" "}
-          {report.added.toLocaleString()} added, {report.alreadyPresent.toLocaleString()} already in
+          {report.read.toLocaleString("en-US")} {report.read === 1 ? "title" : "titles"} in the file:{" "}
+          {report.added.toLocaleString("en-US")} added, {report.alreadyPresent.toLocaleString("en-US")} already in
           the catalog
-          {report.unreadable > 0 && `, ${report.unreadable.toLocaleString()} unreadable`}.
+          {report.unreadable > 0 && `, ${report.unreadable.toLocaleString("en-US")} unreadable`}.
         </p>
       )}
       {error && <p className="mt-3 text-xs text-red-400">{error}</p>}

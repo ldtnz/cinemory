@@ -37,7 +37,8 @@ function MissingPosterIcon() {
 
 function formatDate(data: Date | null): string {
   if (!data) return "";
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",

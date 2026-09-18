@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import SettingsSection from "@/components/SettingsSection";
 import { Upload } from "lucide-react";
 import ImportDialog from "@/components/ImportDialog";
@@ -36,12 +36,18 @@ type EnrichResponse = {
  * (ImportDialog). The request itself stays here, so its result outlives the
  * dialog being closed.
  */
-export default function ImportHistory({ onImported }: { onImported?: () => void } = {}) {
+export default function ImportHistory({
+  onImported,
+  embedded = false,
+}: {
+  onImported?: () => void;
+  embedded?: boolean;
+} = {}) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<"idle" | "importing" | "enriching">("idle");
   const [outcomes, setOutcomes] = useState<FileOutcome[] | null>(null);
   const [added, setAdded] = useState(0);
-  const [enriched, setEnriched] = useState(0);
+  const [processed, setProcessed] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   async function runImport(file: File[]) {
@@ -49,8 +55,9 @@ export default function ImportHistory({ onImported }: { onImported?: () => void 
     setPhase("importing");
     setError(null);
     setOutcomes(null);
-    setEnriched(0);
+    setProcessed(0);
 
+    let imported = false;
     try {
       const form = new FormData();
       for (const f of file) form.append("file", f);
@@ -68,9 +75,7 @@ export default function ImportHistory({ onImported }: { onImported?: () => void 
         setPhase("idle");
         return;
       }
-      // The titles are in the catalog from here on; posters and metadata
-      // still trickle in below, same as for any other import.
-      onImported?.();
+      imported = true;
 
       // Posters and metadata come afterwards, in batches: a single request for
       // hundreds of titles would blow past the serverless duration limit.
@@ -93,8 +98,11 @@ export default function ImportHistory({ onImported }: { onImported?: () => void 
           break;
         }
         const status = (await r.json()) as EnrichResponse;
-        total += status.enriched;
-        setEnriched(total);
+        // A title is complete for progress purposes even when TMDB cannot
+        // match it. Counting only enriched rows could leave the bar short of
+        // 100% after every request had finished.
+        total += status.enriched + status.unmatched;
+        setProcessed(Math.min(data.added, total));
         cursor = status.cursor;
         if (status.done || status.remaining === 0) break;
       }
@@ -102,20 +110,24 @@ export default function ImportHistory({ onImported }: { onImported?: () => void 
       setError(e instanceof Error ? e.message : "Import failed.");
     } finally {
       setPhase("idle");
+      // Wait for poster enrichment before leaving onboarding. Reloading as
+      // soon as the rows were inserted used to abort the remaining requests.
+      if (imported) onImported?.();
     }
   }
 
   const lastAdded = outcomes?.reduce((n, o) => n + o.added, 0) ?? 0;
 
-  return (
-    <SettingsSection
-      title="Import watch history"
-      description="Bring in what you have already watched from a streaming service. Each one gives it up differently, so pick yours and the steps follow."
-    >
+  const content: ReactNode = (
+    <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex h-10 items-center gap-2 rounded-xl bg-surface-2 px-4 text-xs font-semibold transition-colors hover:bg-surface-3"
+        className={`h-10 items-center gap-2 rounded-xl px-4 text-xs font-semibold transition-colors ${
+          embedded
+            ? "mx-auto flex bg-foreground text-background hover:opacity-90"
+            : "inline-flex bg-surface-2 hover:bg-surface-3"
+        }`}
       >
         <Upload className="h-4 w-4" strokeWidth={1.8} />
         Import from a service
@@ -123,7 +135,7 @@ export default function ImportHistory({ onImported }: { onImported?: () => void 
 
       {outcomes && !open && (
         <p className="mt-3 text-xs text-muted">
-          Last import: {lastAdded.toLocaleString()} {lastAdded === 1 ? "title" : "titles"} added.
+          Last import: {lastAdded.toLocaleString("en-US")} {lastAdded === 1 ? "title" : "titles"} added.
           {lastAdded > 0 && " Reload the catalog to see them."}
         </p>
       )}
@@ -133,12 +145,23 @@ export default function ImportHistory({ onImported }: { onImported?: () => void 
           phase={phase}
           outcomes={outcomes}
           added={added}
-          enriched={enriched}
+          processed={processed}
           error={error}
           onImport={runImport}
           onClose={() => setOpen(false)}
         />
       )}
+    </>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <SettingsSection
+      title="Import watch history"
+      description="Bring in what you have already watched from a streaming service. Each one gives it up differently, so pick yours and the steps follow."
+    >
+      {content}
     </SettingsSection>
   );
 }

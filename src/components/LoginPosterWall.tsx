@@ -37,7 +37,7 @@ export default function LoginPosterWall({ posterUrl }: { posterUrl: string[] }) 
             data-direction={index % 2 === 1 ? "down" : "up"}
             // Every column a little slower than the last, so they do not march
             // in formation. Minutes, not seconds: this is a background.
-            style={{ animationDuration: `${140 + index * 18}s` }}
+            style={{ animationDuration: `${(140 + index * 18) * 6}s` }}
           >
             {[...column, ...column].map((url, i) => (
               <div key={i} className="pb-3">
@@ -48,7 +48,7 @@ export default function LoginPosterWall({ posterUrl }: { posterUrl: string[] }) 
                     fill
                     unoptimized
                     sizes="(max-width: 640px) 33vw, (max-width: 1024px) 20vw, 15vw"
-                    className="object-cover"
+                    className="object-cover saturate-[0.75]"
                   />
                 </div>
               </div>

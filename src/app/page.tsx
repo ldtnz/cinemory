@@ -4,7 +4,7 @@ import { CATALOG_TITLE_SELECT } from "@/lib/catalog-title";
 import LoginGate from "@/components/LoginGate";
 import SetupWizard from "@/components/SetupWizard";
 import { isAuthenticated } from "@/lib/auth";
-import { getSettings, needsSetup } from "@/lib/settings";
+import { getSettings } from "@/lib/settings";
 import { resolveLoginBackground } from "@/lib/login-background";
 import {
   getStoredRecommendations,
@@ -32,17 +32,19 @@ export default async function Home({
 }) {
   const params = await searchParams;
 
-  if (await needsSetup()) {
-    const preview = await prisma.title.findMany({
-      where: { posterUrl: { not: null } },
-      select: { posterUrl: true },
-      orderBy: { lastWatchedAt: "desc" },
-      take: 60,
-    });
-    return <SetupWizard posterUrl={preview.map((t) => t.posterUrl as string)} />;
+  const settings = await getSettings();
+  const authenticated = await isAuthenticated();
+
+  if (!settings.onboarded) {
+    if (!settings.totpSecret) return <SetupWizard />;
+    if (authenticated) return <SetupWizard initialStep="import" />;
+
+    // The authenticator is configured, but onboarding was interrupted before
+    // the import choice. Signing in resumes the final wizard step.
+    return <LoginGate posterUrl={[]} background="terminal" error={params.error} />;
   }
 
-  if (!(await isAuthenticated())) {
+  if (!authenticated) {
     // Enough to fill seven drifting columns twice over on a tall screen, and
     // the most recent ones, so the wall is the catalog as it stands rather
     // than whatever was imported first.
@@ -55,11 +57,10 @@ export default async function Home({
     // Counted rather than taken from the page above: 84 is a ceiling, and
     // "are there enough posters for a wall" is a question about the catalog.
     const withPosters = await prisma.title.count({ where: { posterUrl: { not: null } } });
-    const { loginBackground } = await getSettings();
     return (
       <LoginGate
         posterUrl={preview.map((t) => t.posterUrl as string)}
-        background={resolveLoginBackground(loginBackground, withPosters)}
+        background={resolveLoginBackground(settings.loginBackground, withPosters)}
         error={params.error}
       />
     );
@@ -74,6 +75,7 @@ export default async function Home({
     orderBy: [{ lastWatchedAt: "desc" }, { title: "asc" }],
     select: CATALOG_TITLE_SELECT,
   });
+
   // Gated on the key being configured now, not just on a cached row
   // existing: removing ANTHROPIC_API_KEY should hide the feature outright,
   // even if a previous run left recommendations in the database.

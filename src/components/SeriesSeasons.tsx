@@ -101,7 +101,7 @@ export default function SeriesSeasons({
       description={
         missing === 0
           ? "Every series matched on TMDB knows how many seasons it has."
-          : `${missing.toLocaleString()} ${missing === 1 ? "series does" : "series do"} not know ${missing === 1 ? "its" : "their"} season count yet. The number comes from TMDB and is fetched automatically as you use the app — this is the button for not waiting.`
+          : `${missing.toLocaleString("en-US")} ${missing === 1 ? "series does" : "series do"} not know ${missing === 1 ? "its" : "their"} season count yet. The number comes from TMDB and is fetched automatically as you use the app — this is the button for not waiting.`
       }
     >
       <button
@@ -123,14 +123,14 @@ export default function SeriesSeasons({
         <div className="mt-3 space-y-1 text-xs">
           {completed > 0 && (
             <p className="text-accent-2">
-              {completed.toLocaleString()} series completed. Reload the catalog to see them.
+              {completed.toLocaleString("en-US")} series completed. Reload the catalog to see them.
             </p>
           )}
           {/* Said once, here: these are now marked as asked, so they drop out
               of the count and never come back on their own. */}
           {unavailable > 0 && (
             <p className="text-muted">
-              {unavailable.toLocaleString()}{" "}
+              {unavailable.toLocaleString("en-US")}{" "}
               {unavailable === 1 ? "series has" : "series have"} no season count on TMDB —{" "}
               {unavailable === 1 ? "it is" : "they are"} usually matched to the wrong entry.
               Fix the match from Missing posters, or leave{" "}

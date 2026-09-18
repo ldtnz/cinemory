@@ -82,11 +82,6 @@ export default async function SettingsPage() {
       <div className="space-y-4">
         <PreferencesEditor initialLanguage={settings.language} initialRegion={settings.region} />
 
-        <LoginBackgroundEditor
-          initial={isLoginBackground(settings.loginBackground) ? settings.loginBackground : "auto"}
-          postersAvailable={withPosters}
-        />
-
         {!isTmdbConfigured() ? (
           <p className="rounded-2xl bg-surface p-4 text-sm text-red-400">
             TMDB_API_KEY or TMDB_ACCESS_TOKEN is not configured: import and
@@ -139,7 +134,14 @@ export default async function SettingsPage() {
 
         <EditModeToggle />
 
-        <SignInSettings />
+        <SignInSettings
+          backgroundPicker={
+            <LoginBackgroundEditor
+              initial={isLoginBackground(settings.loginBackground) ? settings.loginBackground : "auto"}
+              postersAvailable={withPosters}
+            />
+          }
+        />
       </div>
     </main>
   );

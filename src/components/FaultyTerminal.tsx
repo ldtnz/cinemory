@@ -58,7 +58,11 @@ void main() {
 `;
 
 const fragmentShader = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
 precision mediump float;
+#endif
 
 varying vec2 vUv;
 
@@ -376,15 +380,19 @@ export default function FaultyTerminal({
     resizeObserver.observe(ctn);
     resize();
 
+    let animationStart: number | undefined;
     const update = (t: number) => {
       rafRef.current = requestAnimationFrame(update);
+      animationStart ??= t;
 
       if (pageLoadAnimation && loadAnimationStartRef.current === 0) {
         loadAnimationStartRef.current = t;
       }
 
       if (!pause) {
-        const elapsed = (t * 0.001 + timeOffsetRef.current) * timeScale;
+        // Slow the motion without collapsing the random starting pattern.
+        // Use time since mount so browser uptime cannot inflate shader time.
+        const elapsed = timeOffsetRef.current + (t - animationStart) * 0.001 * timeScale;
         program.uniforms.iTime.value = elapsed;
         frozenTimeRef.current = elapsed;
       } else {

@@ -27,6 +27,7 @@ export default function Select({
   ariaLabel,
   className = "",
   disabled = false,
+  feedback,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -39,6 +40,8 @@ export default function Select({
    *  dropdowns in the app cannot drift apart. */
   className?: string;
   disabled?: boolean;
+  /** Brief save/error feedback drawn on the control without changing layout. */
+  feedback?: "success" | "error";
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -193,7 +196,13 @@ export default function Select({
         disabled={disabled}
         onClick={() => (open ? setOpen(false) : openList())}
         onKeyDown={onKeyDown}
-        className={`flex h-10 items-center justify-between gap-2 rounded-xl border border-white/5 bg-surface-2 px-3 text-left text-sm text-foreground transition-colors outline-none hover:bg-surface-3 focus-visible:border-white/30 disabled:opacity-50 ${className}`}
+        className={`select-feedback-idle flex h-10 items-center justify-between gap-2 rounded-xl border border-white/5 bg-surface-2 px-3 text-left text-sm text-foreground transition-colors outline-none hover:bg-surface-3 focus-visible:border-white/30 disabled:opacity-50 ${
+          feedback === "success"
+            ? "select-feedback-success"
+            : feedback === "error"
+              ? "select-feedback-error"
+              : ""
+        } ${className}`}
       >
         <span className="truncate">{selected?.label ?? ""}</span>
         <ChevronDown

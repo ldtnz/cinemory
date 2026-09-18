@@ -23,7 +23,14 @@ const LENGTH = 6;
  * reader clicked away and back — and the box would sit dark while they typed
  * into it.
  */
-export default function CodeInput({ autoFocus = false }: { autoFocus?: boolean }) {
+export default function CodeInput({ autoFocus = false, autoSubmit = true, readOnly = false, invalid = false, describedBy, onCodeChange }: {
+  autoFocus?: boolean;
+  autoSubmit?: boolean;
+  readOnly?: boolean;
+  invalid?: boolean;
+  describedBy?: string;
+  onCodeChange?: (code: string) => void;
+}) {
   const [code, setCode] = useState("");
 
   // The box the next digit will go in, which is the last one once it is full.
@@ -39,31 +46,36 @@ export default function CodeInput({ autoFocus = false }: { autoFocus?: boolean }
         autoComplete="one-time-code"
         autoFocus={autoFocus}
         required
+        readOnly={readOnly}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         aria-label="Six-digit code from your authenticator app"
         value={code}
         onChange={(e) => {
           const digits = e.target.value.replace(/\D/g, "").slice(0, LENGTH);
           setCode(digits);
+          onCodeChange?.(digits);
           // The last digit of a code is the whole of the intent: waiting for a
           // separate press on Sign in is a step nobody wants at this point.
-          if (digits.length === LENGTH) e.target.form?.requestSubmit();
+          if (autoSubmit && digits.length === LENGTH) e.target.form?.requestSubmit();
         }}
         // Over the boxes rather than beside them: one field to focus, and the
         // caret would only compete with the box that is already lit.
         className="absolute inset-0 z-10 h-full w-full cursor-default rounded-xl text-transparent caret-transparent opacity-0 outline-none"
       />
 
-      <div aria-hidden className="flex w-full justify-center gap-1.5 sm:gap-2">
+      <div aria-hidden className="grid w-full grid-cols-[repeat(3,minmax(0,1fr))_0.35fr_repeat(3,minmax(0,1fr))] gap-1.5 sm:gap-2">
         {Array.from({ length: LENGTH }, (_, i) => {
           const filled = i < code.length;
           return (
             <div
               key={i}
-              className={`flex h-14 w-11 items-center justify-center rounded-xl border transition-colors sm:w-12 ${
-                filled ? "border-white/15 bg-surface-2" : "border-white/10 bg-surface-2/60"
+              style={{ gridColumn: i < 3 ? i + 1 : i + 2 }}
+              className={`flex aspect-square min-w-0 items-center justify-center rounded-lg border transition-colors ${
+                invalid ? "border-red-400/60 bg-red-400/5" : filled ? "border-white/15 bg-surface-2" : "border-white/10 bg-surface-2/60"
               } ${
-                i === active
-                  ? "group-focus-within:border-white/50 group-focus-within:bg-surface-3"
+                i === active && !invalid
+                  ? "group-focus-within:border-accent-select/60 group-focus-within:bg-accent-select/10"
                   : ""
               }`}
             >

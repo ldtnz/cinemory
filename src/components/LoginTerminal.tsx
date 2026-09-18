@@ -7,26 +7,26 @@ import dynamic from "next/dynamic";
 // never needs to fetch.
 const FaultyTerminal = dynamic(() => import("@/components/FaultyTerminal"), { ssr: false });
 
+const GRID: [number, number] = [2, 1];
+
 /** The sign-in background for a catalog that has no wall to show yet. */
 export default function LoginTerminal() {
   return (
     <div aria-hidden className="absolute inset-0">
       <FaultyTerminal
-        scale={1.6}
-        gridMul={[2, 1]}
+        scale={3.2}
+        gridMul={GRID}
         digitSize={1.2}
-        timeScale={0.25}
-        scanlineIntensity={0.6}
-        glitchAmount={1}
-        flickerAmount={0.8}
+        timeScale={0.01}
+        scanlineIntensity={1.5}
+        glitchAmount={0}
+        flickerAmount={0}
         noiseAmp={1}
         curvature={0.1}
-        // The catalog's own accent, dimmed: this sits under a card that has to
-        // stay readable.
-        tint="#22c55e"
-        brightness={0.55}
-        mouseReact
-        mouseStrength={0.3}
+        // The same pale blue as the catalog's multi-title selection.
+        tint="#8db3ce"
+        brightness={0.65}
+        mouseReact={false}
       />
     </div>
   );

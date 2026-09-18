@@ -1,13 +1,17 @@
 "use client";
 
 import Image from "next/image";
+import AuthLayout from "@/components/AuthLayout";
+import LoginTerminal from "@/components/LoginTerminal";
+import CodeInput from "@/components/CodeInput";
+import ImportHistory from "@/components/ImportHistory";
 import Select from "@/components/Select";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AlertCircle, Check, Copy, KeyRound, Languages } from "lucide-react";
+import { AlertCircle, Check, Copy, LoaderCircle } from "lucide-react";
 import { LANGUAGES, REGIONS } from "@/lib/locales";
 
-type Step = "preferences" | "totp";
+type Step = "welcome" | "preferences" | "totp" | "import";
 
 /**
  * First-run wizard, shown once instead of LoginGate: pick the TMDB content
@@ -16,14 +20,16 @@ type Step = "preferences" | "totp";
  * Only that last step writes the TOTP secret to the database — see
  * /api/setup/totp/confirm.
  */
-export default function SetupWizard({ posterUrl }: { posterUrl: string[] }) {
+export default function SetupWizard({ initialStep = "welcome" }: { initialStep?: Step } = {}) {
   const router = useRouter();
-  const [step, setStep] = useState<Step>("preferences");
+  const [step, setStep] = useState<Step>(initialStep);
 
   const [language, setLanguage] = useState("en-US");
   const [region, setRegion] = useState("US");
   const [savingPreferences, setSavingPreferences] = useState(false);
 
+  const [qrLoaded, setQrLoaded] = useState(false);
+  const [qrFailed, setQrFailed] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -31,6 +37,7 @@ export default function SetupWizard({ posterUrl }: { posterUrl: string[] }) {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [finishing, setFinishing] = useState(false);
 
   /** The server's own reason, when it gave one. Setting this up is the one
    *  moment where what went wrong is usually a deployment detail — a missing
@@ -43,6 +50,7 @@ export default function SetupWizard({ posterUrl }: { posterUrl: string[] }) {
   }
 
   async function startTotp() {
+    if (savingPreferences) return;
     setSavingPreferences(true);
     setError(null);
     try {
@@ -57,6 +65,8 @@ export default function SetupWizard({ posterUrl }: { posterUrl: string[] }) {
       if (!totpRes.ok) throw new Error(await reason(totpRes, "Could not start TOTP setup."));
       const data = (await totpRes.json()) as { secret: string; qr: string; token: string };
       setSecret(data.secret);
+      setQrLoaded(false);
+      setQrFailed(false);
       setQr(data.qr);
       setToken(data.token);
       setStep("totp");
@@ -79,7 +89,7 @@ export default function SetupWizard({ posterUrl }: { posterUrl: string[] }) {
   }
 
   async function confirmTotp() {
-    if (!token || code.length !== 6) return;
+    if (confirming || !token || code.length !== 6) return;
     setConfirming(true);
     setError(null);
     try {
@@ -94,152 +104,233 @@ export default function SetupWizard({ posterUrl }: { posterUrl: string[] }) {
         setConfirming(false);
         return;
       }
-      router.replace("/");
-      router.refresh();
+      setConfirming(false);
+      setStep("import");
     } catch {
       setError("Something went wrong.");
       setConfirming(false);
     }
   }
 
+  async function finishSetup() {
+    if (finishing) return;
+    setFinishing(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/setup/complete", { method: "POST" });
+      if (!res.ok) throw new Error(await reason(res, "Could not finish setup."));
+      router.replace("/");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not finish setup.");
+      setFinishing(false);
+    }
+  }
+
   return (
-    <div className="fixed inset-0 overflow-hidden bg-background">
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 p-3 opacity-90 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] sm:gap-4 sm:p-5">
-        {posterUrl.map((url, i) => (
-          <div key={i} className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2">
-            <Image src={url} alt="" fill unoptimized sizes="190px" className="object-cover" />
+    <AuthLayout background={<LoginTerminal />} showBrand={step !== "welcome"}>
+      <div key={step} aria-busy={savingPreferences || confirming} className="auth-step-in flex w-[min(90vw,420px)] flex-col items-center gap-6 rounded-3xl bg-surface bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.07),transparent_65%)] p-8 shadow-[0_24px_70px_-18px_rgba(0,0,0,0.9)] backdrop-blur-xl supports-[backdrop-filter]:bg-surface/60 sm:p-10">
+        {step !== "welcome" && (
+          <p className="w-full text-xs font-medium text-accent-select">
+            Step {step === "preferences" ? "1" : step === "totp" ? "2" : "3"} of 3
+          </p>
+        )}
+        {step === "welcome" ? (
+          <div className="flex w-full flex-col items-center gap-8 py-2 text-center">
+            <Image src="/logo.png" alt="" width={96} height={96} preload className="h-24 w-24 object-contain" />
+            <div className="space-y-4">
+              <h1 className="text-3xl font-semibold leading-tight tracking-tight">Welcome to Cinemory.</h1>
+              <p className="text-sm leading-relaxed text-foreground/65">
+                A home for everything you watch.<br />
+                Keep your movies and series together, and find what to watch next.
+              </p>
+            </div>
+            <div className="w-full space-y-3">
+              <button
+                type="button"
+                onClick={() => setStep("preferences")}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-foreground py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90"
+              >
+                Get started
+              </button>
+              <p className="text-xs text-muted">Three quick steps to make it yours.</p>
+            </div>
           </div>
-        ))}
-      </div>
+        ) : step === "preferences" ? (
+          <>
+            <div className="w-full space-y-3 text-left">
+              <h1 className="text-[28px] font-semibold leading-tight tracking-tight">Make it yours.</h1>
+              <p className="text-sm leading-relaxed text-foreground/65">
+                Pick the language and region TMDB uses for posters, ratings and genres. You can
+                change this later from Settings.
+              </p>
+            </div>
 
-      <div className="absolute inset-0 bg-background/45 backdrop-blur-xl" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,var(--background)_75%)]" />
-
-      <div className="absolute inset-0 flex items-center justify-center overflow-y-auto p-4">
-        <div className="flex w-[min(92vw,420px)] flex-col items-center gap-5 rounded-3xl border border-white/10 bg-surface/95 p-8 text-center shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] sm:p-10">
-          {step === "preferences" ? (
-            <>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-foreground">
-                <Languages className="h-5 w-5" strokeWidth={1.8} />
+            {error && (
+              <div
+                role="alert"
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-red-400/10 px-3 py-2 text-xs font-medium text-red-400">
+                <AlertCircle className="h-3.5 w-3.5 flex-none" strokeWidth={2} />
+                {error}
               </div>
-              <div>
-                <h1 className="text-xl font-semibold tracking-tight">Welcome to Cinemory</h1>
-                <p className="mt-1.5 text-xs text-muted">
-                  Pick the language and region TMDB uses for posters, ratings and genres. You can
-                  change this later from Settings.
-                </p>
-              </div>
+            )}
 
-              {error && (
-                <div className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-red-400/10 px-3 py-2 text-xs font-medium text-red-400">
-                  <AlertCircle className="h-3.5 w-3.5 flex-none" strokeWidth={2} />
-                  {error}
-                </div>
-              )}
-
-              <div className="w-full space-y-3 text-left">
-                <div className="block space-y-1.5">
-                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
-                    Content language
-                  </span>
-                  <Select
-                    value={language}
-                    onChange={setLanguage}
-                    options={LANGUAGES}
-                    ariaLabel="Content language"
-                    className="h-11 w-full"
-                  />
-                </div>
-
-                <div className="block space-y-1.5">
-                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
-                    Region
-                  </span>
-                  <Select
-                    value={region}
-                    onChange={setRegion}
-                    options={REGIONS}
-                    ariaLabel="Region"
-                    className="h-11 w-full"
-                  />
-                </div>
+            <div className="w-full space-y-3 text-left">
+              <div className="block space-y-1.5">
+                <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
+                  Content language
+                </span>
+                <Select
+                  value={language}
+                  onChange={setLanguage}
+                  disabled={savingPreferences}
+                  options={LANGUAGES}
+                  ariaLabel="Content language"
+                  className="h-11 w-full"
+                />
               </div>
 
+              <div className="block space-y-1.5">
+                <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
+                  Region
+                </span>
+                <Select
+                  value={region}
+                  onChange={setRegion}
+                  disabled={savingPreferences}
+                  options={REGIONS}
+                  ariaLabel="Region"
+                  className="h-11 w-full"
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={startTotp}
+              disabled={savingPreferences}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-foreground py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {savingPreferences && <LoaderCircle aria-hidden className="h-4 w-4 animate-spin motion-reduce:animate-none" />}
+              <span role="status">{savingPreferences ? "Preparing your setup…" : "Continue"}</span>
+            </button>
+          </>
+        ) : step === "totp" ? (
+          <>
+            <div className="w-full space-y-3 text-left">
+              <h1 className="text-[28px] font-semibold leading-tight tracking-tight">Secure your collection.</h1>
+              <p className="text-sm leading-relaxed text-foreground/65">
+                Scan this QR code with an authenticator app (1Password, Aegis, Google
+                Authenticator...), or enter the code below by hand.
+              </p>
+            </div>
+
+            {qr && (
+              <div className="relative rounded-2xl bg-white p-3" aria-busy={!qrLoaded && !qrFailed}>
+                {!qrLoaded && (
+                  <div className="absolute inset-3 flex flex-col items-center justify-center gap-3 rounded-lg bg-zinc-100 text-center text-xs text-zinc-600" role="status">
+                    {qrFailed ? "QR code unavailable. Use the setup key below." : (
+                      <>
+                        <LoaderCircle aria-hidden className="h-6 w-6 animate-spin motion-reduce:animate-none" />
+                        Loading QR code…
+                      </>
+                    )}
+                  </div>
+                )}
+                {/* eslint-disable-next-line @next/next/no-img-element -- a data: URI, next/image cannot optimise it */}
+                <img
+                  src={qr}
+                  alt="Setup QR code"
+                  width={200}
+                  height={200}
+                  onLoad={() => setQrLoaded(true)}
+                  onError={() => setQrFailed(true)}
+                  className={`h-[200px] w-[200px] transition-opacity duration-300 motion-reduce:transition-none ${qrLoaded ? "opacity-100" : "opacity-0"}`}
+                />
+              </div>
+            )}
+
+            {secret && (
               <button
                 type="button"
-                onClick={startTotp}
-                disabled={savingPreferences}
-                className="w-full rounded-2xl bg-foreground py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+                onClick={copySecret}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-surface-2 px-3 py-2.5 min-w-0 text-xs font-mono break-all text-foreground hover:bg-surface-2/70"
               >
-                {savingPreferences ? "Continuing..." : "Continue"}
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 flex-none" strokeWidth={2} />
+                ) : (
+                  <Copy className="h-3.5 w-3.5 flex-none" strokeWidth={2} />
+                )}
+                <span className="min-w-0 break-all">{secret}</span>
               </button>
-            </>
-          ) : (
-            <>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-foreground">
-                <KeyRound className="h-5 w-5" strokeWidth={1.8} />
+            )}
+
+            {error && (
+              <div
+                role="alert"
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-red-400/10 px-3 py-2 text-xs font-medium text-red-400">
+                <AlertCircle className="h-3.5 w-3.5 flex-none" strokeWidth={2} />
+                {error}
               </div>
-              <div>
-                <h1 className="text-xl font-semibold tracking-tight">Set up sign-in</h1>
-                <p className="mt-1.5 text-xs text-muted">
-                  Scan this QR code with an authenticator app (1Password, Aegis, Google
-                  Authenticator...), or enter the code below by hand.
-                </p>
-              </div>
+            )}
 
-              {qr && (
-                <div className="rounded-2xl bg-white p-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- a data: URI, next/image cannot optimise it */}
-                  <img src={qr} alt="Setup QR code" width={200} height={200} />
-                </div>
-              )}
+            <CodeInput
+              autoFocus
+              autoSubmit={false}
+              readOnly={confirming}
+              invalid={Boolean(error)}
+              onCodeChange={(value) => {
+                setCode(value);
+                setError(null);
+              }}
+            />
 
-              {secret && (
-                <button
-                  type="button"
-                  onClick={copySecret}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-surface-2 px-3 py-2.5 text-xs font-mono tracking-wider text-foreground hover:bg-surface-2/70"
-                >
-                  {copied ? (
-                    <Check className="h-3.5 w-3.5 flex-none" strokeWidth={2} />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5 flex-none" strokeWidth={2} />
-                  )}
-                  {secret}
-                </button>
-              )}
+            <button
+              type="button"
+              onClick={confirmTotp}
+              disabled={confirming || code.length !== 6}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-foreground py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {confirming && <LoaderCircle aria-hidden className="h-4 w-4 animate-spin motion-reduce:animate-none" />}
+              <span role="status">{confirming ? "Verifying…" : "Verify and continue"}</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="w-full space-y-3 text-left">
+              <h1 className="text-[28px] font-semibold leading-tight tracking-tight">
+                Bring your history with you.
+              </h1>
+              <p className="text-sm leading-relaxed text-foreground/65">
+                Import what you have already watched from a streaming service. Pick yours and
+                the steps will guide you through it.
+              </p>
+            </div>
 
-              {error && (
-                <div className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-red-400/10 px-3 py-2 text-xs font-medium text-red-400">
-                  <AlertCircle className="h-3.5 w-3.5 flex-none" strokeWidth={2} />
-                  {error}
-                </div>
-              )}
-
-              <input
-                inputMode="numeric"
-                pattern="[0-9]{6}"
-                maxLength={6}
-                autoComplete="one-time-code"
-                autoFocus
-                placeholder="000000"
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                className="w-full rounded-2xl border border-white/5 bg-surface-2 py-3.5 text-center text-2xl tracking-[0.6em] text-foreground outline-none focus:border-white/30 focus:ring-2 focus:ring-white/20"
+            <div className="w-full">
+              <ImportHistory
+                embedded
+                onImported={() => void finishSetup()}
               />
+            </div>
 
-              <button
-                type="button"
-                onClick={confirmTotp}
-                disabled={confirming || code.length !== 6}
-                className="w-full rounded-2xl bg-foreground py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
-              >
-                {confirming ? "Confirming..." : "Confirm and finish"}
-              </button>
-            </>
-          )}
-        </div>
+            {error && (
+              <p role="alert" className="text-xs text-red-400">{error}</p>
+            )}
+
+            <button
+              type="button"
+              onClick={() => void finishSetup()}
+              disabled={finishing}
+              className="inline-flex items-center gap-2 text-xs font-medium text-muted transition-colors hover:text-foreground disabled:opacity-50"
+            >
+              {finishing && <LoaderCircle aria-hidden className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />}
+              <span role="status">{finishing ? "Opening your catalog…" : "Continue without importing"}</span>
+            </button>
+
+          </>
+        )}
       </div>
-    </div>
+    </AuthLayout>
   );
 }

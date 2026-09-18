@@ -365,7 +365,7 @@ export default function FilterBar({
           </h1>
           <p className="text-xs text-muted">
             {countLabel ??
-              `${filteredTotal.toLocaleString()} of ${total.toLocaleString()} titles`}
+              `${filteredTotal.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} titles`}
           </p>
         </div>
 
@@ -527,7 +527,7 @@ export default function FilterBar({
             </h1>
             <p className="truncate text-[11px] text-muted">
               {countLabel ??
-                `${filteredTotal.toLocaleString()} of ${total.toLocaleString()} titles`}
+                `${filteredTotal.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} titles`}
             </p>
           </div>
 

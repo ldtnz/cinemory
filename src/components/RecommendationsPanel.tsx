@@ -70,7 +70,7 @@ export default function RecommendationsPanel({
       description={
         <>
           {generatedAt
-            ? `Last generated ${new Date(generatedAt).toLocaleString()}. `
+            ? `Last generated ${new Date(generatedAt).toLocaleString("en-US", { timeZone: "UTC", timeZoneName: "short" })}. `
             : "Not generated yet — the first batch appears automatically on your next visit. "}
           Claude suggests what to watch next based on your catalog and refreshes itself
           every 5 days — this button forces a fresh one right away.

@@ -40,7 +40,9 @@ export async function POST(request: NextRequest) {
 
   await prisma.settings.update({
     where: { id: 1 },
-    data: { totpSecret: secret, onboarded: true },
+    // The import choice is still part of onboarding. It is completed by
+    // /api/setup/complete after importing or explicitly skipping that step.
+    data: { totpSecret: secret, onboarded: false },
   });
 
   const response = NextResponse.json({ ok: true });

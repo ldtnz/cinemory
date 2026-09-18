@@ -215,7 +215,7 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
           {on && (
             <p className="text-[11px] text-muted">
               A connector is already set up
-              {createdAt ? `, since ${new Date(createdAt).toLocaleDateString()}` : ""}. Generating
+              {createdAt ? `, since ${new Date(createdAt).toLocaleDateString("en-US", { timeZone: "UTC" })}` : ""}. Generating
               replaces it — whatever you set up with the old one stops working, so swap it for the
               new one.
             </p>

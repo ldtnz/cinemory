@@ -16,7 +16,8 @@ function formatReleaseDate(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
     day: "numeric",
     month: "long",
     year: "numeric",

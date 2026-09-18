@@ -34,7 +34,7 @@ export default function ImportDialog({
   phase,
   outcomes,
   added,
-  enriched,
+  processed,
   error,
   onImport,
   onClose,
@@ -42,7 +42,7 @@ export default function ImportDialog({
   phase: "idle" | "importing" | "enriching";
   outcomes: FileOutcome[] | null;
   added: number;
-  enriched: number;
+  processed: number;
   error: string | null;
   onImport: (files: File[]) => void;
   onClose: () => void;
@@ -62,6 +62,18 @@ export default function ImportDialog({
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose, busy]);
+
+  useEffect(() => {
+    if (!busy) return;
+    const keepOpen = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", keepOpen);
+    return () => window.removeEventListener("beforeunload", keepOpen);
+  }, [busy]);
+
+  const progress = added > 0 ? Math.min(100, (processed / added) * 100) : 0;
 
   async function copyScript(url: string) {
     try {
@@ -89,7 +101,7 @@ export default function ImportDialog({
         className="dialog-in flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-white/10 bg-surface shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
       >
         <div className="flex items-center gap-2 border-b border-white/5 px-4 py-3">
-          {source && (
+          {source && !busy && (
             <button
               type="button"
               onClick={() => {
@@ -106,15 +118,16 @@ export default function ImportDialog({
           <h2 className="flex-1 truncate text-sm font-semibold">
             {source ? `Import from ${source.name}` : "Where are you importing from?"}
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={busy}
-            aria-label="Close"
-            className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
-          >
-            <X className="h-4 w-4" strokeWidth={1.8} />
-          </button>
+          {!busy && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+            >
+              <X className="h-4 w-4" strokeWidth={1.8} />
+            </button>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -248,9 +261,27 @@ export default function ImportDialog({
                 </div>
 
                 {phase === "enriching" && (
-                  <p className="mt-3 text-xs text-muted">
-                    Fetching posters and details from TMDB... {enriched} of {added}
-                  </p>
+                  <div className="mt-4 space-y-2" aria-live="polite">
+                    <div className="flex items-center justify-between gap-3 text-xs text-muted">
+                      <span>Fetching posters and details</span>
+                      <span className="tabular-nums">
+                        {processed.toLocaleString("en-US")} / {added.toLocaleString("en-US")}
+                      </span>
+                    </div>
+                    <div
+                      role="progressbar"
+                      aria-label="Fetching posters and details"
+                      aria-valuemin={0}
+                      aria-valuemax={added}
+                      aria-valuenow={processed}
+                      className="h-2 overflow-hidden rounded-full bg-surface-3"
+                    >
+                      <div
+                        className="h-full rounded-full bg-accent-select transition-[width] duration-500 ease-out motion-reduce:transition-none"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  </div>
                 )}
                 {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
                 {outcomes && <Outcomes outcomes={outcomes} added={added} idle={phase === "idle"} />}
@@ -297,10 +328,10 @@ function Outcomes({
             <p className="mt-0.5 text-red-400">{e.error}</p>
           ) : (
             <p className="mt-0.5 text-muted">
-              {e.read.toLocaleString()} {e.read === 1 ? "title read" : "titles read"} ·{" "}
-              {e.alreadyPresent.toLocaleString()} already present ·{" "}
+              {e.read.toLocaleString("en-US")} {e.read === 1 ? "title read" : "titles read"} ·{" "}
+              {e.alreadyPresent.toLocaleString("en-US")} already present ·{" "}
               <span className={e.added > 0 ? "text-accent-2" : undefined}>
-                {e.added.toLocaleString()} added
+                {e.added.toLocaleString("en-US")} added
               </span>
             </p>
           )}

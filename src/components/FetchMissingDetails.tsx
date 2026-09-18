@@ -74,7 +74,7 @@ export default function FetchMissingDetails({ pending }: { pending: number }) {
       title="Fetch missing details"
       description={
         <>
-          {pending.toLocaleString()} {pending === 1 ? "title has" : "titles have"} no poster, year,
+          {pending.toLocaleString("en-US")} {pending === 1 ? "title has" : "titles have"} no poster, year,
           rating or genre — usually an import that was interrupted before the details came down.
           This fetches them from TMDB, a few at a time. Titles TMDB cannot place are left for
           Missing posters below.
@@ -89,14 +89,14 @@ export default function FetchMissingDetails({ pending }: { pending: number }) {
       >
         <Sparkles className="h-4 w-4" strokeWidth={1.8} />
         {running
-          ? `Fetching… ${progress.toLocaleString()} of ${pending.toLocaleString()}`
+          ? `Fetching… ${progress.toLocaleString("en-US")} of ${pending.toLocaleString("en-US")}`
           : "Fetch the missing details"}
       </button>
 
       {done && (
         <p className="mt-3 text-xs text-muted">
-          {done.enriched.toLocaleString()} {done.enriched === 1 ? "title" : "titles"} filled in
-          {done.unmatched > 0 && `, ${done.unmatched.toLocaleString()} TMDB could not place`}.
+          {done.enriched.toLocaleString("en-US")} {done.enriched === 1 ? "title" : "titles"} filled in
+          {done.unmatched > 0 && `, ${done.unmatched.toLocaleString("en-US")} TMDB could not place`}.
         </p>
       )}
       {error && <p className="mt-3 text-xs text-red-400">{error}</p>}

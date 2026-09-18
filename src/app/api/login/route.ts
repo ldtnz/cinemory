@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   const totpSecret = settings.totpSecret;
   const sessionSecret = process.env.SESSION_SECRET;
 
-  if (!settings.onboarded || !totpSecret) {
+  if (!totpSecret) {
     return NextResponse.redirect(new URL("/", request.url), { status: 303 });
   }
   if (!sessionSecret) {

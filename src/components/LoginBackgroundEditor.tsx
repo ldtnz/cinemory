@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Check } from "lucide-react";
-import SettingsSection from "@/components/SettingsSection";
 import Select from "@/components/Select";
 import { POSTER_WALL_MINIMUM, type LoginBackground } from "@/lib/login-background";
 
@@ -48,29 +46,23 @@ export default function LoginBackgroundEditor({
   const automatic =
     postersAvailable >= POSTER_WALL_MINIMUM
       ? "which is the poster wall, on this catalog"
-      : `which is the animation until ${POSTER_WALL_MINIMUM} titles have artwork — ${postersAvailable.toLocaleString()} do so far`;
+      : `which is the animation until ${POSTER_WALL_MINIMUM} titles have artwork — ${postersAvailable.toLocaleString("en-US")} do so far`;
 
   return (
-    <SettingsSection
-      title="Sign-in screen"
-      description={`Behind the code field: your own posters drifting in columns, or an animation that needs no catalog. Automatic picks for you, ${automatic}.`}
-    >
-      <div className="flex items-center gap-3">
+    <div className="relative flex flex-wrap items-center gap-3" title={`Automatic picks for you, ${automatic}.`}>
+      <span className="text-xs text-muted">Sign-in background</span>
+      <div className="relative">
         <Select
           value={background}
           onChange={(value) => void save(value)}
           options={OPTIONS}
           ariaLabel="Sign-in screen background"
-          className="w-56"
+          feedback={saved ? "success" : error ? "error" : undefined}
+          className="w-48"
         />
-        {saved && (
-          <span className="flex items-center gap-1 text-xs text-accent-2">
-            <Check className="h-3.5 w-3.5" strokeWidth={2.4} />
-            Saved
-          </span>
-        )}
-        {error && <span className="text-xs text-red-400">Could not save that.</span>}
+        <span className="sr-only" aria-live="polite">{saved ? "Saved" : ""}</span>
+        {error && <span className="absolute right-0 top-full mt-1 whitespace-nowrap text-xs text-red-400">Could not save that.</span>}
       </div>
-    </SettingsSection>
+    </div>
   );
 }

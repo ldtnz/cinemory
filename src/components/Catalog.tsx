@@ -8,7 +8,6 @@ import type { SeasonEdit } from "@/components/EditWatchedDialog";
 import { cardElement, pixelDissolve, pixelDissolveAll } from "@/lib/pixel-dissolve";
 import AddTitleCard from "@/components/AddTitleCard";
 import DiscoverCard from "@/components/DiscoverCard";
-import ImportHistory from "@/components/ImportHistory";
 import RecommendationsCard from "@/components/RecommendationsCard";
 import RecommendationsRow from "@/components/RecommendationsRow";
 import SelectionBar from "@/components/SelectionBar";
@@ -568,26 +567,6 @@ export default function Catalog({
     [catalog, mode],
   );
 
-  if (catalog.length === 0) {
-    return (
-      <main className="mx-auto w-full max-w-lg px-3 pb-16 pt-10 sm:px-5">
-        <div className="mb-6 text-center">
-          <h1 className="text-xl font-semibold tracking-tight">Welcome to Cinemory</h1>
-          <p className="mt-1.5 text-sm text-muted">
-            Your catalog is empty. Import your Netflix or Prime Video watch history to get
-            started.
-          </p>
-        </div>
-        {/* A full reload rather than router.refresh(): this component's
-            catalog state was seeded from initialTitles once, at mount, and
-            would not otherwise pick up the server's fresh data. Fine for a
-            transition that only ever happens once, going from an empty
-            catalog to a populated one. */}
-        <ImportHistory onImported={() => window.location.reload()} />
-      </main>
-    );
-  }
-
   return (
     // Extra bottom room while the compact header is in use: the Watched /
     // To watch pill floats over the bottom of the viewport there and would
@@ -722,8 +701,8 @@ export default function Catalog({
 
       {!discoverMode && hasMore && (
         <div ref={loadMoreRef} className="mt-8 text-center text-xs text-muted">
-          Loading more... ({shownTitles.length.toLocaleString()} of{" "}
-          {titles.length.toLocaleString()})
+          Loading more... ({shownTitles.length.toLocaleString("en-US")} of{" "}
+          {titles.length.toLocaleString("en-US")})
         </div>
       )}
 

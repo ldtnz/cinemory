@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { KeyRound, LogOut } from "lucide-react";
 import SettingsSection from "@/components/SettingsSection";
 
@@ -23,7 +23,7 @@ const buttonClass =
  * a secret written without proof that someone can produce codes from it would
  * lock the catalog away for good.
  */
-export default function SignInSettings() {
+export default function SignInSettings({ backgroundPicker }: { backgroundPicker: ReactNode }) {
   const [step, setStep] = useState<"idle" | "current" | "new">("idle");
   const [code, setCode] = useState("");
   const [pending, setPending] = useState<Pending | null>(null);
@@ -106,15 +106,18 @@ export default function SignInSettings() {
       description="A six-digit code from your authenticator app is the only way in — there is no password and no email to fall back on."
     >
       {step === "idle" && (
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={buttonClass} onClick={() => setStep("current")}>
-            <KeyRound className="h-4 w-4" strokeWidth={1.8} />
-            Use a different authenticator
-          </button>
-          <button type="button" className={buttonClass} disabled={busy} onClick={() => void signOut()}>
-            <LogOut className="h-4 w-4" strokeWidth={1.8} />
-            Sign out
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex max-w-full flex-wrap gap-2">
+            <button type="button" className={buttonClass} onClick={() => setStep("current")}>
+              <KeyRound className="h-4 w-4" strokeWidth={1.8} />
+              Use a different authenticator
+            </button>
+            <button type="button" className={buttonClass} disabled={busy} onClick={() => void signOut()}>
+              <LogOut className="h-4 w-4" strokeWidth={1.8} />
+              Sign out
+            </button>
+          </div>
+          <div className="max-w-full sm:ml-auto">{backgroundPicker}</div>
         </div>
       )}
 
