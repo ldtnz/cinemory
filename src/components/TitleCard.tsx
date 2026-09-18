@@ -78,6 +78,7 @@ function TitleCard({
   selected = false,
   selectionActive = false,
   onToggleSelect,
+  watchProviders,
 }: {
   title: CatalogTitle;
   /** true for the first cards above the fold, avoids the Next/Image LCP warning */
@@ -105,6 +106,10 @@ function TitleCard({
    *  rather than opening anything: shift is only needed to start one. */
   selectionActive?: boolean;
   onToggleSelect?: (title: CatalogTitle) => void;
+  /** Where this one is streaming right now, for watchlist entries — see
+   *  src/lib/use-watch-providers.ts. Undefined while the answer is on its
+   *  way, and empty when there is nowhere. */
+  watchProviders?: string[];
 }) {
   const [loaded, setLoaded] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -436,12 +441,19 @@ function TitleCard({
               </span>
             ) : null}
           </div>
-          {/* Watchlist entries have no platform yet — nothing to show. */}
-          {platformLabel && (
+          {/* A watched title says where it was watched; one still to watch
+              says where it can be, which is the only useful thing to know
+              about it tonight. */}
+          {platformLabel ? (
             <p className={`mt-0.5 text-[10px] font-semibold ${platformColor}`}>
               {platformLabel}
             </p>
-          )}
+          ) : watchProviders && watchProviders.length > 0 ? (
+            <p className="mt-0.5 line-clamp-1 text-[10px] font-semibold text-accent-2">
+              {watchProviders.slice(0, 2).join(" · ")}
+              {watchProviders.length > 2 ? ` +${watchProviders.length - 2}` : ""}
+            </p>
+          ) : null}
           {seasonsLabel && (
             <p className="mt-0.5 text-[10px] text-neutral-400">{seasonsLabel}</p>
           )}

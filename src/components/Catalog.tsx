@@ -17,6 +17,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import { matchesSearchWords, normalizeTitle, searchWords } from "@/lib/title-key";
+import { useWatchProviders } from "@/lib/use-watch-providers";
 import { send, writeFailed } from "@/lib/offline";
 import { splitGenres } from "@/lib/genres";
 import { useTmdbSearch } from "@/lib/use-tmdb-search";
@@ -510,6 +511,9 @@ export default function Catalog({
   const [page, setPage] = useState({ key: resultKey, count: PAGE_SIZE });
   const shownCount = page.key === resultKey ? page.count : PAGE_SIZE;
   const shownTitles = titles.slice(0, shownCount);
+  // Only in the "to watch" half: for something already watched the platform
+  // is recorded, and where it happens to be streaming today is noise.
+  const providers = useWatchProviders(mode === "watchlist" ? shownTitles : null);
   // Resolved against the visible results, so changing a filter narrows the
   // selection to what is still on screen rather than acting on rows the
   // reader can no longer see.
@@ -710,6 +714,7 @@ export default function Catalog({
               selected={selectedIds.has(t.id)}
               selectionActive={selectedTitles.length > 0}
               onToggleSelect={toggleSelect}
+              watchProviders={t.tmdbId ? providers[t.tmdbId] : undefined}
             />
           ))}
         </div>

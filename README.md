@@ -57,8 +57,9 @@ code it produces. There is no password to choose and no account to create.
 - **Add a title** — search TMDB as you type and add anything, pick the platform
   you watched it on.
 - **Watchlist** — a Watched / To watch switch; in "To watch" the search browses
-  all of TMDB (hiding what you have already seen) and a click adds it. Right-
-  click a waiting title and "Mark as watched" moves it over.
+  all of TMDB (hiding what you have already seen) and a click adds it, and each
+  waiting title says where it is streaming right now in your region. Right-
+  click one and "Mark as watched" moves it over.
 - **Statistics** — how much you watched and where, your top genres, titles per
   year, which decades they come from and your best-rated titles.
 - **TMDB enrichment** — posters, backdrops, overviews, ratings, genres, years,

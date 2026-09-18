@@ -27,7 +27,7 @@ function withKey(url: URL): URL {
   return url;
 }
 
-type RisultatoTmdbGrezzo = {
+type RawTmdbResult = {
   id: number;
   poster_path: string | null;
   backdrop_path: string | null;
@@ -89,7 +89,7 @@ async function genreMaps(language: string) {
 }
 
 function normalize(
-  r: RisultatoTmdbGrezzo,
+  r: RawTmdbResult,
   mediaType: "Movie" | "Series",
   mappaGeneri: Map<number, string>,
 ): TmdbCandidate {
@@ -152,8 +152,8 @@ export async function searchTmdb(query: string, perType = 6): Promise<TmdbCandid
   ]);
 
   const [dataFilm, dataSerie] = await Promise.all([
-    risFilm.ok ? (risFilm.json() as Promise<{ results?: RisultatoTmdbGrezzo[] }>) : Promise.resolve({ results: [] }),
-    risSerie.ok ? (risSerie.json() as Promise<{ results?: RisultatoTmdbGrezzo[] }>) : Promise.resolve({ results: [] }),
+    risFilm.ok ? (risFilm.json() as Promise<{ results?: RawTmdbResult[] }>) : Promise.resolve({ results: [] }),
+    risSerie.ok ? (risSerie.json() as Promise<{ results?: RawTmdbResult[] }>) : Promise.resolve({ results: [] }),
   ]);
 
   const movieCandidates = (dataFilm.results ?? [])
@@ -201,7 +201,7 @@ async function firstResult(
 
     const res = await fetch(url, { headers: authHeaders() });
     if (!res.ok) continue;
-    const data = (await res.json()) as { results?: RisultatoTmdbGrezzo[] };
+    const data = (await res.json()) as { results?: RawTmdbResult[] };
     const primo = data.results?.[0];
     if (primo) {
       return normalize(primo, endpoint === "movie" ? "Movie" : "Series", mappaGeneri);
@@ -312,6 +312,51 @@ export async function lookupTotalSeasons(tmdbId: number): Promise<SeasonLookup> 
 export async function totalSeasonsFromTmdb(tmdbId: number): Promise<number | null> {
   const r = await lookupTotalSeasons(tmdbId);
   return r.status === "ok" ? r.totalSeasons : null;
+}
+
+/**
+ * Where a title can be watched right now, in the region set in Settings.
+ *
+ * Only what a subscription or an advert pays for: TMDB also lists rentals and
+ * purchases, and "you could buy it for €13.99" is not an answer to "what can I
+ * watch tonight". The names are TMDB's own ("Amazon Prime Video", "Disney
+ * Plus"), which is what the watchlist shows.
+ *
+ * TMDB updates this from JustWatch, so it is a snapshot rather than a promise
+ * — hence the caller caching it for hours rather than storing it on the row.
+ */
+export async function fetchWatchProviders(
+  tmdbId: number,
+  mediaType: string,
+): Promise<string[]> {
+  if (!isTmdbConfigured() || !(tmdbId > 0)) return [];
+
+  const region = (await getSettings()).region;
+  const path = mediaType === "Series" ? "tv" : "movie";
+  const url = withKey(new URL(`https://api.themoviedb.org/3/${path}/${tmdbId}/watch/providers`));
+
+  const res = await fetch(url, { headers: authHeaders() }).catch(() => null);
+  if (!res?.ok) return [];
+
+  const data = (await res.json().catch(() => null)) as {
+    results?: Record<
+      string,
+      {
+        flatrate?: { provider_name: string }[];
+        free?: { provider_name: string }[];
+        ads?: { provider_name: string }[];
+      }
+    >;
+  } | null;
+
+  const here = data?.results?.[region];
+  if (!here) return [];
+
+  const names = [...(here.flatrate ?? []), ...(here.free ?? []), ...(here.ads ?? [])]
+    .map((p) => p.provider_name)
+    .filter(Boolean);
+  // A title can be on half a dozen services; the card has room for two.
+  return [...new Set(names)];
 }
 
 type TmdbVideo = { key: string; site: string; type: string; official?: boolean };
