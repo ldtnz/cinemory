@@ -119,3 +119,10 @@ ALTER TABLE "Settings" ADD COLUMN "seasonCheckLockedAt" DATETIME;
 -- Null (the default for existing rows) leaves the endpoint switched off.
 ALTER TABLE "Settings" ADD COLUMN "mcpTokenHash" TEXT;
 ALTER TABLE "Settings" ADD COLUMN "mcpTokenCreatedAt" DATETIME;
+
+-- ----- 7_login_background -----
+
+-- What the sign-in screen draws behind its card: "auto" (the poster wall once
+-- there are enough posters for it, the terminal animation before that),
+-- "posters" or "terminal".
+ALTER TABLE "Settings" ADD COLUMN "loginBackground" TEXT NOT NULL DEFAULT 'auto';

@@ -311,3 +311,42 @@ html.landscape-ok .landscape-notice {
 .title-card[data-dissolving="true"] {
   visibility: hidden;
 }
+
+/* The sign-in screen's poster wall: columns of real artwork drifting in
+   opposite directions, one copy of each column stacked twice so the loop has
+   nowhere to jump — the translation is exactly half the stack, which is one
+   whole copy. The spacing is padding on each poster rather than a flex gap
+   for the same reason: a gap between the two copies would not be included in
+   that half and the seam would show once a minute. */
+@keyframes login-wall-up {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, -50%, 0);
+  }
+}
+
+@keyframes login-wall-down {
+  from {
+    transform: translate3d(0, -50%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.login-wall-column {
+  animation: login-wall-up linear infinite;
+  will-change: transform;
+}
+
+.login-wall-column[data-direction="down"] {
+  animation-name: login-wall-down;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-wall-column {
+    animation: none;
+  }
+}

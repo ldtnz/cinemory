@@ -4,7 +4,8 @@ import { CATALOG_TITLE_SELECT } from "@/lib/catalog-title";
 import LoginGate from "@/components/LoginGate";
 import SetupWizard from "@/components/SetupWizard";
 import { isAuthenticated } from "@/lib/auth";
-import { needsSetup } from "@/lib/settings";
+import { getSettings, needsSetup } from "@/lib/settings";
+import { resolveLoginBackground } from "@/lib/login-background";
 import {
   getStoredRecommendations,
   isAnthropicConfigured,
@@ -42,15 +43,23 @@ export default async function Home({
   }
 
   if (!(await isAuthenticated())) {
+    // Enough to fill seven drifting columns twice over on a tall screen, and
+    // the most recent ones, so the wall is the catalog as it stands rather
+    // than whatever was imported first.
     const preview = await prisma.title.findMany({
       where: { posterUrl: { not: null } },
       select: { posterUrl: true },
       orderBy: { lastWatchedAt: "desc" },
-      take: 60,
+      take: 84,
     });
+    // Counted rather than taken from the page above: 84 is a ceiling, and
+    // "are there enough posters for a wall" is a question about the catalog.
+    const withPosters = await prisma.title.count({ where: { posterUrl: { not: null } } });
+    const { loginBackground } = await getSettings();
     return (
       <LoginGate
         posterUrl={preview.map((t) => t.posterUrl as string)}
+        background={resolveLoginBackground(loginBackground, withPosters)}
         error={params.error}
       />
     );

@@ -11,6 +11,9 @@ export type AppSettings = {
   region: string;
   totpSecret: string | null;
   onboarded: boolean;
+  /** What the sign-in screen draws behind its card — see
+   *  src/lib/login-background.ts. */
+  loginBackground: string;
   /** Set once the MCP connector is switched on — see src/lib/mcp-token.ts. */
   mcpTokenHash: string | null;
   mcpTokenCreatedAt: Date | null;
@@ -34,6 +37,15 @@ export async function getSettings(): Promise<AppSettings> {
 /** True until the setup wizard has been completed once. */
 export async function needsSetup(): Promise<boolean> {
   return !(await getSettings()).onboarded;
+}
+
+/** The sign-in screen's background, validated by the route that calls this. */
+export async function saveLoginBackground(loginBackground: string): Promise<void> {
+  await prisma.settings.upsert({
+    where: { id: SETTINGS_ID },
+    update: { loginBackground },
+    create: { id: SETTINGS_ID, loginBackground },
+  });
 }
 
 export async function savePreferences(language: string, region: string): Promise<void> {

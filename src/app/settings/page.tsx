@@ -7,6 +7,7 @@ import { getSettings, needsSetup } from "@/lib/settings";
 import { isTmdbConfigured } from "@/lib/tmdb";
 import { mergeSummary } from "@/lib/seasons";
 import { MISSING_POSTER } from "@/lib/posters";
+import { isLoginBackground } from "@/lib/login-background";
 import {
   isAnthropicConfigured,
   getStoredRecommendations,
@@ -23,6 +24,7 @@ import EditModeToggle from "@/components/EditModeToggle";
 import SignInSettings from "@/components/SignInSettings";
 import SeriesSeasons from "@/components/SeriesSeasons";
 import PreferencesEditor from "@/components/PreferencesEditor";
+import LoginBackgroundEditor from "@/components/LoginBackgroundEditor";
 import RecommendationsPanel from "@/components/RecommendationsPanel";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +46,8 @@ export default async function SettingsPage() {
   // Titles no TMDB match was ever found for: what an interrupted import
   // leaves behind, and what /api/import/enrich works through.
   const withoutDetails = await prisma.title.count({ where: { tmdbId: null } });
+  // What the sign-in screen has to work with, for the picker below.
+  const withPosters = await prisma.title.count({ where: { posterUrl: { not: null } } });
   const storedRecommendations = await getStoredRecommendations();
 
   const missing = await prisma.title.findMany({
@@ -77,6 +81,11 @@ export default async function SettingsPage() {
           each of them — which is how they had come to differ by section. */}
       <div className="space-y-4">
         <PreferencesEditor initialLanguage={settings.language} initialRegion={settings.region} />
+
+        <LoginBackgroundEditor
+          initial={isLoginBackground(settings.loginBackground) ? settings.loginBackground : "auto"}
+          postersAvailable={withPosters}
+        />
 
         {!isTmdbConfigured() ? (
           <p className="rounded-2xl bg-surface p-4 text-sm text-red-400">

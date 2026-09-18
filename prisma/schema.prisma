@@ -69,6 +69,10 @@ model Settings {
   region     String   @default("US")
   totpSecret String?
   onboarded  Boolean  @default(false)
+  // What the sign-in screen shows behind its card: "auto" picks the poster
+  // wall once there are enough posters to fill it and the terminal animation
+  // before that, "posters" and "terminal" force one of the two.
+  loginBackground String @default("auto")
   // SHA-256 of the token that gates the MCP endpoint (src/lib/mcp-token.ts),
   // never the token itself — same reasoning as any password digest: a database
   // dump should not hand over a working credential. Null means the endpoint is

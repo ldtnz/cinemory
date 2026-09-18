@@ -87,9 +87,12 @@ code it produces. There is no password to choose and no account to create.
 - **Backup and restore** — the whole catalog downloads as JSON, and that same
   file goes back in: restoring only adds what is missing, so it rebuilds an
   empty instance and merges into a live one without overwriting anything.
-- **Single-user auth** — a 6-digit TOTP code from your authenticator app; no
-  passwords, no accounts, no third-party sign-in. Settings can move the
-  sign-in to another authenticator, and sign you out.
+- **Single-user auth** — a 6-digit TOTP code from your authenticator app, one
+  box per digit, over your own posters drifting past in columns — the catalog
+  is recognisable before you are in, and does nothing until you are. A catalog
+  too new to fill those columns gets an animation instead, and Settings can
+  force either. No passwords, no accounts, no third-party sign-in; Settings
+  can also move the sign-in to another authenticator, and sign you out.
 - **Setup wizard** — the first time you open the app it asks for a content
   language/region and walks you through scanning a QR code into your
   authenticator app. No secrets to generate or configure by hand.

@@ -69,6 +69,11 @@ ordinary issue.
   the answer if you think a cookie leaked.
 - **The catalog is not encrypted at rest.** It is a list of films someone
   watched, held in their own database.
+- **The sign-in screen shows posters from the catalog**, drifting behind the
+  card, so anyone who opens the address sees what kind of thing is in there.
+  Artwork only — no titles, no dates, no counts, and nothing that can be acted
+  on without a code. Settings → Sign-in screen replaces it with an animation
+  that reveals nothing at all.
 - **Self-hosted instances exposed over plain HTTP** are insecure by
   construction: the session cookie is marked secure and a PWA will not install.
   Put it behind HTTPS — see [docs/docker.md](docs/docker.md).
