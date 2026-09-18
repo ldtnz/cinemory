@@ -208,6 +208,12 @@ export default function Select({
           <div
             ref={listRef}
             id={`${id}-list`}
+            /* The panel lives in the body, so a popover that closes on a
+               mousedown outside itself (the desktop filter dropdown) would
+               close on the way to an option and unmount the list before the
+               click landed — the option looked unclickable. Such a handler
+               checks for this attribute instead of for containment. */
+            data-select-panel="true"
             role="listbox"
             aria-label={ariaLabel}
             aria-activedescendant={`${id}-opt-${active}`}

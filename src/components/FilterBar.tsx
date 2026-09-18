@@ -223,7 +223,12 @@ export default function FilterBar({
   useEffect(() => {
     if (!desktopFilterOpen) return;
     function onPointerDown(e: MouseEvent) {
-      if (!desktopFilterRef.current?.contains(e.target as Node)) setDesktopFilterOpen(false);
+      const target = e.target as Node;
+      if (desktopFilterRef.current?.contains(target)) return;
+      // The genre and sort lists are portalled to the body, so they are
+      // outside this panel in the DOM while being part of it on screen.
+      if ((target as Element).closest?.("[data-select-panel]")) return;
+      setDesktopFilterOpen(false);
     }
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") setDesktopFilterOpen(false);
