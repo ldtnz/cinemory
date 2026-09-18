@@ -110,7 +110,3 @@ export const IMPORT_SOURCES: ImportSource[] = [
     script: { url: "/disney-watchlist.js", label: "disney-watchlist.js" },
   },
 ];
-
-export function importSource(id: string): ImportSource | undefined {
-  return IMPORT_SOURCES.find((s) => s.id === id);
-}

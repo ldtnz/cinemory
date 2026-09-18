@@ -139,15 +139,6 @@ export async function dismissRecommendation(rec: {
   });
 }
 
-/** The full history of past generations, most recent first. */
-export async function getRecommendationHistory(): Promise<RecommendationsState[]> {
-  const rows = await prisma.recommendation.findMany({ orderBy: { generatedAt: "desc" } });
-  return rows.map((row) => ({
-    titles: JSON.parse(row.titles) as EnrichedRecommendation[],
-    generatedAt: row.generatedAt.toISOString(),
-  }));
-}
-
 export function nextRefreshAt(generatedAt: string): Date {
   return new Date(new Date(generatedAt).getTime() + REFRESH_INTERVAL_DAYS * 24 * 60 * 60 * 1000);
 }

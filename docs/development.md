@@ -93,7 +93,7 @@ src/app/                    routes: catalog, stats, settings, API
 src/app/api/mcp/            the MCP endpoint an assistant connects to
 src/components/             the UI
 src/lib/                    parsing, TMDB, auth, stats, recommendations
-scripts/                    one-off and maintenance scripts
+scripts/                    maintenance and import scripts
 tests/                      Node test runner, no framework
 ```
 
