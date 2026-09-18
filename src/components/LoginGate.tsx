@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { KeyRound, AlertCircle } from "lucide-react";
+import CodeInput from "@/components/CodeInput";
 
 /**
  * Sign-in screen, shown when there is no valid session. Behind it, a grid of
@@ -43,7 +44,10 @@ export default function LoginGate({
             <KeyRound className="h-5 w-5" strokeWidth={1.8} />
           </div>
 
-          <h1 className="text-xl font-semibold tracking-tight">Cinemory</h1>
+          <div className="space-y-1">
+            <h1 className="text-xl font-semibold tracking-tight">Cinemory</h1>
+            <p className="text-xs text-muted">The 6-digit code from your authenticator app</p>
+          </div>
 
           {errorMessage && (
             <div className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-red-400/10 px-3 py-2 text-xs font-medium text-red-400">
@@ -52,16 +56,7 @@ export default function LoginGate({
             </div>
           )}
 
-          <input
-            name="code"
-            inputMode="numeric"
-            pattern="[0-9]{6}"
-            maxLength={6}
-            autoComplete="one-time-code"
-            autoFocus
-            required
-            className="w-full rounded-2xl border border-white/5 bg-surface-2 py-3.5 text-center text-2xl tracking-[0.6em] text-foreground outline-none focus:border-white/30 focus:ring-2 focus:ring-white/20"
-          />
+          <CodeInput autoFocus />
 
           <button
             type="submit"
