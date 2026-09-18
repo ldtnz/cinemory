@@ -323,7 +323,7 @@ export default function FilterBar({
   return (
     <div className="sticky top-0 z-10 -mx-3 mb-[1.05rem] space-y-3 bg-background/95 px-3 pb-[0.7rem] pt-[calc(0.7rem+env(safe-area-inset-top))] backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-5 sm:px-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="hidden sm:block">
+        <div className="hidden lg:block">
           <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
             <Image
               src="/logo.png"
@@ -341,8 +341,11 @@ export default function FilterBar({
           </p>
         </div>
 
-        {/* Desktop: tutto in row */}
-        <div className="hidden sm:flex sm:flex-col sm:gap-3 lg:flex-row lg:items-center">
+        {/* The desktop header, which only exists when the whole of it fits on one
+            row. Below that the compact row below takes over — a half-desktop
+            header that wraps onto two lines reads as broken rather than as
+            adapted. */}
+        <div className="hidden lg:flex lg:flex-row lg:items-center">
           <div className="flex flex-wrap items-center gap-3">
             <WatchModeSwitch
               mode={mode}
@@ -472,7 +475,7 @@ export default function FilterBar({
         {/* Mobile: one compact row; the search button expands into a text
             field, hiding the title and count; filters and sorting live in a
             modal */}
-        <div ref={mobileRowRef} className="relative flex h-9 items-center gap-2 sm:hidden">
+        <div ref={mobileRowRef} className="relative flex h-9 items-center gap-2 lg:hidden">
           {/* Title + count: shrinks and fades when search opens.
               Width animated in pixels (measured at runtime) rather than with
               flex-grow/flex-basis, which snaps instead of sliding on some
@@ -520,7 +523,7 @@ export default function FilterBar({
                 onChange={(e) => onQChange(e.target.value)}
                 placeholder="Search for a title..."
                 tabIndex={searchExpanded ? 0 : -1}
-                className="h-9 w-full rounded-xl bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted sm:text-sm [&::-webkit-search-cancel-button]:appearance-none"
+                className="h-9 w-full rounded-xl bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted [&::-webkit-search-cancel-button]:appearance-none"
               />
               {q && (
                 <button
@@ -600,7 +603,7 @@ export default function FilterBar({
           the modal below — the sticky header's backdrop-blur would otherwise
           be the containing block for anything "fixed" inside it. */}
       {mounted && createPortal(
-        <div className="fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex justify-center px-3 sm:hidden">
+        <div className="fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex justify-center px-3 lg:hidden">
           <WatchModeSwitch
             mode={mode}
             onModeChange={onModeChange}
@@ -614,7 +617,7 @@ export default function FilterBar({
       )}
 
       {filtersOpen && mounted && createPortal(
-        <div className="overlay-in fixed inset-0 z-50 flex items-end justify-center bg-background/70 backdrop-blur-sm sm:hidden">
+        <div className="overlay-in fixed inset-0 z-50 flex items-end justify-center bg-background/70 backdrop-blur-sm lg:hidden">
           <div
             role="dialog"
             aria-modal="true"

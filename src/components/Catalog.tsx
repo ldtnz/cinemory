@@ -586,9 +586,11 @@ export default function Catalog({
   }
 
   return (
-    // Extra bottom room on mobile: the Watched / To watch pill floats over
-    // the bottom of the viewport there and would otherwise cover the last row.
-    <main className="w-full px-3 pb-28 pt-6 sm:px-5 sm:pb-16">
+    // Extra bottom room while the compact header is in use: the Watched /
+    // To watch pill floats over the bottom of the viewport there and would
+    // otherwise cover the last row. Same breakpoint as the pill itself, in
+    // FilterBar — they have to change together.
+    <main className="w-full px-3 pb-28 pt-6 sm:px-5 lg:pb-16">
       <FilterBar
         total={modeTotal}
         filteredTotal={titles.length}
