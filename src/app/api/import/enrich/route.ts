@@ -6,8 +6,8 @@ import { findBestTmdbMatch, isTmdbConfigured } from "@/lib/tmdb";
 export const maxDuration = 60;
 
 // Titles per call: kept low because each one can cost up to four TMDB
-// requests. The client keeps calling until it is done,
-// mostrando l'avanzamento.
+// requests. The client keeps calling until it is done, showing the progress
+// as it goes.
 const BATCH_SIZE = 15;
 
 /**

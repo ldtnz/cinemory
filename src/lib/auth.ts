@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 
 export const SESSION_COOKIE_NAME = "cinemory_session";
 export const ATTEMPTS_COOKIE_NAME = "cinemory_attempts";
-export const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 30; // 30 giorni
+export const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 30; // 30 days
 export const LOCKOUT_WINDOW_SECONDS = 60;
 export const MAX_ATTEMPTS = 5;
 
