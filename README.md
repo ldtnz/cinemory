@@ -45,8 +45,13 @@ code it produces. There is no password to choose and no account to create.
 ## Features
 
 - **Catalog** — one grid for every title, filtered by platform and by
-  movie/series, searchable, sortable by date watched, title, TMDB rating or
-  release year.
+  movie/series, sortable by date watched, title, TMDB rating or release year.
+  The search matches every word you type, in any order and accents or not, so
+  "wars empire" finds *The Empire Strikes Back*.
+- **Keyboard and screen readers** — "/" jumps to the search, Tab walks the
+  grid, Enter opens a title's actions and Shift+Enter picks titles out for a
+  batch. Dialogs keep the keyboard inside them and hand it back where it came
+  from.
 - **History import** — a dialog per service: Netflix, Prime Video, IMDb (with
   your ratings), Letterboxd (diary, ratings and watchlist) and a Disney+
   watchlist, each with what to click to get the file. Only titles that are not
@@ -76,7 +81,9 @@ code it produces. There is no password to choose and no account to create.
   credential that may. Off until you switch it on, and revocable in a click.
   See [docs/mcp.md](docs/mcp.md).
 - **Maintenance** — a settings page for importing, merging series split across
-  rows, fixing missing posters, and an edit mode for deleting titles.
+  rows, fixing missing posters, and an edit mode for deleting titles. An import
+  that was cut short — a closed tab, a lost connection — is finished from there
+  too, without importing anything again.
 - **Backup and restore** — the whole catalog downloads as JSON, and that same
   file goes back in: restoring only adds what is missing, so it rebuilds an
   empty instance and merges into a live one without overwriting anything.
@@ -112,9 +119,9 @@ decided by whether `TURSO_DATABASE_URL` is set.
 ## Getting your data in
 
 Open **Settings** → **Import watch history** → **Import from a service** and
-pick where you are coming from — Netflix, Prime Video, IMDb or a Disney+
-watchlist. The dialog shows how to get that service's export, what the file
-looks like, and whether it lands in your watched titles or in "To watch".
+pick where you are coming from — Netflix, Prime Video, IMDb, Letterboxd or a
+Disney+ watchlist. The dialog shows how to get that service's export, what the
+file looks like, and whether it lands in your watched titles or in "To watch".
 
 Only titles that are not already in the catalog are added, so importing the
 same file twice changes nothing, and re-importing after every new export is the
@@ -123,7 +130,9 @@ after.
 
 Titles TMDB cannot match — streaming exports write names like
 `The Office: Season 3` — land in **Settings → Missing posters**, where you can
-search for the right artwork by hand or tell the app to stop asking.
+search for the right artwork by hand or tell the app to stop asking. If the
+fetch itself was interrupted, **Settings → Fetch missing details** picks up
+every title that never got one.
 
 There are command-line paths too, including an IMDb importer that matches on
 the exact IMDb ID rather than by name: see
