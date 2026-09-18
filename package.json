@@ -12,8 +12,9 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:enrich": "tsx scripts/enrich-tmdb.ts",
     "db:sync": "tsx scripts/sync-turso.ts",
-    "postinstall": "prisma generate",
-    "db:migrate-turso": "tsx scripts/migrate-turso.ts"
+    "db:migrate-turso": "tsx scripts/migrate-turso.ts",
+    "db:sql": "tsx scripts/schema-sql.ts",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -24,8 +24,7 @@ Prisma + SQLite / [Turso](https://turso.tech) · Serwist (service worker).
 
 Sign-in is set up on first run: the app generates its own secret, shows a QR
 code to scan into an authenticator app, and stores it once you type back the
-code it produces. The values to fill in before that are in
-[Getting the credentials](#getting-the-credentials) below.
+code it produces. There is no password to choose and no account to create.
 
 <p align="center">
   <img src="docs/screenshots/catalog.jpg" width="88%" alt="Catalog grid with posters, filters and search">
@@ -39,6 +38,8 @@ code it produces. The values to fill in before that are in
   <img src="docs/screenshots/stats.jpg" width="24%" alt="Statistics: totals, movies against series, where you watched, top genres">
   <img src="docs/screenshots/settings.jpg" width="24%" alt="Settings: import, missing posters, series seasons, AI recommendations, export">
 </p>
+
+---
 
 ---
 
@@ -72,7 +73,7 @@ code it produces. The values to fill in before that are in
   read this catalog during an ordinary chat: what you have watched, what is
   waiting, and the numbers behind it — and add to it, if you hand out a
   credential that may. Off until you switch it on, and revocable in a click.
-  See [Connecting an assistant over MCP](#connecting-an-assistant-over-mcp).
+  See [docs/mcp.md](docs/mcp.md).
 - **Maintenance** — a settings page for importing, merging series split across
   rows, fixing missing posters, exporting the whole catalog as JSON, and an
   edit mode for deleting titles.
@@ -82,309 +83,50 @@ code it produces. The values to fill in before that are in
   language/region and walks you through scanning a QR code into your
   authenticator app. No secrets to generate or configure by hand.
 
-## Choose how to run it
-
-|  | **Self-hosted** | **Serverless (Vercel & co.)** |
-|---|---|---|
-| Database | SQLite file on a volume | Turso (hosted libSQL) |
-| Cost | your own machine | free tiers are enough |
-| Setup | `docker compose up` | connect the repo, set env vars |
-| Best when | you have a NAS, VPS or home server | you want a URL and no server |
-
-Both run the exact same code — only the database differs, and that is decided
-by whether `TURSO_DATABASE_URL` is set.
-
 ---
 
-## Option A — Self-hosted with Docker
+## Run your own
 
-```bash
-git clone https://github.com/ldtnz/cinemory.git
-cd cinemory
-cp .env.example .env      # fill in SESSION_SECRET, TMDB_ACCESS_TOKEN
-docker compose up -d --build
-```
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fldtnz%2Fcinemory&project-name=cinemory&repository-name=cinemory&env=SESSION_SECRET,TMDB_ACCESS_TOKEN,TURSO_DATABASE_URL,TURSO_AUTH_TOKEN&envDescription=Four%20values%2C%20all%20free%20to%20obtain%20-%20the%20guide%20walks%20through%20each&envLink=https%3A%2F%2Fgithub.com%2Fldtnz%2Fcinemory%2Fblob%2Fmain%2Fdocs%2Fenvironment.md)
 
-The app is on http://localhost:3000. The database is a SQLite file on the
-`cinemory-data` volume, and the container applies the migrations on every
-start, so a fresh volume just works. The first request opens the setup
-wizard — pick a content language/region, then scan the QR code to finish.
+The button needs a database to point at, so read
+**[docs/deploy-vercel.md](docs/deploy-vercel.md)** first — it walks through the
+whole thing from nothing, without a terminal, in about fifteen minutes.
 
-To update:
+| Guide | For |
+|---|---|
+| [**Vercel + Turso**](docs/deploy-vercel.md) | a URL on your phone, no server of your own, free tiers throughout |
+| [**Docker**](docs/docker.md) | a NAS, a VPS or a home server — SQLite on a volume, nothing external |
+| [**Local development**](docs/development.md) | working on the code |
+| [Environment variables](docs/environment.md) | what each value is and where to get it |
+| [MCP connector](docs/mcp.md) | letting an AI assistant read the catalog in a chat |
 
-```bash
-git pull
-docker compose up -d --build
-```
-
-## Option B — Self-hosted with plain Node
-
-Node 22 or newer.
-
-```bash
-git clone https://github.com/ldtnz/cinemory.git
-cd cinemory
-npm install
-cp .env.example .env      # fill in SESSION_SECRET, TMDB_ACCESS_TOKEN
-
-npx prisma migrate deploy # creates prisma/dev.db with the schema
-npm run build
-npm start                 # http://localhost:3000
-```
-
-For development use `npm run dev` instead of `build` + `start`.
-
-## Option C — Vercel + Turso
-
-1. **Create the database.** Sign up at [turso.tech](https://turso.tech)
-   (the free tier is plenty), then:
-
-   ```bash
-   turso db create cinemory
-   turso db show cinemory --url        # -> TURSO_DATABASE_URL
-   turso db tokens create cinemory     # -> TURSO_AUTH_TOKEN
-   ```
-
-2. **Create the schema.** With both values in your local `.env`:
-
-   ```bash
-   npm install
-   npm run db:migrate-turso
-   ```
-
-3. **Deploy.** Import the repository on [vercel.com](https://vercel.com) and
-   add these environment variables to the project: `SESSION_SECRET`,
-   `TMDB_ACCESS_TOKEN`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`. Deploy, then
-   open the app: the first visit opens the setup wizard, which stores its
-   own content language/region and TOTP secret in that Turso database.
-
-Whenever the schema changes, run `npm run db:migrate-turso` again before
-deploying — `prisma migrate deploy` talks to a SQLite file, not to Turso.
-
----
-
-## Connecting an assistant over MCP
-
-Settings -> **MCP connector** turns on an MCP endpoint and hands you its address
-and a token. MCP is an open standard, so anything that speaks it can connect;
-claude.ai is the worked example here because it is the one most people will be
-setting up. Add it there under Customize -> Connectors -> Add custom connector,
-and the assistant can answer "have I seen this?", "what's on my list?" and "what
-did I watch last year?" from your own catalog instead of guessing.
-
-Four read tools — `search_catalog`, `catalog_stats`, `watchlist` and
-`recently_watched` — and, if you generate the wider credential instead, three
-more: `add_to_watchlist`, `mark_as_watched` and `edit_watched`.
-
-**Writing is a separate credential, not a setting.** What a connector may do is
-decided when you hand it out, and going back to read-only is generating the
-read-only one again. The wider one adds a title, moves one into the watched
-half, and corrects where or when something was watched — nothing there deletes,
-and nothing moves a title back out of the catalog, so the worst it can do is
-make the catalog wrong in ways you can see and fix in the app.
-
-No OAuth, and on purpose. What OAuth would buy here is expiry and rotation; the
-cost is an authorization server — the kind of code where mistakes are expensive
-— guarding a personal film catalog that has a JSON export as a backup. The
-scope instead rides in the token, in a prefix that is part of what was hashed:
-editing `ro_` to `rw_` does not widen anything, it stops the token matching at
-all.
-
-**Two ways to carry the same token.** A header against the plain `/api/mcp`
-address is the one to prefer — it is what the MCP spec expects, and it keeps the
-secret out of browser history, referrers and anything that logs a path. Either
-`Authorization: Bearer <token>` or `X-API-Key: <token>` is accepted, because
-connector forms disagree about where an API key belongs. A client with nowhere
-to put a header can use the URL with the token in it instead. The settings page
-hands out both forms, and they are the same credential, so revoking covers both
-at once.
-
-**However it travels, the token is the credential** — anyone holding it can read
-your catalog. A few things follow, and they are the reason the feature is
-shaped this way:
-
-- It is shown **once**, when you generate it — only a SHA-256 digest is stored,
-  so a database dump does not yield a working credential and neither does this
-  page on a later visit.
-- Generating a new one **immediately stops the old one working**. That is how a
-  leak is revoked.
-- Read-only means the worst case is disclosure, not damage.
-- The two addresses refuse differently, on purpose. The URL-with-the-token form
-  *is* the credential, so a wrong one gets the same plain 404 as a path that was
-  never routed and a prober learns nothing. The plain address has nothing to
-  hide — it is made to be pasted into a connector's settings — and answers `401`
-  with a `WWW-Authenticate` challenge, so a client can say "your token is
-  missing" instead of "there is no server here".
-
-A hosted assistant fetches the endpoint from its own servers, not from your
-browser, so it has to be reachable from the public internet — fine on Vercel,
-and fine on a self-hosted instance that is exposed. A purely local instance can
-only be reached by a client running on the same machine.
-
-It is off until you turn it on, and "Switch off" clears it entirely.
-
-## Environment variables
-
-Every variable is documented in [`.env.example`](.env.example). In short:
-
-| Variable | Required | What it is |
-|---|---|---|
-| `SESSION_SECRET` | yes | random string used to sign the session cookie |
-| `TMDB_ACCESS_TOKEN` | yes* | TMDB v4 "API Read Access Token" |
-| `TMDB_API_KEY` | yes* | TMDB v3 "API Key" — the alternative to the token |
-| `ANTHROPIC_API_KEY` | no | enables the AI "what to watch next" recommendations |
-| `DATABASE_URL` | self-hosted | path to the SQLite file |
-| `TURSO_DATABASE_URL` | serverless | libSQL endpoint; when set, it wins over `DATABASE_URL` |
-| `TURSO_AUTH_TOKEN` | serverless | token for that database |
-
-\* one of the two TMDB credentials. Nothing is baked into the client bundle:
-every TMDB call goes through the app's own API routes, so the key stays on the
-server.
-
-The TOTP secret and the content language/region are not environment variables
-at all — the setup wizard on first run stores them in the database. Only
-`SESSION_SECRET`, the key that signs the session cookie, stays outside the
-database: keeping it there means a leaked database alone cannot be used to
-forge a session, only to read the catalog and the (equally database-stored)
-TOTP secret.
-
-### Getting the credentials
-
-**TMDB (free).** Create an account at
-[themoviedb.org/signup](https://www.themoviedb.org/signup), then go to
-[Settings → API](https://www.themoviedb.org/settings/api) and request a
-"Developer" key for personal use. Copy the **API Read Access Token** into
-`TMDB_ACCESS_TOKEN` (or the shorter **API Key (v3 auth)** into `TMDB_API_KEY`).
-
-**SESSION_SECRET.** Any long random string:
-
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
-**Claude API (optional).** Create a key at
-[console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
-and set `ANTHROPIC_API_KEY`. Without it the recommendations panel on the
-settings page is simply hidden. Recommendations refresh themselves
-automatically every 5 days (no manual step needed) and every batch is kept
-as history; a refresh — automatic or an early manual one from the settings
-page — is capped server-side to once per 5-day window, so the running cost
-stays a few cents a month.
+Both deployments run the same code; only the database differs, and that is
+decided by whether `TURSO_DATABASE_URL` is set.
 
 ---
 
 ## Getting your data in
 
-### From the app (recommended)
+Open **Settings** → **Import watch history** → **Import from a service** and
+pick where you are coming from — Netflix, Prime Video, IMDb or a Disney+
+watchlist. The dialog shows how to get that service's export, what the file
+looks like, and whether it lands in your watched titles or in "To watch".
 
-Open **Settings** (the gear, top right) → **Import watch history** → **Import
-from a service**, and pick the service you are coming from: the dialog then
-shows how to get its file, what the file should look like, and whether it lands
-in your watched titles or in "To watch". The format is also detected from the
-header, and only titles that are not already in the catalog are added — so
-importing the same file twice changes nothing. Posters and metadata are fetched
-right afterwards.
+Only titles that are not already in the catalog are added, so importing the
+same file twice changes nothing, and re-importing after every new export is the
+intended way to keep it current. Posters and details are fetched straight
+after.
 
-### Where the exports come from
+Titles TMDB cannot match — streaming exports write names like
+`The Office: Season 3` — land in **Settings → Missing posters**, where you can
+search for the right artwork by hand or tell the app to stop asking.
 
-- **Netflix** — Account → Profile → Viewing activity → *Download all*. You get
-  a `NetflixViewingHistory.csv` with two columns: `Title,Date`.
-- **Prime Video** — Amazon has no built-in export. Use
-  [Watch History Exporter for Amazon Prime Video](https://github.com/caret-collective/watch-history-exporter-for-amazon-prime-video):
-  open primevideo.com/settings/watch-history, paste the script into the browser
-  console and run it.
-- **Disney+** — no export and no public API, which is why trackers like Simkl
-  do not sync it either. What it does have is a watchlist page, so
-  `public/disney-watchlist.js` reads that one: open your Watchlist on
-  disneyplus.com, paste the script into the browser console, and it downloads
-  a `disney-watchlist.csv` you upload like the others. The import dialog hands
-  you the script with a copy button, so you need not go looking for the file. It runs entirely in your
-  browser and sends nothing anywhere. These are titles you have *not* watched,
-  so they land in "To watch" rather than the watched half — a Disney+ watch
-  history can only be had by asking Disney for it under GDPR
-  (EMEA.dataprotection@disney.com), which is not a file this project can parse
-  sight unseen.
-- **IMDb** — Your Ratings → the three-dot menu → Export. You get a
-  `ratings.csv`. The only export that knows what you made of a title, so your
-  ratings come across with it; it says nothing about where you watched
-  anything, so the platform is left as "Not sure" and "Date Rated" stands in
-  for the date watched.
-
-`prisma/seed-data/` ships a few fake `*.example.csv` files showing exactly what
-each format looks like. Your own exports go in the same folder under the names
-without `.example`, and are git-ignored.
-
-### From the command line
-
-```bash
-npm run db:seed     # wipes the catalog and rebuilds it from the two CSVs
-npm run db:enrich   # fetches posters/ratings/genres for anything missing them
-```
-
-`db:seed` **replaces** the catalog, so it is for the first build; afterwards use
-the incremental import in the app. `db:enrich -- --force` re-fetches everything
-rather than just the new titles.
-
-IMDb ratings also have a script, worth using over the upload when the catalog
-is being built for the first time: it looks each title up by its exact IMDb ID
-rather than by name, so there are no wrong matches, and it asks TMDB which
-services carry the title to fill in the platform instead of leaving it as "Not
-sure". One request per title, which is why the upload does neither.
-
-```bash
-npx tsx scripts/import-imdb.ts --dry-run   # report only, writes nothing
-npx tsx scripts/import-imdb.ts
-```
+There are command-line paths too, including an IMDb importer that matches on
+the exact IMDb ID rather than by name: see
+[docs/development.md](docs/development.md#loading-a-catalog-from-the-command-line).
 
 ---
-
-## Project layout
-
-```
-prisma/schema.prisma        the data model (one Title table)
-prisma/migrations/          SQL migrations
-prisma/seed.ts              builds the catalog from the CSVs
-prisma/seed-data/           your exports + the bundled fake samples
-scripts/enrich-tmdb.ts      fills in TMDB data for existing titles
-scripts/import-imdb.ts      imports an IMDb ratings export
-scripts/sync-turso.ts       pulls Turso down into the local dev.db
-scripts/migrate-turso.ts    applies prisma/migrations to Turso
-src/app/page.tsx            the catalog page (server component)
-src/app/settings/           import, seasons, missing posters, edit mode
-src/app/stats/              the statistics page
-src/app/api/                TMDB search, import, seasons, titles, login
-src/app/api/mcp/            the MCP endpoint Claude connects to
-src/app/sw.ts               service worker (offline + poster cache)
-src/components/             Catalog, FilterBar, TitleCard, AddTitleCard, …
-src/lib/history.ts          parses the Netflix, Prime Video and Disney+ files
-src/lib/stats.ts            the numbers behind the statistics page
-src/lib/tmdb.ts             the TMDB client
-src/lib/prisma.ts           shared Prisma client (SQLite or Turso)
-src/lib/auth.ts             TOTP verification and session cookie
-tests/                      parser and statistics tests (run with npm test)
-```
-
-## npm scripts
-
-| Script | What it does |
-|---|---|
-| `npm run dev` | development server (syncs from Turso first, if configured) |
-| `npm run build` / `npm start` | production build and server |
-| `npm run lint` | ESLint |
-| `npm test` | the tests (Node's built-in test runner, no framework) |
-| `npm run db:seed` | rebuild the catalog from the CSV exports |
-| `npm run db:enrich` | fetch TMDB data for titles that have none |
-| `npm run db:sync` | copy the Turso database down into `prisma/dev.db` |
-| `npm run db:migrate-turso` | apply `prisma/migrations` to Turso |
-
-## Notes on the database
-
-The app picks its database at runtime: if `TURSO_DATABASE_URL` is set it goes
-through Prisma's libSQL adapter to Turso, otherwise it uses the local SQLite
-file. That is the only difference between the two deployment options — same
-schema, same queries, same migrations.
-
-`prisma/dev.db` is git-ignored: it holds your own catalog.
 
 ## Privacy
 
