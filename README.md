@@ -30,14 +30,15 @@ code it produces. There is no password to choose and no account to create.
 <p align="center">
   <img src="docs/screenshots/catalog.jpg" width="88%" alt="Catalog grid with posters, filters and search">
   <br><br>
-  <img src="docs/screenshots/add-title.jpg" width="88%" alt="Adding a title: live TMDB search as you type">
+  <img src="docs/screenshots/welcome.jpg" width="88%" alt="First run: the welcome screen a fresh install opens on, before there is any catalog or account">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/ai-recommendations.jpg" width="24%" alt="AI recommendations: what to watch next, with Claude's reasoning for each">
-  <img src="docs/screenshots/ai-search.jpg" width="24%" alt="AI search: a plain-language question answered from your own catalog">
-  <img src="docs/screenshots/stats.jpg" width="24%" alt="Statistics: totals, movies against series, where you watched, top genres">
-  <img src="docs/screenshots/settings.jpg" width="24%" alt="Settings: import, missing posters, series seasons, AI recommendations, export">
+  <img src="docs/screenshots/add-title.jpg" width="19%" alt="Adding a title: live TMDB search as you type">
+  <img src="docs/screenshots/ai-recommendations.jpg" width="19%" alt="AI recommendations: what to watch next, with Claude's reasoning for each">
+  <img src="docs/screenshots/ai-search.jpg" width="19%" alt="AI search: a plain-language question answered from your own catalog">
+  <img src="docs/screenshots/stats.jpg" width="19%" alt="Statistics: totals, movies against series, where you watched, top genres">
+  <img src="docs/screenshots/settings.jpg" width="19%" alt="Settings: import, missing posters, series seasons, AI recommendations, export">
 </p>
 
 ---
