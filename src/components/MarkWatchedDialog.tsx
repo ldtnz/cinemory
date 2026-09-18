@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Title } from "@prisma/client";
+import type { CatalogTitle } from "@/lib/catalog-title";
 import PlatformPicker from "@/components/PlatformPicker";
 import { toDateInputValue, fromDateInputValue } from "@/lib/date-input";
 
@@ -21,7 +21,7 @@ export default function MarkWatchedDialog({
   onConfirm,
   onCancel,
 }: {
-  titles: Title[];
+  titles: CatalogTitle[];
   onConfirm: (platform: string, lastWatchedAt: Date | null) => void;
   onCancel: () => void;
 }) {
@@ -30,6 +30,25 @@ export default function MarkWatchedDialog({
   const [platform, setPlatform] = useState("");
   const [watchedDate, setWatchedDate] = useState(() => toDateInputValue(new Date()));
   const [saving, setSaving] = useState(false);
+  // The synopsis is not part of the catalog the page hands the client — it
+  // would be several hundred characters on every row for four lines shown
+  // here, one title at a time. So it is fetched for this one, and the panel
+  // simply has no synopsis line until it arrives (or if there is none).
+  const [overview, setOverview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (batch || !title) return;
+    let current = true;
+    void (async () => {
+      const res = await fetch(`/api/titles/${title.id}`).catch(() => null);
+      if (!res?.ok || !current) return;
+      const data = (await res.json().catch(() => null)) as { overview?: string | null } | null;
+      if (current) setOverview(data?.overview ?? null);
+    })();
+    return () => {
+      current = false;
+    };
+  }, [batch, title]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -105,10 +124,8 @@ export default function MarkWatchedDialog({
               </p>
             )}
             {title.genres && <p className="text-xs text-muted/80">{title.genres}</p>}
-            {title.overview && (
-              <p className="line-clamp-4 text-[11px] leading-snug text-muted/80">
-                {title.overview}
-              </p>
+            {overview && (
+              <p className="line-clamp-4 text-[11px] leading-snug text-muted/80">{overview}</p>
             )}
           </div>
         </div>

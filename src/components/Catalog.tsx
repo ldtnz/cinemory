@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
-import type { Title } from "@prisma/client";
+import type { CatalogTitle } from "@/lib/catalog-title";
 import FilterBar from "@/components/FilterBar";
 import TitleCard from "@/components/TitleCard";
 import type { SeasonEdit } from "@/components/EditWatchedDialog";
@@ -39,7 +39,7 @@ export default function Catalog({
   recommendations = [],
   aiSearchEnabled = false,
 }: {
-  initialTitles: Title[];
+  initialTitles: CatalogTitle[];
   recommendations?: EnrichedRecommendation[];
   /** Same gate as recommendations — ANTHROPIC_API_KEY configured — since the
    *  "search with AI" hint calls Claude too. */
@@ -94,7 +94,7 @@ export default function Catalog({
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(new Set());
   const [bulkAction, setBulkAction] = useState<"watched" | "towatch" | "delete" | null>(null);
 
-  const toggleSelect = useCallback((title: Title) => {
+  const toggleSelect = useCallback((title: CatalogTitle) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(title.id)) next.delete(title.id);
@@ -110,7 +110,7 @@ export default function Catalog({
 
   const editing = useEditMode();
 
-  function handleAdded(added: Title) {
+  function handleAdded(added: CatalogTitle) {
     setCatalog((prev) => [added, ...prev]);
   }
 
@@ -134,7 +134,7 @@ export default function Catalog({
   // on every render would re-render every card.
   // TitleCard already confirms with the user (ConfirmDialog) before calling
   // this, from both the trash button and the context menu.
-  const remove = useCallback(async (title: Title) => {
+  const remove = useCallback(async (title: CatalogTitle) => {
     const res = await fetch(`/api/titles/${title.id}`, { method: "DELETE" });
     if (!res.ok) {
       window.alert("Could not delete the title.");
@@ -143,7 +143,7 @@ export default function Catalog({
     setCatalog((prev) => prev.filter((t) => t.id !== title.id));
   }, []);
 
-  const changeSeasons = useCallback(async (title: Title, watchedSeasons: number) => {
+  const changeSeasons = useCallback(async (title: CatalogTitle, watchedSeasons: number) => {
     const res = await fetch(`/api/titles/${title.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -165,7 +165,7 @@ export default function Catalog({
   // Moves a watchlist entry into the watched half. Platform and date come
   // from the dialog: the two things a "to watch" row has no value for yet.
   const markWatched = useCallback(
-    async (title: Title, platform: string, lastWatchedAt: Date | null) => {
+    async (title: CatalogTitle, platform: string, lastWatchedAt: Date | null) => {
       const res = await fetch(`/api/titles/${title.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -181,7 +181,7 @@ export default function Catalog({
         return;
       }
       const { title: updated } = (await res.json()) as {
-        title: Title & { lastWatchedAt: string | null; createdAt: string; updatedAt: string };
+        title: CatalogTitle & { lastWatchedAt: string | null; createdAt: string };
       };
       // The card comes apart before the state update, so the grid reflows once
       // — with the card already gone — rather than pulling the row out from
@@ -197,7 +197,6 @@ export default function Catalog({
                 ...updated,
                 lastWatchedAt: updated.lastWatchedAt ? new Date(updated.lastWatchedAt) : null,
                 createdAt: new Date(updated.createdAt),
-                updatedAt: new Date(updated.updatedAt),
               }
             : t,
         ),
@@ -212,7 +211,7 @@ export default function Catalog({
   // the card needs an actual Date, not its JSON stand-in.
   const editWatched = useCallback(
     async (
-      title: Title,
+      title: CatalogTitle,
       platform: string,
       lastWatchedAt: Date | null,
       seasons: SeasonEdit | null,
@@ -234,7 +233,7 @@ export default function Catalog({
         return;
       }
       const { title: updated } = (await res.json()) as {
-        title: Title & { lastWatchedAt: string | null; createdAt: string; updatedAt: string };
+        title: CatalogTitle & { lastWatchedAt: string | null; createdAt: string };
       };
       setCatalog((prev) =>
         prev.map((t) =>
@@ -243,7 +242,6 @@ export default function Catalog({
                 ...updated,
                 lastWatchedAt: updated.lastWatchedAt ? new Date(updated.lastWatchedAt) : null,
                 createdAt: new Date(updated.createdAt),
-                updatedAt: new Date(updated.updatedAt),
               }
             : t,
         ),
@@ -255,7 +253,7 @@ export default function Catalog({
   // Clears the "new season available" badge — the only field this touches,
   // so the update is applied locally rather than round-tripping the whole
   // response through the Date-coercion dance the other PATCHes need.
-  const dismissNewSeason = useCallback(async (title: Title) => {
+  const dismissNewSeason = useCallback(async (title: CatalogTitle) => {
     const res = await fetch(`/api/titles/${title.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -269,7 +267,7 @@ export default function Catalog({
 
   /** Sends watched titles back to the watchlist — the way back from
    *  markWatched, which is why it drops the same two fields that one set. */
-  const moveToWatchlist = useCallback(async (rows: Title[]) => {
+  const moveToWatchlist = useCallback(async (rows: CatalogTitle[]) => {
     const updated = await Promise.all(
       rows.map(async (t) => {
         const res = await fetch(`/api/titles/${t.id}`, {
@@ -279,17 +277,16 @@ export default function Catalog({
         });
         if (!res.ok) return null;
         const { title } = (await res.json()) as {
-          title: Title & { lastWatchedAt: string | null; createdAt: string; updatedAt: string };
+          title: CatalogTitle & { lastWatchedAt: string | null; createdAt: string };
         };
         return {
           ...title,
           lastWatchedAt: title.lastWatchedAt ? new Date(title.lastWatchedAt) : null,
           createdAt: new Date(title.createdAt),
-          updatedAt: new Date(title.updatedAt),
         };
       }),
     );
-    const byId = new Map(updated.filter((t): t is Title => t !== null).map((t) => [t.id, t]));
+    const byId = new Map(updated.filter((t): t is CatalogTitle => t !== null).map((t) => [t.id, t]));
     if (byId.size < rows.length) {
       window.alert(`Could not move ${rows.length - byId.size} of ${rows.length} titles.`);
     }
@@ -302,12 +299,12 @@ export default function Catalog({
   }, []);
 
   const moveOneToWatchlist = useCallback(
-    (title: Title) => void moveToWatchlist([title]),
+    (title: CatalogTitle) => void moveToWatchlist([title]),
     [moveToWatchlist],
   );
 
   /** Deletes everything currently selected, in one pass over the catalog. */
-  const bulkDelete = useCallback(async (rows: Title[]) => {
+  const bulkDelete = useCallback(async (rows: CatalogTitle[]) => {
     const results = await Promise.all(
       rows.map(async (t) => {
         const res = await fetch(`/api/titles/${t.id}`, { method: "DELETE" });
@@ -324,7 +321,7 @@ export default function Catalog({
   /** Moves everything selected into the watched half, all on the platform and
    *  date the dialog asked for once. */
   const bulkMarkWatched = useCallback(
-    async (rows: Title[], platform: string, lastWatchedAt: Date | null) => {
+    async (rows: CatalogTitle[], platform: string, lastWatchedAt: Date | null) => {
       const updated = await Promise.all(
         rows.map(async (t) => {
           const res = await fetch(`/api/titles/${t.id}`, {
@@ -339,17 +336,16 @@ export default function Catalog({
           });
           if (!res.ok) return null;
           const { title } = (await res.json()) as {
-            title: Title & { lastWatchedAt: string | null; createdAt: string; updatedAt: string };
+            title: CatalogTitle & { lastWatchedAt: string | null; createdAt: string };
           };
           return {
             ...title,
             lastWatchedAt: title.lastWatchedAt ? new Date(title.lastWatchedAt) : null,
             createdAt: new Date(title.createdAt),
-            updatedAt: new Date(title.updatedAt),
           };
         }),
       );
-      const byId = new Map(updated.filter((t): t is Title => t !== null).map((t) => [t.id, t]));
+      const byId = new Map(updated.filter((t): t is CatalogTitle => t !== null).map((t) => [t.id, t]));
       if (byId.size < rows.length) {
         window.alert(`Could not update ${rows.length - byId.size} of ${rows.length} titles.`);
       }

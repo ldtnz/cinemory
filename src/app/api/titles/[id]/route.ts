@@ -5,6 +5,32 @@ import { isValidPlatform } from "@/lib/platforms";
 import { dismissNewSeason } from "@/lib/season-check";
 import { clampWatchedSeasons } from "@/lib/season-counts";
 
+/**
+ * The columns the grid does not carry, for one title.
+ *
+ * Only the synopsis so far: it is four lines in the "mark as watched" dialog
+ * and several hundred characters on every row, so the catalog payload leaves
+ * it behind (src/lib/catalog-title.ts) and the dialog asks for the one it is
+ * about.
+ */
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await isAuthenticated())) {
+    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  }
+
+  const id = Number((await params).id);
+  if (!Number.isInteger(id)) {
+    return NextResponse.json({ error: "Invalid id." }, { status: 400 });
+  }
+
+  const title = await prisma.title.findUnique({ where: { id }, select: { overview: true } });
+  if (!title) {
+    return NextResponse.json({ error: "Title not found." }, { status: 404 });
+  }
+
+  return NextResponse.json(title);
+}
+
 /** Removes a title from the catalog (edit mode, enabled in settings). */
 export async function DELETE(
   _request: NextRequest,

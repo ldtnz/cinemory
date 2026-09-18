@@ -4,7 +4,7 @@ import Image from "next/image";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { Check, Minus, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
-import type { Title } from "@prisma/client";
+import type { CatalogTitle } from "@/lib/catalog-title";
 import { useCardContextMenu } from "@/lib/use-card-context-menu";
 import { useRevealOnView } from "@/lib/reveal-on-view";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -79,32 +79,32 @@ function TitleCard({
   selectionActive = false,
   onToggleSelect,
 }: {
-  title: Title;
+  title: CatalogTitle;
   /** true for the first cards above the fold, avoids the Next/Image LCP warning */
   priority?: boolean;
   /** edit mode on: shows the delete button */
   editing?: boolean;
-  onRemove?: (title: Title) => void;
-  onSeasons?: (title: Title, watchedSeasons: number) => void;
+  onRemove?: (title: CatalogTitle) => void;
+  onSeasons?: (title: CatalogTitle, watchedSeasons: number) => void;
   /** Moves a watchlist entry into the watched half, on the chosen platform. */
-  onMarkWatched?: (title: Title, platform: string, lastWatchedAt: Date | null) => void;
+  onMarkWatched?: (title: CatalogTitle, platform: string, lastWatchedAt: Date | null) => void;
   /** Corrects the platform or watched date on an already-watched title. */
   onEditWatched?: (
-    title: Title,
+    title: CatalogTitle,
     platform: string,
     lastWatchedAt: Date | null,
     seasons: SeasonEdit | null,
   ) => void;
   /** Clears the "new season available" badge (src/lib/season-check.ts). */
-  onDismissNewSeason?: (title: Title) => void;
+  onDismissNewSeason?: (title: CatalogTitle) => void;
   /** Sends an already-watched title back to the watchlist. */
-  onMoveToWatchlist?: (title: Title) => void;
+  onMoveToWatchlist?: (title: CatalogTitle) => void;
   /** Part of the standing shift-click selection (see SelectionBar). */
   selected?: boolean;
   /** Something is already selected, so a plain click adds to the selection
    *  rather than opening anything: shift is only needed to start one. */
   selectionActive?: boolean;
-  onToggleSelect?: (title: Title) => void;
+  onToggleSelect?: (title: CatalogTitle) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -475,7 +475,7 @@ function TitleCard({
 }
 
 // The grid reaches 1500 cards and React would re-render all of them on every
-// keystroke in the search box. Title objects stay identical between filters,
+// keystroke in the search box. CatalogTitle objects stay identical between filters,
 // so memo means only the cards that actually enter or leave the result set are
 // redrawn.
 export default memo(TitleCard);

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import Catalog from "@/components/Catalog";
+import { CATALOG_TITLE_SELECT } from "@/lib/catalog-title";
 import LoginGate from "@/components/LoginGate";
 import SetupWizard from "@/components/SetupWizard";
 import { isAuthenticated } from "@/lib/auth";
@@ -57,9 +58,12 @@ export default async function Home({
 
   // The whole catalog is loaded at once: filtering, search and sorting all
   // happen client-side (see Catalog.tsx) so the URL stays "/" instead of
-  // filling up with query parameters.
+  // filling up with query parameters. Only the columns the grid reads make
+  // the trip — see src/lib/catalog-title.ts for what that leaves out and
+  // what it saves.
   const titles = await prisma.title.findMany({
     orderBy: [{ lastWatchedAt: "desc" }, { title: "asc" }],
+    select: CATALOG_TITLE_SELECT,
   });
   // Gated on the key being configured now, not just on a cached row
   // existing: removing ANTHROPIC_API_KEY should hide the feature outright,

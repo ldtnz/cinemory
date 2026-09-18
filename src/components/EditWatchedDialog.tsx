@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Title } from "@prisma/client";
+import type { CatalogTitle } from "@/lib/catalog-title";
 import { Minus, Plus } from "lucide-react";
 import PlatformPicker from "@/components/PlatformPicker";
 import { toDateInputValue, fromDateInputValue } from "@/lib/date-input";
@@ -62,7 +62,7 @@ export default function EditWatchedDialog({
   onConfirm,
   onCancel,
 }: {
-  title: Title;
+  title: CatalogTitle;
   onConfirm: (platform: string, lastWatchedAt: Date | null, seasons: SeasonEdit | null) => void;
   onCancel: () => void;
 }) {
