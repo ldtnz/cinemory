@@ -345,7 +345,7 @@ export default function FilterBar({
             row. Below that the compact row below takes over — a half-desktop
             header that wraps onto two lines reads as broken rather than as
             adapted. */}
-        <div className="hidden lg:flex lg:flex-row lg:items-center">
+        <div className="hidden lg:flex lg:flex-row lg:items-center lg:gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <WatchModeSwitch
               mode={mode}
