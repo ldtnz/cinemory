@@ -74,12 +74,28 @@ turso db tokens create cinemory   # the auth token
 One more value: a long random string the app uses to sign your login cookie.
 It is not a password you will ever type, and nobody else needs to know it.
 
-Any of these gives you one:
+**The way that works on any computer, with nothing installed.** Open your
+browser's developer console — `F12`, or right-click anywhere on a page →
+*Inspect* → *Console* — paste this in and press Enter:
 
-- pick the value out of a password manager's "generate password" box, set to
-  40+ characters;
-- run in a terminal: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`;
-- or use any random-string generator you trust.
+```js
+Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, "0")).join("")
+```
+
+It prints 64 random characters. Copy them (without the surrounding quotes).
+Nothing leaves your machine: the randomness comes from the browser itself.
+
+Any of these does just as well:
+
+- your **password manager**'s "generate password" box, set to 40 characters or
+  more;
+- a terminal, if you have one: `openssl rand -hex 32` on macOS or Linux, or
+  `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+  if you have Node.
+
+> Rather not use a website that generates one for you. It is a secret, and
+> a page that hands you one has also seen it. The console above is the same
+> amount of effort and the value never leaves the browser.
 
 Keep it with the others.
 

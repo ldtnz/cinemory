@@ -44,11 +44,18 @@ and the settings page says so.
 
 Any long random string. It is never typed by anyone; it signs the login cookie.
 
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+With nothing installed, in any browser's developer console (`F12` → Console):
+
+```js
+Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, "0")).join("")
 ```
 
-A 40-plus character password from a password manager does just as well.
+Or in a terminal: `openssl rand -hex 32`, or
+`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. A
+40-plus character password from a password manager does just as well.
+
+Not from a website that generates one for you: it is a secret, and a page that
+hands you one has also seen it.
 
 Changing it later logs out every open session — the cookies were signed with
 the old one — but nothing else: the TOTP secret is stored separately, so you
