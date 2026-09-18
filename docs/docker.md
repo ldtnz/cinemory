@@ -45,6 +45,9 @@ that changes the schema needs nothing from you.
 
 To back it up, copy that file out — or use **Settings → Export your catalog**,
 which downloads every title as JSON and does not depend on the database at all.
+**Settings → Restore from a backup** reads that file back: it adds the titles
+the catalog does not have and leaves the rest alone, so it works both on an
+empty instance and on a running one.
 
 ## Updating
 

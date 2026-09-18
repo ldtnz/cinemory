@@ -184,7 +184,9 @@ right artwork or tell the app to stop asking about that title.
 
 **Your catalog is never at stake here.** It lives in the Turso database, which
 is yours and separate from the deployment: the code can be replaced, re-cloned
-or deleted entirely and the data stays where it is. That is worth knowing before
+or deleted entirely and the data stays where it is. And if you would rather not
+depend on that, **Settings → Export your catalog** downloads the lot as JSON
+and **Restore from a backup** reads it back into any instance. That is worth knowing before
 reading the rest of this section, because it makes the worst case cheap.
 
 ### If you forked

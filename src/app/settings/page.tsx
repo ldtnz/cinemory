@@ -16,6 +16,7 @@ import {
 import MissingPostersPanel from "@/components/MissingPostersPanel";
 import SettingsSection from "@/components/SettingsSection";
 import McpConnector from "@/components/McpConnector";
+import RestoreBackup from "@/components/RestoreBackup";
 import ImportHistory from "@/components/ImportHistory";
 import EditModeToggle from "@/components/EditModeToggle";
 import SeriesSeasons from "@/components/SeriesSeasons";
@@ -117,6 +118,8 @@ export default async function SettingsPage() {
             Export catalog (JSON)
           </a>
         </SettingsSection>
+
+        <RestoreBackup />
 
         <EditModeToggle />
       </div>

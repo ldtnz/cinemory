@@ -73,8 +73,10 @@ code it produces. There is no password to choose and no account to create.
   credential that may. Off until you switch it on, and revocable in a click.
   See [docs/mcp.md](docs/mcp.md).
 - **Maintenance** — a settings page for importing, merging series split across
-  rows, fixing missing posters, exporting the whole catalog as JSON, and an
-  edit mode for deleting titles.
+  rows, fixing missing posters, and an edit mode for deleting titles.
+- **Backup and restore** — the whole catalog downloads as JSON, and that same
+  file goes back in: restoring only adds what is missing, so it rebuilds an
+  empty instance and merges into a live one without overwriting anything.
 - **Single-user auth** — a 6-digit TOTP code from your authenticator app; no
   passwords, no accounts, no third-party sign-in.
 - **Setup wizard** — the first time you open the app it asks for a content
