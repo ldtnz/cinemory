@@ -101,6 +101,17 @@ export function useCardContextMenu<T extends HTMLElement>(
     setMenuPos({ x, y });
   }
 
+  /** Opens the menu against the card itself, for the ways in that carry no
+   *  coordinates: the keyboard. */
+  function openContextMenuOnCard() {
+    const card = cardRef.current;
+    if (!card) return;
+    const box = card.getBoundingClientRect();
+    // Its middle, so the menu has room to open on whichever side fits —
+    // ContextMenuShell already flips it away from the edges it would cross.
+    openContextMenu(Math.round(box.left + box.width / 2), Math.round(box.top + box.height / 2));
+  }
+
   function closeContextMenu() {
     setMenuPos(null);
   }
@@ -147,6 +158,13 @@ export function useCardContextMenu<T extends HTMLElement>(
     // Android does fire this event for a long-press, iOS Safari never does,
     // so touch relies on one path only to avoid opening it twice.
     if (window.matchMedia("(pointer: coarse)").matches) return;
+    // The Menu key and Shift+F10 raise this event too, with no pointer
+    // behind it: browsers differ on what they report then, and 0,0 would put
+    // the menu in the corner of the screen rather than on the card.
+    if (e.clientX === 0 && e.clientY === 0) {
+      openContextMenuOnCard();
+      return;
+    }
     openContextMenu(e.clientX, e.clientY);
   }
 
@@ -218,6 +236,7 @@ export function useCardContextMenu<T extends HTMLElement>(
   return {
     cardRef,
     menuPos,
+    openContextMenuOnCard,
     closeContextMenu,
     longPressFiredRef,
     cardHandlers: {

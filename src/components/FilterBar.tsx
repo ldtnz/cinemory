@@ -301,25 +301,48 @@ export default function FilterBar({
     }
   }, [searchExpanded]);
 
-  // Tab always jumps to (or stays on) the search field, like a keyboard
-  // shortcut, instead of following the normal tab order — every press, not
-  // just the first one starting from nothing focused. The one exception is
-  // a dialog or menu open on top of the page: Tab has to keep doing its
-  // normal job inside that (moving between its own fields/buttons) rather
-  // than being hijacked out to a search field the user can't even see.
+  // Open the app, press Tab, start typing: the shortcut this page is used
+  // with. It used to fire on every Tab, which meant the page had no tab order
+  // at all — the cards, the filters, the settings link were unreachable
+  // without a pointer, because focus was pulled back to the search field on
+  // every press. It now only fires while nothing is focused yet, so it still
+  // works as the first thing you do and Tab goes back to being Tab once you
+  // are somewhere. "/" does the same from anywhere, the way it does on every
+  // site with a search box.
+  //
+  // A dialog or menu on top of the page is left alone either way: Tab has to
+  // keep moving between its own fields rather than being hijacked out to a
+  // field nobody can see.
   useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== "Tab" || e.altKey || e.ctrlKey || e.metaKey) return;
-      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) return;
-
+    function focusSearch() {
       if (window.innerWidth < 640) {
-        e.preventDefault();
         if (!searchExpanded) setSearchExpanded(true);
         else mobileSearchInputRef.current?.focus();
         return;
       }
-      e.preventDefault();
       desktopSearchInputRef.current?.focus();
+    }
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) return;
+
+      const active = document.activeElement;
+      const typing =
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        (active instanceof HTMLElement && active.isContentEditable);
+
+      if (e.key === "/" && !typing) {
+        e.preventDefault();
+        focusSearch();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      // Something already has focus: this Tab belongs to whoever has it.
+      if (active && active !== document.body && active !== document.documentElement) return;
+      e.preventDefault();
+      focusSearch();
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);

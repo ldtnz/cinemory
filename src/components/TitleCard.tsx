@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { Check, Minus, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import type { CatalogTitle } from "@/lib/catalog-title";
 import { useCardContextMenu } from "@/lib/use-card-context-menu";
@@ -122,7 +122,7 @@ function TitleCard({
   // opening — see the hook.
   const dialogOpen =
     confirmingDelete || markingWatched || editingWatched || trailer !== null;
-  const { cardRef, menuPos, closeContextMenu, longPressFiredRef, cardHandlers } =
+  const { cardRef, menuPos, openContextMenuOnCard, closeContextMenu, longPressFiredRef, cardHandlers } =
     useCardContextMenu<HTMLDivElement>(dialogOpen);
 
   // One ref for the card's root, stable across renders. An inline arrow here
@@ -186,6 +186,24 @@ function TitleCard({
     tapTimeoutRef.current = setTimeout(() => setTapDetailsVisible(false), 5000);
   }
 
+  /**
+   * The card is the only way to reach a title's actions, and they all live in
+   * the context menu — so the keyboard opens that, rather than the details
+   * overlay a tap shows, which is decoration a screen reader already reads
+   * from the label. Shift is the same modifier a mouse uses to pick titles
+   * out for a batch.
+   */
+  function handleKeyDown(e: ReactKeyboardEvent) {
+    if (e.target !== e.currentTarget) return;
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    if ((e.shiftKey || selectionActive) && onToggleSelect) {
+      onToggleSelect(title);
+      return;
+    }
+    openContextMenuOnCard();
+  }
+
   const platformStyle = PLATFORM_STYLES[title.platform] ?? {
     color: "text-muted",
     label: title.platform,
@@ -218,10 +236,21 @@ function TitleCard({
       // How the grid finds this node to take it apart on its way out; see
       // src/lib/pixel-dissolve.ts.
       data-title-id={title.id}
-      className={`title-card reveal-item group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2 ${
+      // A poster with a click handler is a button to everyone except a
+      // keyboard and a screen reader, which had no way in at all: no focus,
+      // no name, no actions. The label carries what the overlay shows on
+      // hover, since that overlay is decoration here.
+      role="button"
+      tabIndex={0}
+      aria-label={[title.title, subtitle, seasonsLabel, platformLabel]
+        .filter(Boolean)
+        .join(", ")}
+      aria-pressed={selectionActive ? selected : undefined}
+      className={`title-card reveal-item group relative aspect-[2/3] overflow-hidden rounded-2xl bg-surface-2 outline-none focus-visible:ring-2 focus-visible:ring-accent-select ${
         selected ? "ring-1 ring-accent-select" : ""
       }`}
       onClick={handleTap}
+      onKeyDown={handleKeyDown}
       {...cardHandlers}
     >
       {selected && (
@@ -312,7 +341,7 @@ function TitleCard({
           title={`Edit ${title.title}`}
           // Same black already used for the recommendation badges — opposite
           // corner from Delete, same hover-reveal treatment.
-          className="absolute left-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-black/70 text-white opacity-0 transition-opacity duration-150 hover:bg-black/85 group-hover:opacity-100 focus-visible:opacity-100"
+          className="absolute left-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-black/70 text-white opacity-0 transition-opacity duration-150 hover:bg-black/85 group-hover:opacity-100 group-focus-visible:opacity-100 focus-visible:opacity-100"
         >
           <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
@@ -329,7 +358,7 @@ function TitleCard({
           title={`Delete ${title.title}`}
           // Touch has no hover, but the right-click/long-press menu (Edit
           // and Delete, wired below) works there regardless of edit mode.
-          className="absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-red-500 text-white opacity-0 transition-opacity duration-150 hover:bg-red-400 group-hover:opacity-100 focus-visible:opacity-100"
+          className="absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-red-500 text-white opacity-0 transition-opacity duration-150 hover:bg-red-400 group-hover:opacity-100 group-focus-visible:opacity-100 focus-visible:opacity-100"
         >
           <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
@@ -377,7 +406,7 @@ function TitleCard({
       {/* details overlay, shown on hover (always when there is no poster: the title is already displayed above) */}
       {title.posterUrl && (
         <div
-          className={`title-card__details pointer-events-none absolute inset-x-0 bottom-0 rounded-b-2xl bg-gradient-to-t from-black/95 via-black/70 to-transparent p-2.5 pt-7 opacity-0 transition-opacity duration-150 group-hover:opacity-100 ${
+          className={`title-card__details pointer-events-none absolute inset-x-0 bottom-0 rounded-b-2xl bg-gradient-to-t from-black/95 via-black/70 to-transparent p-2.5 pt-7 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 ${
             tapDetailsVisible ? "opacity-100" : ""
           }`}
         >
