@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { POSTER_IGNORED } from "@/lib/posters";
 
 export async function POST(request: NextRequest) {
   if (!(await isAuthenticated())) {
@@ -12,11 +13,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
-  // -1 = searched by hand but no match chosen: it no longer shows up among
-  // the "missing" ones to review.
+  // Searched by hand and no match chosen: it no longer shows up among the
+  // "missing" ones to review (see src/lib/posters.ts).
   await prisma.title.update({
     where: { id: body.id },
-    data: { tmdbId: -1 },
+    data: { tmdbId: POSTER_IGNORED },
   });
 
   return NextResponse.json({ ok: true });

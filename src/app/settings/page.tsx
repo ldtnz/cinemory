@@ -6,6 +6,7 @@ import { isAuthenticated } from "@/lib/auth";
 import { getSettings, needsSetup } from "@/lib/settings";
 import { isTmdbConfigured } from "@/lib/tmdb";
 import { mergeSummary } from "@/lib/seasons";
+import { MISSING_POSTER } from "@/lib/posters";
 import {
   isAnthropicConfigured,
   getStoredRecommendations,
@@ -40,10 +41,7 @@ export default async function SettingsPage() {
   const storedRecommendations = await getStoredRecommendations();
 
   const missing = await prisma.title.findMany({
-    where: {
-      posterUrl: null,
-      NOT: { tmdbId: -1 },
-    },
+    where: MISSING_POSTER,
     orderBy: { title: "asc" },
     select: {
       id: true,
