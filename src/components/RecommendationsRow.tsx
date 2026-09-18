@@ -9,6 +9,7 @@ import { recommendationToCandidate } from "@/lib/recommendation-candidate";
 import { useAddToWatchlist } from "@/lib/use-add-to-watchlist";
 import { useDismissRecommendation } from "@/lib/use-dismiss-recommendation";
 import { normalizeTitle } from "@/lib/title-key";
+import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 import { useRevealOnView } from "@/lib/reveal-on-view";
 import RecommendationsModal from "@/components/RecommendationsModal";
 import TrailerModal from "@/components/TrailerModal";
@@ -166,6 +167,7 @@ export default function RecommendationsRow({
   onDismissed: (rec: EnrichedRecommendation) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const scroller = useHorizontalWheel<HTMLUListElement>();
 
   if (titles.length === 0) return null;
 
@@ -188,7 +190,10 @@ export default function RecommendationsRow({
           </button>
         </div>
 
-        <ul className="-mx-3 mt-3 flex gap-2.5 overflow-x-auto px-3 pb-1 sm:-mx-4 sm:px-4">
+        <ul
+          ref={scroller}
+          className="-mx-3 mt-3 flex gap-2.5 overflow-x-auto px-3 pb-1 sm:-mx-4 sm:px-4"
+        >
           {titles.map((rec) => (
             <Tile
               key={`${rec.mediaType}-${rec.tmdbId ?? rec.title}`}

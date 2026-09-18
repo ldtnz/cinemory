@@ -1,6 +1,7 @@
 "use client";
 
 import { PLATFORMS } from "@/lib/platforms";
+import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 
 /**
  * The row of platform pills, shared by the filter bar, "mark as watched" and
@@ -8,7 +9,7 @@ import { PLATFORMS } from "@/lib/platforms";
  * with as many platforms as there now are wrapped onto four or five rows and
  * made every picker feel tall. This instead fills exactly two rows and
  * scrolls sideways for the rest: a CSS grid in column-major order
- * (grid-flow-col + grid-rows-2) does the layout, no JS involved.
+ * (grid-flow-col + grid-rows-2) does the layout.
  */
 export default function PlatformPicker({
   value,
@@ -24,8 +25,11 @@ export default function PlatformPicker({
    *  "mark as watched" or "add title" picker, which always needs one. */
   clearable?: boolean;
 }) {
+  const scroller = useHorizontalWheel<HTMLDivElement>();
+
   return (
     <div
+      ref={scroller}
       className={`grid grid-flow-col grid-rows-2 gap-1.5 overflow-x-auto overscroll-x-contain pb-1 ${className}`}
     >
       {PLATFORMS.map((opt) => {
