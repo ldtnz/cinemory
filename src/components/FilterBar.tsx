@@ -9,6 +9,7 @@ import { createPortal } from "react-dom";
 import { WATCH_MODES, type WatchMode } from "@/lib/watch-mode";
 import PlatformPicker from "@/components/PlatformPicker";
 import AiSearchHint, { type AiSearchHintState } from "@/components/AiSearchHint";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 
 const MEDIA_TYPES: { value: string; label: string }[] = [
   { value: "Movie", label: "Movie" },
@@ -275,15 +276,9 @@ export default function FilterBar({
     setMounted(true);
   }, []);
 
-  // Lock scrolling of the page underneath while the filter modal is open.
-  useEffect(() => {
-    if (!filtersOpen) return;
-    const original = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = original;
-    };
-  }, [filtersOpen]);
+  // The filter sheet is a dialog too, and the only one that does not go
+  // through useDialogFocus — so it asks for the same lock directly.
+  useScrollLock(filtersOpen);
 
   const hasActiveFilters = Boolean(platform || mediaType || genre || q);
 
