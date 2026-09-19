@@ -27,6 +27,7 @@ let prisma: Db;
 let POST: typeof import("@/app/api/titles/route").POST;
 let PATCH: typeof import("@/app/api/titles/[id]/route").PATCH;
 let DELETE: typeof import("@/app/api/titles/[id]/route").DELETE;
+let GET: typeof import("@/app/api/titles/[id]/route").GET;
 
 const MARK = "zzroute";
 const ids: number[] = [];
@@ -67,6 +68,12 @@ function patch(id: number, body: unknown) {
   );
 }
 
+function get(id: number | string) {
+  return GET(new NextRequest(`http://localhost/api/titles/${id}`), {
+    params: Promise.resolve({ id: String(id) }),
+  });
+}
+
 async function row(title: string) {
   const found = await prisma.title.findFirst({ where: { title: `${MARK} ${title}` } });
   if (found && !ids.includes(found.id)) ids.push(found.id);
@@ -93,7 +100,7 @@ async function seed(title: string, data: Record<string, unknown> = {}) {
 before(async () => {
   ({ prisma } = await import("@/lib/prisma"));
   ({ POST } = await import("@/app/api/titles/route"));
-  ({ PATCH, DELETE } = await import("@/app/api/titles/[id]/route"));
+  ({ GET, PATCH, DELETE } = await import("@/app/api/titles/[id]/route"));
 });
 
 afterAll(async () => {
@@ -286,4 +293,50 @@ test("deleting removes the row, and deleting it again is a 404", async () => {
   assert.equal(await prisma.title.findUnique({ where: { id: seeded.id } }), null);
   const second = await DELETE(new NextRequest(url, { method: "DELETE" }), params);
   assert.equal(second.status, 404);
+});
+
+/* The columns the catalog payload leaves behind, which the details modal and
+   the "mark as watched" dialog fetch one title at a time. Worth pinning down:
+   the point of the endpoint is that these are exactly the fields the grid
+   does not carry, so dropping one here would leave the modal with a blank it
+   has no other way to fill. */
+
+test("one title's off-catalog columns come back", async () => {
+  const seeded = await seed("details", {
+    overview: "A synopsis long enough to be worth leaving out of the catalog.",
+    personalRating: 8.5,
+    link: "https://example.com/a-title",
+  });
+  const res = await get(seeded.id);
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), {
+    overview: "A synopsis long enough to be worth leaving out of the catalog.",
+    personalRating: 8.5,
+    link: "https://example.com/a-title",
+  });
+});
+
+test("a title with none of them set comes back with nulls, not an error", async () => {
+  const seeded = await seed("details empty");
+  const res = await get(seeded.id);
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { overview: null, personalRating: null, link: null });
+});
+
+test("asking for a title that is not there is a 404", async () => {
+  const res = await get(999_999_999);
+  assert.equal(res.status, 404);
+});
+
+test("asking with something that is not an id is a 400", async () => {
+  const res = await get("not-a-number");
+  assert.equal(res.status, 400);
+});
+
+test("without a session no title's columns come back", async () => {
+  const seeded = await seed("details unauthorised", { overview: "secret" });
+  authenticated = false;
+  const res = await get(seeded.id);
+  authenticated = true;
+  assert.equal(res.status, 401);
 });

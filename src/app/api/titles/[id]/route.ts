@@ -9,9 +9,11 @@ import { parseWatchedDate } from "@/lib/watched-date";
 /**
  * The columns the grid does not carry, for one title.
  *
- * Only the synopsis so far: it is four lines in the "mark as watched" dialog
- * and several hundred characters on every row, so the catalog payload leaves
- * it behind (src/lib/catalog-title.ts) and the dialog asks for the one it is
+ * The catalog payload deliberately leaves these behind
+ * (src/lib/catalog-title.ts): the synopsis is several hundred characters on
+ * every row and more than half the payload on its own, and the other two are
+ * read for one title at a time or not at all. So whatever needs them — the
+ * "mark as watched" dialog, the details modal — asks for the one title it is
  * about.
  */
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -24,7 +26,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "Invalid id." }, { status: 400 });
   }
 
-  const title = await prisma.title.findUnique({ where: { id }, select: { overview: true } });
+  const title = await prisma.title.findUnique({
+    where: { id },
+    select: { overview: true, personalRating: true, link: true },
+  });
   if (!title) {
     return NextResponse.json({ error: "Title not found." }, { status: 404 });
   }

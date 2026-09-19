@@ -6,6 +6,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent
 import { Check, Minus, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import type { CatalogTitle } from "@/lib/catalog-title";
 import { useCardContextMenu } from "@/lib/use-card-context-menu";
+import { formatDate, platformStyle, seasonsLabel } from "@/lib/title-display";
 import { useRevealOnView } from "@/lib/reveal-on-view";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import TitleContextMenu from "@/components/TitleContextMenu";
@@ -13,6 +14,7 @@ import MarkWatchedDialog from "@/components/MarkWatchedDialog";
 import EditWatchedDialog, { type SeasonEdit } from "@/components/EditWatchedDialog";
 import { hasSeasonTotal } from "@/lib/season-counts";
 import TrailerModal from "@/components/TrailerModal";
+import TitleDetailsModal from "@/components/TitleDetailsModal";
 
 function MissingPosterIcon() {
   return (
@@ -34,37 +36,6 @@ function MissingPosterIcon() {
     </svg>
   );
 }
-
-function formatDate(data: Date | null): string {
-  if (!data) return "";
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "UTC",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(data);
-}
-
-const PLATFORM_STYLES: Record<string, { color: string; label: string }> = {
-  Netflix: { color: "text-red-400", label: "Netflix" },
-  "Amazon Prime Video": { color: "text-sky-400", label: "Prime Video" },
-  "Disney+": { color: "text-blue-400", label: "Disney+" },
-  "Apple TV+": { color: "text-zinc-300", label: "Apple TV+" },
-  Max: { color: "text-purple-400", label: "Max" },
-  "Paramount+": { color: "text-indigo-400", label: "Paramount+" },
-  Peacock: { color: "text-fuchsia-400", label: "Peacock" },
-  Hulu: { color: "text-lime-400", label: "Hulu" },
-  YouTube: { color: "text-rose-400", label: "YouTube" },
-  Crunchyroll: { color: "text-yellow-400", label: "Crunchyroll" },
-  "Sky / NOW": { color: "text-cyan-400", label: "Sky / NOW" },
-  RaiPlay: { color: "text-orange-400", label: "RaiPlay" },
-  "Mediaset Infinity": { color: "text-pink-400", label: "Mediaset Infinity" },
-  TIMvision: { color: "text-teal-400", label: "TIMvision" },
-  "Rakuten TV": { color: "text-emerald-400", label: "Rakuten TV" },
-  Cinema: { color: "text-amber-400", label: "Cinema" },
-  TV: { color: "text-slate-400", label: "TV broadcast" },
-  Unknown: { color: "text-neutral-500", label: "Not sure" },
-};
 
 function TitleCard({
   title,
@@ -117,6 +88,7 @@ function TitleCard({
   const [markingWatched, setMarkingWatched] = useState(false);
   const [editingWatched, setEditingWatched] = useState(false);
   const [trailer, setTrailer] = useState<{ loading: boolean; key: string | null } | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   // Tapping a poster on touch shows the details overlay that desktop gets on
   // hover, then hides it again after a few seconds — touch has no hover.
   const [tapDetailsVisible, setTapDetailsVisible] = useState(false);
@@ -127,7 +99,7 @@ function TitleCard({
   // rather than flashing sharp between the menu closing and the dialog
   // opening — see the hook.
   const dialogOpen =
-    confirmingDelete || markingWatched || editingWatched || trailer !== null;
+    confirmingDelete || markingWatched || editingWatched || detailsOpen || trailer !== null;
   const { cardRef, menuPos, openContextMenuOnCard, closeContextMenu, longPressFiredRef, cardHandlers } =
     useCardContextMenu<HTMLDivElement>(dialogOpen);
 
@@ -225,24 +197,10 @@ function TitleCard({
     openContextMenuOnCard();
   }
 
-  const platformStyle = PLATFORM_STYLES[title.platform] ?? {
-    color: "text-muted",
-    label: title.platform,
-  };
-  const platformColor = platformStyle.color;
-  const platformLabel = platformStyle.label;
-  // "2 of 5 seasons", or only what is known: TMDB does not always give the
-  // total and the exports do not always name the season.
-  const seasonsLabel =
-    title.mediaType !== "Series"
-      ? null
-      : title.watchedSeasons != null && (title.totalSeasons ?? 0) > 0
-        ? `${title.watchedSeasons} of ${title.totalSeasons} seasons`
-        : title.watchedSeasons != null
-          ? `${title.watchedSeasons} ${title.watchedSeasons === 1 ? "season watched" : "seasons watched"}`
-          : (title.totalSeasons ?? 0) > 0
-            ? `${title.totalSeasons} ${title.totalSeasons === 1 ? "season" : "seasons"}`
-            : null;
+  const platform = platformStyle(title.platform);
+  const platformColor = platform.color;
+  const platformLabel = platform.label;
+  const seasons = seasonsLabel(title);
 
   const subtitle = [
     title.mediaType,
@@ -263,7 +221,7 @@ function TitleCard({
       // hover, since that overlay is decoration here.
       role="button"
       tabIndex={0}
-      aria-label={[title.title, subtitle, seasonsLabel, platformLabel]
+      aria-label={[title.title, subtitle, seasons, platformLabel]
         .filter(Boolean)
         .join(", ")}
       aria-pressed={selectionActive ? selected : undefined}
@@ -455,8 +413,8 @@ function TitleCard({
               {watchProviders.length > 2 ? ` +${watchProviders.length - 2}` : ""}
             </p>
           ) : null}
-          {seasonsLabel && (
-            <p className="mt-0.5 text-[10px] text-neutral-400">{seasonsLabel}</p>
+          {seasons && (
+            <p className="mt-0.5 text-[10px] text-neutral-400">{seasons}</p>
           )}
         </div>
       )}
@@ -467,6 +425,7 @@ function TitleCard({
           y={menuPos.y}
           hasTrailerSource={Boolean(title.tmdbId && title.tmdbId > 0)}
           onWatchlist={title.inWatchlist}
+          onDetails={() => setDetailsOpen(true)}
           onTrailer={openTrailer}
           onMarkWatched={() => setMarkingWatched(true)}
           onMoveToWatchlist={
@@ -516,6 +475,24 @@ function TitleCard({
             onEditWatched?.(title, platform, lastWatchedAt, seasons);
           }}
           onCancel={() => setEditingWatched(false)}
+        />
+      )}
+
+      {detailsOpen && (
+        <TitleDetailsModal
+          title={title}
+          // Handing over rather than stacking: the trailer is the bigger of
+          // the two and would otherwise open behind a dialog that is still
+          // holding the keyboard.
+          onTrailer={
+            title.tmdbId && title.tmdbId > 0
+              ? () => {
+                  setDetailsOpen(false);
+                  void openTrailer();
+                }
+              : undefined
+          }
+          onClose={() => setDetailsOpen(false)}
         />
       )}
 
