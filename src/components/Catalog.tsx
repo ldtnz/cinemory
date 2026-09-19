@@ -7,6 +7,7 @@ import TitleCard from "@/components/TitleCard";
 import type { SeasonEdit } from "@/components/EditWatchedDialog";
 import { cardElement, pixelAppear, pixelDissolve, pixelDissolveAll } from "@/lib/pixel-dissolve";
 import AddTitleCard, { AddTitleCardTrigger } from "@/components/AddTitleCard";
+import EmptyCatalog from "@/components/EmptyCatalog";
 import DiscoverCard from "@/components/DiscoverCard";
 import RecommendationsCard from "@/components/RecommendationsCard";
 import RecommendationsRow from "@/components/RecommendationsRow";
@@ -696,13 +697,14 @@ export default function Catalog({
           </div>
         )
       ) : shownTitles.length === 0 && !deferredQ.trim() ? (
-        <p className="mt-16 text-center text-muted">
-          {!platform && !mediaType && !genre
-            ? mode === "watchlist"
-              ? "Nothing to watch yet. Use Add title to start your watchlist."
-              : "No watched titles yet. Use Add title to start your catalog."
-            : "No titles match these filters."}
-        </p>
+        !platform && !mediaType && !genre ? (
+          <EmptyCatalog
+            mode={mode === "watchlist" ? "watchlist" : "watched"}
+            onAddTitle={() => setAddTitle({ open: true, initialQuery: "" })}
+          />
+        ) : (
+          <p className="mt-16 text-center text-muted">No titles match these filters.</p>
+        )
       ) : (
         <div className="title-grid grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] sm:gap-4">
           {deferredQ.trim() && (

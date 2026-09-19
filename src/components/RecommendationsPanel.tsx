@@ -45,10 +45,16 @@ export default function RecommendationsPanel({
         canRefresh?: boolean;
         nextRefreshAt?: string | null;
         error?: string;
+        skipped?: boolean;
       };
       if (!res.ok) {
         setError(data.error ?? "Could not generate recommendations.");
         return;
+      }
+      // Another refresh already holds the lock (see the POST route), so this
+      // click did nothing: say so rather than appear to have ignored it.
+      if (data.skipped) {
+        setError("A refresh is already running. Try again in a minute.");
       }
       setTitles(data.titles ?? []);
       setGeneratedAt(data.generatedAt ?? null);

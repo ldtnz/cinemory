@@ -308,7 +308,15 @@ export default function AddTitleCard({
       !platformFor(key),
   );
   const failedCount = selectedList.filter(([key]) => itemStatus.get(key) === "error").length;
-  const isRetry = selectedList.some(([key]) => itemStatus.has(key));
+  // Only a failure asks for a retry. Every title resolved is a success, and
+  // the button says so for the beat before the dialog closes.
+  const isRetry = failedCount > 0;
+  const allResolved =
+    selectedList.length > 0 &&
+    selectedList.every(([key]) => {
+      const status = itemStatus.get(key);
+      return status === "added" || status === "duplicate";
+    });
   const visiblePopular =
     browseSuggestions?.popular.filter((candidate) => !alreadyInCatalog(candidate)).slice(0, 6) ?? [];
   const visibleNewReleases =
@@ -464,7 +472,18 @@ export default function AddTitleCard({
                   )}
                 </>
               ) : (
-                <h2 className="flex-1 text-sm font-semibold">Add title</h2>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setStep("search")}
+                    disabled={saving}
+                    aria-label="Back to search"
+                    className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-40"
+                  >
+                    <ArrowLeft className="h-4 w-4" strokeWidth={1.8} />
+                  </button>
+                  <h2 className="flex-1 text-sm font-semibold">Add title</h2>
+                </>
               )}
               <button
                 type="button"
@@ -875,16 +894,6 @@ export default function AddTitleCard({
                     </p>
                   )}
 
-                  <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setStep("search")}
-                    disabled={saving}
-                    className="flex flex-none items-center justify-center gap-1.5 rounded-2xl bg-surface-2 px-5 py-3 text-sm font-medium text-muted transition-colors hover:bg-surface-3 hover:text-foreground disabled:opacity-50"
-                  >
-                    <ArrowLeft className="h-4 w-4" strokeWidth={1.8} />
-                    Back
-                  </button>
                   <button
                     type="button"
                     onClick={confirmBatch}
@@ -897,19 +906,20 @@ export default function AddTitleCard({
                         return status === "added" || status === "duplicate";
                       })
                     }
-                    className="min-w-0 flex-1 rounded-2xl bg-foreground py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+                    className="w-full rounded-2xl bg-foreground py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
                     {saving
                       ? "Adding..."
                       : isRetry
-                        ? `Retry ${failedCount || selectedList.length}`
-                        : destination
+                        ? `Retry ${failedCount}`
+                        : allResolved
+                          ? "Added"
+                          : destination
                           ? `Add ${selectedList.length} to ${
                               destination === "watched" ? "watched" : "to watch"
                             }`
                           : `Add ${selectedList.length}`}
                   </button>
-                  </div>
                 </div>
               )}
             </div>

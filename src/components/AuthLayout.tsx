@@ -1,5 +1,6 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
+import Credits from "@/components/Credits";
 
 /**
  * Shared sign-in and setup frame, scrollable when the content is taller than
@@ -33,6 +34,7 @@ export default function AuthLayout({ background, children, showBrand = true }: {
             <span className="text-lg font-semibold tracking-tight">Cinemory</span>
           </div>}
           <div className="my-auto flex w-full shrink-0 justify-center">{children}</div>
+          <Credits compact className="absolute inset-x-0 bottom-[calc(1.25rem+env(safe-area-inset-bottom))]" />
         </div>
       </div>
     </div>

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AlertCircle, LoaderCircle } from "lucide-react";
 import CodeInput from "@/components/CodeInput";
 
-export default function LoginForm({ errorMessage }: { errorMessage: string | null }) {
+export default function LoginForm({ errorMessage, name }: { errorMessage: string | null; name?: string }) {
   const [pending, setPending] = useState(false);
   const [visibleError, setVisibleError] = useState(errorMessage);
   const submitting = useRef(false);
@@ -35,7 +35,7 @@ export default function LoginForm({ errorMessage }: { errorMessage: string | nul
       className="flex w-[min(90vw,380px)] flex-col items-center gap-8 rounded-3xl bg-surface bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.07),transparent_65%)] p-8 pb-10 shadow-[0_24px_70px_-18px_rgba(0,0,0,0.9)] backdrop-blur-xl supports-[backdrop-filter]:bg-surface/60 sm:p-10"
     >
       <div className="w-full space-y-3 text-left">
-        <h1 className="text-[28px] font-semibold leading-tight tracking-tight">Welcome back.</h1>
+        <h1 className="text-[28px] font-semibold leading-tight tracking-tight">{name ? `Welcome back, ${name}.` : "Welcome back."}</h1>
         <p className="text-sm leading-snug text-foreground/65">
           Enter your 6-digit code<br />
           from your authenticator app.

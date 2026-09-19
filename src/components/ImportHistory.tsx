@@ -39,9 +39,13 @@ type EnrichResponse = {
 export default function ImportHistory({
   onImported,
   embedded = false,
+  trigger,
 }: {
   onImported?: () => void;
   embedded?: boolean;
+  /** Draws its own button in place of the default one, given what opens the
+   *  dialog. Implies `embedded`: no section around it. */
+  trigger?: (open: () => void) => ReactNode;
 } = {}) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<"idle" | "importing" | "enriching">("idle");
@@ -120,20 +124,22 @@ export default function ImportHistory({
 
   const content: ReactNode = (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={`h-10 items-center gap-2 rounded-xl px-4 text-xs font-semibold transition-colors ${
-          embedded
-            ? "mx-auto flex bg-foreground text-background hover:opacity-90"
-            : "inline-flex bg-surface-2 hover:bg-surface-3"
-        }`}
-      >
-        <Upload className="h-4 w-4" strokeWidth={1.8} />
-        Import from a service
-      </button>
+      {trigger ? trigger(() => setOpen(true)) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={`h-10 items-center gap-2 rounded-xl px-4 text-xs font-semibold transition-colors ${
+            embedded
+              ? "mx-auto flex bg-foreground text-background hover:opacity-90"
+              : "inline-flex bg-surface-2 hover:bg-surface-3"
+          }`}
+        >
+          <Upload className="h-4 w-4" strokeWidth={1.8} />
+          Import from a service
+        </button>
+      )}
 
-      {outcomes && !open && (
+      {outcomes && !open && !trigger && (
         <p className="mt-3 text-xs text-muted">
           Last import: {lastAdded.toLocaleString("en-US")} {lastAdded === 1 ? "title" : "titles"} added.
           {lastAdded > 0 && " Reload the catalog to see them."}
@@ -154,7 +160,7 @@ export default function ImportHistory({
     </>
   );
 
-  if (embedded) return content;
+  if (embedded || trigger) return content;
 
   return (
     <SettingsSection

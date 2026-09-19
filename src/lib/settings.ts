@@ -14,6 +14,8 @@ export type AppSettings = {
   /** What the sign-in screen draws behind its card — see
    *  src/lib/login-background.ts. */
   loginBackground: string;
+  /** What the app calls its user; empty until chosen in the setup wizard. */
+  displayName: string;
   /** Set once the MCP connector is switched on — see src/lib/mcp-token.ts. */
   mcpTokenHash: string | null;
   mcpTokenCreatedAt: Date | null;
@@ -53,5 +55,13 @@ export async function savePreferences(language: string, region: string): Promise
     where: { id: SETTINGS_ID },
     update: { language, region },
     create: { id: SETTINGS_ID, language, region },
+  });
+}
+
+export async function saveDisplayName(displayName: string): Promise<void> {
+  await prisma.settings.upsert({
+    where: { id: SETTINGS_ID },
+    update: { displayName },
+    create: { id: SETTINGS_ID, displayName },
   });
 }

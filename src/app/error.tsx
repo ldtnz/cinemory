@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
-import { CloudAlert, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import LoginTerminal from "@/components/LoginTerminal";
 
@@ -30,35 +29,36 @@ export default function ErrorPage({
 
   return (
     <AuthLayout background={<LoginTerminal tint="#e5484d" />}>
-      <div className="flex w-[min(90vw,380px)] flex-col items-center gap-5 rounded-3xl border border-white/10 bg-surface/95 p-8 text-center shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-foreground">
-          <CloudAlert className="h-5 w-5" strokeWidth={1.8} />
-        </div>
-        <div className="space-y-1.5">
-          <h1 className="text-base font-semibold tracking-tight">Something went wrong</h1>
-          <p className="text-xs leading-relaxed text-muted">
-            The page stopped where it was. Your catalog is untouched — nothing on this screen
-            writes to it.
+      <div className="flex w-[min(90vw,380px)] flex-col items-center gap-8 rounded-3xl bg-surface bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.07),transparent_65%)] p-8 pb-10 shadow-[0_24px_70px_-18px_rgba(0,0,0,0.9)] backdrop-blur-xl supports-[backdrop-filter]:bg-surface/60 sm:p-10">
+        <div className="w-full space-y-3 text-left">
+          <h1 className="text-[28px] font-semibold leading-tight tracking-tight">
+            Something went wrong.
+          </h1>
+          <p className="text-sm leading-snug text-foreground/65">
+            The page stopped where it was. Your catalog is untouched.
           </p>
           {error.digest && (
             <p className="font-mono text-[10px] text-muted/70">Reference: {error.digest}</p>
           )}
         </div>
-        <div className="flex flex-wrap justify-center gap-2">
+        <div className="flex w-full flex-col gap-2">
           <button
             type="button"
             onClick={reset}
-            className="inline-flex h-10 items-center gap-2 rounded-xl bg-surface-2 px-4 text-xs font-semibold text-foreground transition-colors hover:bg-surface-3"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-foreground py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90"
           >
-            <RotateCcw className="h-4 w-4" strokeWidth={1.8} />
+            <RotateCcw className="h-4 w-4" strokeWidth={2} />
             Try again
           </button>
-          <Link
+          {/* A plain anchor, not <Link>: when the crash happened on "/" itself a
+              client-side navigation to "/" changes nothing and the boundary
+              stays put. A full load starts the page over. */}
+          <a
             href="/"
-            className="inline-flex h-10 items-center rounded-xl bg-surface-2 px-4 text-xs font-semibold text-foreground transition-colors hover:bg-surface-3"
+            className="flex w-full items-center justify-center rounded-xl bg-surface-2 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-surface-3"
           >
             Back to the catalog
-          </Link>
+          </a>
         </div>
       </div>
     </AuthLayout>

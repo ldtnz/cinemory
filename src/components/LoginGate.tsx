@@ -17,10 +17,12 @@ import LoginTerminal from "@/components/LoginTerminal";
 export default function LoginGate({
   posterUrl,
   background,
+  name,
   error,
 }: {
   posterUrl: string[];
   background: "posters" | "terminal";
+  name?: string;
   error?: string;
 }) {
   const errorMessage =
@@ -32,7 +34,7 @@ export default function LoginGate({
 
   return (
     <AuthLayout background={background === "posters" ? <LoginPosterWall posterUrl={posterUrl} /> : <LoginTerminal />}>
-      <LoginForm errorMessage={errorMessage} />
+      <LoginForm errorMessage={errorMessage} name={name} />
     </AuthLayout>
   );
 }

@@ -19,7 +19,11 @@ export async function POST() {
 
   const secret = generateTotpSecret();
   const otpauthUrl = buildOtpauthUrl(secret);
-  const qr = await QRCode.toDataURL(otpauthUrl, { margin: 1, width: 260 });
+  const qr = await QRCode.toDataURL(otpauthUrl, {
+    margin: 1,
+    width: 260,
+    color: { dark: "#18181bff", light: "#00000000" },
+  });
   const token = await createPendingTotpToken(secret, sessionSecret);
 
   return NextResponse.json({ secret, qr, token });

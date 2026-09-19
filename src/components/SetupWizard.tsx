@@ -7,11 +7,12 @@ import CodeInput from "@/components/CodeInput";
 import ImportHistory from "@/components/ImportHistory";
 import Select from "@/components/Select";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertCircle, Check, Copy, LoaderCircle } from "lucide-react";
 import { LANGUAGES, REGIONS } from "@/lib/locales";
+import { DISPLAY_NAME_MAX } from "@/lib/settings-limits";
 
-type Step = "welcome" | "preferences" | "totp" | "import";
+type Step = "welcome" | "preferences" | "totp" | "name" | "import";
 
 /**
  * First-run wizard, shown once instead of LoginGate: pick the TMDB content
@@ -38,6 +39,15 @@ export default function SetupWizard({ initialStep = "welcome" }: { initialStep?:
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [name, setName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  // The step whose entrance animation has finished. The class is dropped after
+  // that, so nothing on the card can play it again while the step is in use.
+  const [settledStep, setSettledStep] = useState<Step | null>(null);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettledStep(step), 600);
+    return () => window.clearTimeout(timer);
+  }, [step]);
 
   /** The server's own reason, when it gave one. Setting this up is the one
    *  moment where what went wrong is usually a deployment detail — a missing
@@ -105,10 +115,35 @@ export default function SetupWizard({ initialStep = "welcome" }: { initialStep?:
         return;
       }
       setConfirming(false);
-      setStep("import");
+      setStep("name");
     } catch {
       setError("Something went wrong.");
       setConfirming(false);
+    }
+  }
+
+  async function saveName() {
+    if (savingName) return;
+    const trimmed = name.trim();
+    // Optional: an empty name just moves on and the app greets no one by name.
+    if (!trimmed) {
+      setStep("import");
+      return;
+    }
+    setSavingName(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/setup/name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      if (!res.ok) throw new Error(await reason(res, "Could not save your name."));
+      setStep("import");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setSavingName(false);
     }
   }
 
@@ -129,10 +164,10 @@ export default function SetupWizard({ initialStep = "welcome" }: { initialStep?:
 
   return (
     <AuthLayout background={<LoginTerminal />} showBrand={step !== "welcome"}>
-      <div key={step} aria-busy={savingPreferences || confirming} className="auth-step-in flex w-[min(90vw,420px)] flex-col items-center gap-6 rounded-3xl bg-surface bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.07),transparent_65%)] p-8 shadow-[0_24px_70px_-18px_rgba(0,0,0,0.9)] backdrop-blur-xl supports-[backdrop-filter]:bg-surface/60 sm:p-10">
+      <div key={step} aria-busy={savingPreferences || confirming} className={`${settledStep === step ? "" : "auth-step-in"} flex ${step === "totp" ? "w-[min(90vw,760px)]" : "w-[min(90vw,420px)]"} flex-col items-center gap-6 rounded-3xl bg-surface bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.07),transparent_65%)] p-8 shadow-[0_24px_70px_-18px_rgba(0,0,0,0.9)] backdrop-blur-xl supports-[backdrop-filter]:bg-surface/60 sm:p-10`}>
         {step !== "welcome" && (
           <p className="w-full text-xs font-medium text-accent-select">
-            Step {step === "preferences" ? "1" : step === "totp" ? "2" : "3"} of 3
+            Step {step === "preferences" ? "1" : step === "totp" ? "2" : step === "name" ? "3" : "4"} of 4
           </p>
         )}
         {step === "welcome" ? (
@@ -153,7 +188,7 @@ export default function SetupWizard({ initialStep = "welcome" }: { initialStep?:
               >
                 Get started
               </button>
-              <p className="text-xs text-muted">Three quick steps to make it yours.</p>
+              <p className="text-xs text-muted">Four quick steps to make it yours.</p>
             </div>
           </div>
         ) : step === "preferences" ? (
@@ -216,19 +251,18 @@ export default function SetupWizard({ initialStep = "welcome" }: { initialStep?:
             </button>
           </>
         ) : step === "totp" ? (
-          <>
-            <div className="w-full space-y-3 text-left">
+          <div className="grid w-full gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-x-10">
+            <div className="w-full space-y-3 text-left sm:col-start-1 sm:row-start-1">
               <h1 className="text-[28px] font-semibold leading-tight tracking-tight">Secure your collection.</h1>
               <p className="text-sm leading-relaxed text-foreground/65">
-                Scan this QR code with an authenticator app (1Password, Aegis, Google
-                Authenticator...), or enter the code below by hand.
+                Scan this QR code with an authenticator app, or enter the code below by hand.
               </p>
             </div>
 
             {qr && (
-              <div className="relative rounded-2xl bg-white p-3" aria-busy={!qrLoaded && !qrFailed}>
+              <div className="relative justify-self-center rounded-2xl bg-zinc-200 p-3 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:self-center" aria-busy={!qrLoaded && !qrFailed}>
                 {!qrLoaded && (
-                  <div className="absolute inset-3 flex flex-col items-center justify-center gap-3 rounded-lg bg-zinc-100 text-center text-xs text-zinc-600" role="status">
+                  <div className="absolute inset-3 flex flex-col items-center justify-center gap-3 rounded-lg bg-zinc-300 text-center text-xs text-zinc-600" role="status">
                     {qrFailed ? "QR code unavailable. Use the setup key below." : (
                       <>
                         <LoaderCircle aria-hidden className="h-6 w-6 animate-spin motion-reduce:animate-none" />
@@ -250,6 +284,7 @@ export default function SetupWizard({ initialStep = "welcome" }: { initialStep?:
               </div>
             )}
 
+            <div className="flex w-full flex-col gap-6 sm:col-start-1 sm:row-start-2">
             {secret && (
               <button
                 type="button"
@@ -294,7 +329,56 @@ export default function SetupWizard({ initialStep = "welcome" }: { initialStep?:
               {confirming && <LoaderCircle aria-hidden className="h-4 w-4 animate-spin motion-reduce:animate-none" />}
               <span role="status">{confirming ? "Verifying…" : "Verify and continue"}</span>
             </button>
-          </>
+            </div>
+          </div>
+        ) : step === "name" ? (
+          <form
+            className="flex w-full flex-col gap-6"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveName();
+            }}
+          >
+            <div className="w-full space-y-3 text-left">
+              <h1 className="text-[28px] font-semibold leading-tight tracking-tight">What should we call you?</h1>
+              <p className="text-sm leading-relaxed text-foreground/65">
+                You can leave it empty.
+              </p>
+            </div>
+
+            <input
+              type="text"
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value);
+                setError(null);
+              }}
+              maxLength={DISPLAY_NAME_MAX}
+              autoComplete="given-name"
+              placeholder="Your name"
+              aria-label="Your name"
+              readOnly={savingName}
+              className="h-11 w-full rounded-xl bg-surface-2 px-4 text-sm text-foreground outline-none transition-shadow placeholder:text-muted focus:ring-1 focus:ring-foreground/30"
+            />
+
+            {error && (
+              <div
+                role="alert"
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-red-400/10 px-3 py-2 text-xs font-medium text-red-400">
+                <AlertCircle className="h-3.5 w-3.5 flex-none" strokeWidth={2} />
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={savingName}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-foreground py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {savingName && <LoaderCircle aria-hidden className="h-4 w-4 animate-spin motion-reduce:animate-none" />}
+              <span role="status">{savingName ? "Saving…" : name.trim() ? "Continue" : "Skip"}</span>
+            </button>
+          </form>
         ) : (
           <>
             <div className="w-full space-y-3 text-left">

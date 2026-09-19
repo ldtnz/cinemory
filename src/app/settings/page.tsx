@@ -1,3 +1,4 @@
+import Credits from "@/components/Credits";
 import Link from "next/link";
 import { ArrowLeft, Download } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -142,6 +143,8 @@ export default async function SettingsPage() {
             />
           }
         />
+
+        <Credits className="pt-4" />
       </div>
     </main>
   );

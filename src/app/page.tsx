@@ -37,11 +37,15 @@ export default async function Home({
 
   if (!settings.onboarded) {
     if (!settings.totpSecret) return <SetupWizard />;
-    if (authenticated) return <SetupWizard initialStep="import" />;
+    if (authenticated) {
+      return <SetupWizard initialStep={settings.displayName ? "import" : "name"} />;
+    }
 
     // The authenticator is configured, but onboarding was interrupted before
     // the import choice. Signing in resumes the final wizard step.
-    return <LoginGate posterUrl={[]} background="terminal" error={params.error} />;
+    return (
+      <LoginGate posterUrl={[]} background="terminal" name={settings.displayName} error={params.error} />
+    );
   }
 
   if (!authenticated) {
@@ -61,6 +65,7 @@ export default async function Home({
       <LoginGate
         posterUrl={preview.map((t) => t.posterUrl as string)}
         background={resolveLoginBackground(settings.loginBackground, withPosters)}
+        name={settings.displayName}
         error={params.error}
       />
     );
