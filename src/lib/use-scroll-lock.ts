@@ -36,6 +36,7 @@ function lock() {
     right: body.style.right,
     overflow: body.style.overflow,
     paddingRight: body.style.paddingRight,
+    minHeight: body.style.minHeight,
   };
 
   body.style.position = "fixed";
@@ -44,6 +45,12 @@ function lock() {
   body.style.right = "0";
   body.style.overflow = "hidden";
   if (scrollbar > 0) body.style.paddingRight = `${scrollbar}px`;
+  // Pinned this far up the body ends that far short of the bottom of the
+  // screen unless it is told otherwise — and a page whose own frame is
+  // position:fixed, as sign-in and the setup wizard are, contributes no flow
+  // height to stop it. The offset is added back so the box still reaches the
+  // bottom edge.
+  body.style.minHeight = `calc(100dvh + ${offset}px)`;
 
   release = () => {
     body.style.position = previous.position;
@@ -52,6 +59,7 @@ function lock() {
     body.style.right = previous.right;
     body.style.overflow = previous.overflow;
     body.style.paddingRight = previous.paddingRight;
+    body.style.minHeight = previous.minHeight;
     window.scrollTo(0, offset);
   };
 }
