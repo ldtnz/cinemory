@@ -210,6 +210,12 @@ export default function FilterBar({
   const desktopFilterRef = useRef<HTMLDivElement>(null);
   const mobileRowRef = useRef<HTMLDivElement>(null);
   const [mobileRowWidth, setMobileRowWidth] = useState(0);
+  // The watch switch only joins the compact row once there is room for it
+  // (tablets). Its width is measured rather than assumed, because it is two
+  // words of text: `hidden` below that width makes this 0 on a phone, which
+  // is exactly what the arithmetic below wants.
+  const watchSwitchRef = useRef<HTMLDivElement>(null);
+  const [watchSwitchWidth, setWatchSwitchWidth] = useState(0);
 
   // "Any genre" is an option like the others now that the list is drawn
   // rather than left to the browser, and the empty value is what clears the
@@ -247,11 +253,16 @@ export default function FilterBar({
   // sliding.
   useEffect(() => {
     const element = mobileRowRef.current;
+    const watchSwitch = watchSwitchRef.current;
     if (!element) return;
-    const measure = () => setMobileRowWidth(element.clientWidth);
+    const measure = () => {
+      setMobileRowWidth(element.clientWidth);
+      setWatchSwitchWidth(watchSwitch?.offsetWidth ?? 0);
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
+    if (watchSwitch) observer.observe(watchSwitch);
     return () => observer.disconnect();
   }, []);
 
@@ -279,8 +290,13 @@ export default function FilterBar({
   const BUTTON_WIDTH = 36;
   const GAP = 8;
   const MAX_TITLE_WIDTH = 176; // 11rem
-  // search + filters + statistics + settings buttons, and the gaps around them
-  const mobileRowFixedSpace = BUTTON_WIDTH * 4 + GAP * 5;
+  // Everything to the right of the search field: the four buttons and the
+  // gaps between them and it.
+  const SEARCH_ROW_RIGHT = BUTTON_WIDTH * 4 + GAP * 4;
+  // ...plus the gap that separates the whole right-hand group from what
+  // precedes it, and the watch switch when a tablet is wide enough for it.
+  const mobileRowFixedSpace =
+    SEARCH_ROW_RIGHT + GAP + (watchSwitchWidth > 0 ? watchSwitchWidth + GAP : 0);
   const expandedInputWidth = Math.max(0, mobileRowWidth - mobileRowFixedSpace);
   const collapsedTitleWidth = Math.min(
     MAX_TITLE_WIDTH,
@@ -531,6 +547,14 @@ export default function FilterBar({
             </p>
           </div>
 
+          {/* Tablets are wide enough to keep the switch where the desktop
+              header has it, so the thumb-sized pill floating over the grid is
+              only for phones. It stays put when search opens: the title has
+              to give up its width for the field, this does not. */}
+          <div ref={watchSwitchRef} className="hidden flex-none md:block">
+            <WatchModeSwitch mode={mode} onModeChange={onModeChange} className="bg-surface" />
+          </div>
+
           {/* Search + filters: always anchored to the right of the row.
               Only one element animates its own width (the text field); the
               search/close button stays put, so there are no nested animations
@@ -609,17 +633,26 @@ export default function FilterBar({
 
           {/* Hung off the whole row rather than off the field itself, which
               lives in an overflow-hidden box (it animates its width open and
-              shut) that would clip anything below it. The bubble therefore
-              starts at the row's left edge and the arrow is walked over to
-              the middle of the field instead — same result, no clipping, and
-              it cannot spill off a narrow screen the way a bubble centred on
-              a 112px-wide field would. */}
+              shut) that would clip anything below it. The row is wider than
+              the field by the four buttons on its right, so it is padded back
+              down to the field's own span and the bubble centres on that —
+              centred under what it belongs to, and still never clipped. */}
           {aiSearchHint && onAiSearch && (
             <AiSearchHint
               {...aiSearchHint}
               onSearch={onAiSearch}
               className="absolute inset-x-0 top-full z-20 mt-2"
-              arrowOffset={searchExpanded ? GAP + expandedInputWidth / 2 : undefined}
+              style={
+                searchExpanded
+                  ? {
+                      paddingLeft: Math.max(
+                        0,
+                        mobileRowWidth - SEARCH_ROW_RIGHT - expandedInputWidth,
+                      ),
+                      paddingRight: SEARCH_ROW_RIGHT,
+                    }
+                  : undefined
+              }
             />
           )}
         </div>
@@ -631,7 +664,7 @@ export default function FilterBar({
           the modal below — the sticky header's backdrop-blur would otherwise
           be the containing block for anything "fixed" inside it. */}
       {mounted && createPortal(
-        <div className="fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex justify-center px-3 lg:hidden">
+        <div className="fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex justify-center px-3 md:hidden">
           <WatchModeSwitch
             mode={mode}
             onModeChange={onModeChange}

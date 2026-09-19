@@ -333,10 +333,20 @@ html.landscape-ok .landscape-notice {
   transition: color 150ms ease, background-color 150ms ease;
 }
 
-.group:hover .service-mark,
 .group:focus-visible .service-mark {
   color: var(--brand);
   background: color-mix(in srgb, var(--brand) 18%, transparent);
+}
+
+/* Behind the same gate Tailwind puts its own `hover:` utilities behind. On a
+   touch screen a tapped :hover sticks until something else is tapped, so the
+   tile would stay lit long after the row was chosen. Keyboard focus above is
+   not gated: that one is how the row is pointed at without a pointer. */
+@media (hover: hover) {
+  .group:hover .service-mark {
+    color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 18%, transparent);
+  }
 }
 
 /* A card marked watched hands over to the pixel ghost drawn on top of it
