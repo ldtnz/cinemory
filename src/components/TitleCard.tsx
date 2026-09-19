@@ -16,27 +16,6 @@ import { hasSeasonTotal } from "@/lib/season-counts";
 import TrailerModal from "@/components/TrailerModal";
 import TitleDetailsModal from "@/components/TitleDetailsModal";
 
-function MissingPosterIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="relative h-6 w-6 text-muted" aria-hidden>
-      <path
-        d="M4 8.5 5.5 5h13L20 8.5M4 8.5V18a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V8.5M4 8.5h16"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="m8 5 1.6 3.5M13 5l1.6 3.5"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function TitleCard({
   title,
   priority = false,
@@ -94,14 +73,11 @@ function TitleCard({
   const [tapDetailsVisible, setTapDetailsVisible] = useState(false);
   const tapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealRef = useRevealOnView();
-  // Every dialog this card can open, from the context menu or from the
-  // buttons on the card itself. The grid stays blurred behind all of them
-  // rather than flashing sharp between the menu closing and the dialog
-  // opening — see the hook.
+  // Every dialog this card can open, used to restore focus when it closes.
   const dialogOpen =
     confirmingDelete || markingWatched || editingWatched || detailsOpen || trailer !== null;
   const { cardRef, menuPos, openContextMenuOnCard, closeContextMenu, longPressFiredRef, cardHandlers } =
-    useCardContextMenu<HTMLDivElement>(dialogOpen);
+    useCardContextMenu<HTMLDivElement>();
 
   // One ref for the card's root, stable across renders. An inline arrow here
   // is a new function every time, which React reads as a different ref: it
@@ -272,15 +248,36 @@ function TitleCard({
           />
         </>
       ) : (
-        <div className="relative flex h-full w-full flex-col items-center justify-center gap-2 overflow-hidden p-3 text-center text-muted">
-          <div
-            className="absolute -inset-6 rounded-full bg-surface/80 blur-2xl"
+        <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-surface-2 p-4 text-center">
+          <Image
+            src="/logo.png"
+            alt=""
+            width={220}
+            height={220}
             aria-hidden
+            className="pointer-events-none absolute left-1/2 top-1/2 w-[82%] max-w-56 -translate-x-1/2 -translate-y-1/2 opacity-[0.035] blur-[1px]"
           />
-          <MissingPosterIcon />
-          <span className="relative line-clamp-4 text-[10.5px] leading-tight">
-            {title.title}
-          </span>
+          <div className="pointer-events-none absolute inset-px rounded-[15px] border border-white/[0.035]" aria-hidden />
+          <div className="relative flex max-w-full flex-col items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.035] ring-1 ring-white/[0.07]">
+              <Image
+                src="/logo.png"
+                alt=""
+                width={25}
+                height={25}
+                aria-hidden
+                className="h-[25px] w-[25px] opacity-60"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <span className="line-clamp-4 block text-[11px] font-medium leading-snug text-foreground/75">
+                {title.title}
+              </span>
+              <span className="block text-[8px] font-medium uppercase tracking-[0.16em] text-muted/55">
+                {title.mediaType}
+              </span>
+            </div>
+          </div>
         </div>
       )}
 

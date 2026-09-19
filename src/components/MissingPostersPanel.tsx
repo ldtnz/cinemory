@@ -116,7 +116,7 @@ function MissingPosterRow({
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && search()}
               className="h-9 flex-1 rounded-xl bg-surface-3 px-3 text-base outline-none focus:ring-2 focus:ring-accent-2 sm:text-sm"
-              placeholder="Title to search on TMDB"
+              placeholder="Search for a title"
             />
             <button
               type="button"

@@ -6,10 +6,7 @@ export default function AuthLayout({ background, children, showBrand = true }: {
   return (
     <div className="fixed inset-0 overflow-hidden bg-background">
       {background}
-      <div className="absolute inset-0 bg-background/45" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_10%,var(--background)_95%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(9,9,10,0.3),transparent_65%)]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[calc(12rem+env(safe-area-inset-top))] bg-[radial-gradient(ellipse_at_top,rgba(9,9,10,0.75),transparent_70%)]" />
+      <div className="auth-scrim pointer-events-none absolute inset-0" />
 
       <div className="absolute inset-0 overflow-y-auto">
         <div className="relative flex min-h-full flex-col items-center px-4 pt-[calc(6.5rem+env(safe-area-inset-top))] pb-[calc(6.5rem+env(safe-area-inset-bottom))]">

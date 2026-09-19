@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Select from "@/components/Select";
 import Link from "next/link";
-import { BarChart3, Settings, SlidersHorizontal, X } from "lucide-react";
+import { BarChart3, Plus, Settings, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { WATCH_MODES, type WatchMode } from "@/lib/watch-mode";
@@ -174,6 +174,7 @@ export default function FilterBar({
   countLabel,
   aiSearchHint = null,
   onAiSearch,
+  onAddTitle,
 }: {
   total: number;
   filteredTotal: number;
@@ -200,6 +201,7 @@ export default function FilterBar({
    *  itself, which is why it is rendered here and not next to the results. */
   aiSearchHint?: AiSearchHintState | null;
   onAiSearch?: () => void;
+  onAddTitle: () => void;
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [desktopFilterOpen, setDesktopFilterOpen] = useState(false);
@@ -290,13 +292,15 @@ export default function FilterBar({
   const BUTTON_WIDTH = 36;
   const GAP = 8;
   const MAX_TITLE_WIDTH = 176; // 11rem
-  // Everything to the right of the search field: the four buttons and the
-  // gaps between them and it.
+  // Everything to the right of the search field: its own button, filters,
+  // statistics and settings, plus the gaps between them and the field.
   const SEARCH_ROW_RIGHT = BUTTON_WIDTH * 4 + GAP * 4;
-  // ...plus the gap that separates the whole right-hand group from what
-  // precedes it, and the watch switch when a tablet is wide enough for it.
+  // Phones keep Add title beside the floating mode switch, so the header only
+  // needs room for it at the tablet breakpoint, alongside the inline switch.
   const mobileRowFixedSpace =
-    SEARCH_ROW_RIGHT + GAP + (watchSwitchWidth > 0 ? watchSwitchWidth + GAP : 0);
+    SEARCH_ROW_RIGHT +
+    GAP +
+    (watchSwitchWidth > 0 ? watchSwitchWidth + BUTTON_WIDTH + GAP * 2 : 0);
   const expandedInputWidth = Math.max(0, mobileRowWidth - mobileRowFixedSpace);
   const collapsedTitleWidth = Math.min(
     MAX_TITLE_WIDTH,
@@ -389,8 +393,8 @@ export default function FilterBar({
             row. Below that the compact row below takes over — a half-desktop
             header that wraps onto two lines reads as broken rather than as
             adapted. */}
-        <div className="hidden lg:flex lg:flex-row lg:items-center lg:gap-3">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="hidden lg:flex lg:flex-row lg:items-center lg:gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <WatchModeSwitch
               mode={mode}
               onModeChange={onModeChange}
@@ -406,6 +410,16 @@ export default function FilterBar({
           </div>
 
           <div className="flex h-9 items-center gap-2">
+            <button
+              type="button"
+              onClick={onAddTitle}
+              aria-label="Add title"
+              title="Add title"
+              className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-surface text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+            >
+              <Plus className="h-4 w-4" strokeWidth={1.8} />
+            </button>
+
             <div className="relative h-9 w-64">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
                 <SearchIcon />
@@ -456,7 +470,7 @@ export default function FilterBar({
                   role="dialog"
                   aria-modal="true"
                   aria-label="Filters and sort"
-                  className="absolute right-0 top-full z-20 mt-2 w-56 space-y-4 rounded-2xl border border-white/10 bg-surface p-4 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
+                  className="app-modal-panel absolute right-0 top-full z-20 mt-2 w-56 space-y-4 rounded-2xl p-4"
                 >
                   <div className="space-y-2">
                     <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
@@ -566,9 +580,20 @@ export default function FilterBar({
               />
             </div>
 
+            <button
+              type="button"
+              onClick={onAddTitle}
+              aria-label="Add title"
+              title="Add title"
+              className="hidden h-9 w-9 flex-none items-center justify-center rounded-xl bg-surface text-muted transition-colors hover:bg-surface-2 hover:text-foreground md:flex"
+            >
+              <Plus className="h-4 w-4" strokeWidth={1.8} />
+            </button>
+
+            {/* Cancel the empty field's extra gap beside the tablet switch. */}
             <div
               className={`relative h-9 flex-none overflow-hidden transition-all duration-300 ease-in-out ${
-                searchExpanded ? "opacity-100" : "opacity-0"
+                searchExpanded ? "opacity-100" : "opacity-0 md:-mr-2"
               }`}
               style={{ width: searchExpanded ? expandedInputWidth : 0 }}
             >
@@ -670,7 +695,7 @@ export default function FilterBar({
           the modal below — the sticky header's backdrop-blur would otherwise
           be the containing block for anything "fixed" inside it. */}
       {mounted && createPortal(
-        <div className="watch-mode-pill fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex justify-center px-3 md:hidden">
+        <div className="watch-mode-pill fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex items-center justify-center gap-2 px-3 md:hidden">
           <WatchModeSwitch
             mode={mode}
             onModeChange={onModeChange}
@@ -679,17 +704,26 @@ export default function FilterBar({
             // poster, and it lets the grid show through as it scrolls under.
             className="border border-white/10 bg-background/95 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.85)] backdrop-blur supports-[backdrop-filter]:bg-background/80"
           />
+          <button
+            type="button"
+            onClick={onAddTitle}
+            aria-label="Add title"
+            title="Add title"
+            className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl border border-white/10 bg-background/95 text-foreground shadow-[0_10px_30px_-8px_rgba(0,0,0,0.85)] backdrop-blur transition-[background-color,transform] hover:bg-surface-2 active:scale-95 supports-[backdrop-filter]:bg-background/80"
+          >
+            <Plus className="h-5 w-5" strokeWidth={1.8} />
+          </button>
         </div>,
         document.body,
       )}
 
       {filtersOpen && mounted && createPortal(
-        <div className="overlay-in fixed inset-0 z-50 flex items-end justify-center bg-background/70 backdrop-blur-sm lg:hidden">
+        <div className="app-modal-overlay overlay-in fixed inset-0 z-50 flex items-end justify-center lg:hidden">
           <div
             role="dialog"
             aria-modal="true"
             aria-label="Filters and sort"
-            className="sheet-in max-h-[85vh] w-full max-w-md space-y-5 overflow-y-auto rounded-t-3xl border border-white/10 bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.7)]"
+            className="app-modal-panel sheet-in max-h-[85vh] w-full max-w-md space-y-5 overflow-y-auto rounded-t-3xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
           >
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">Filters and sort</h2>

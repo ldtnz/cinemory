@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Clapperboard, ExternalLink, Loader2, Star, X } from "lucide-react";
 import type { CatalogTitle } from "@/lib/catalog-title";
+import type { TitleCredits } from "@/lib/tmdb";
 import { splitGenres } from "@/lib/genres";
 import { formatDate, platformStyle, seasonsLabel } from "@/lib/title-display";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
@@ -50,6 +51,7 @@ export default function TitleDetailsModal({
   // id to ask about, which is not "still loading" — so that case is derived
   // below rather than written into state from an effect.
   const [fetchedProviders, setFetchedProviders] = useState<string[] | null>(null);
+  const [credits, setCredits] = useState<TitleCredits | null>(null);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -96,6 +98,24 @@ export default function TitleDetailsModal({
     };
   }, [canAskProviders, tmdbId, title.mediaType]);
 
+  useEffect(() => {
+    if (!canAskProviders) return;
+    let current = true;
+    const params = new URLSearchParams({
+      id: String(tmdbId),
+      type: title.mediaType,
+    });
+    void (async () => {
+      const res = await fetch(`/api/title-credits?${params}`).catch(() => null);
+      if (!res?.ok || !current) return;
+      const data = (await res.json().catch(() => null)) as TitleCredits | null;
+      if (current && data) setCredits(data);
+    })();
+    return () => {
+      current = false;
+    };
+  }, [canAskProviders, tmdbId, title.mediaType]);
+
   const genres = splitGenres(title.genres);
   const seasons = seasonsLabel(title);
   const platform = platformStyle(title.platform);
@@ -103,7 +123,7 @@ export default function TitleDetailsModal({
 
   return createPortal(
     <div
-      className="overlay-in fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm"
+      className="app-modal-overlay overlay-in fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
@@ -112,7 +132,7 @@ export default function TitleDetailsModal({
         aria-modal="true"
         aria-label={`${title.title} details`}
         onClick={(e) => e.stopPropagation()}
-        className="dialog-in flex max-h-[85dvh] w-[min(92vw,34rem)] flex-col overflow-hidden rounded-3xl border border-white/10 bg-surface shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
+        className="app-modal-panel dialog-in flex max-h-[85dvh] w-[min(92vw,34rem)] flex-col overflow-hidden rounded-3xl"
       >
         <div className="flex items-start gap-3 p-4 pb-3">
           {title.posterUrl && (
@@ -166,6 +186,34 @@ export default function TitleDetailsModal({
                   </span>
                 ))}
               </div>
+            </Row>
+          )}
+
+          {credits?.directors.length ? (
+            <Row label={credits.directors.length === 1 ? "Director" : "Directors"}>
+              {credits.directors.join(" · ")}
+            </Row>
+          ) : null}
+
+          {credits?.creators.length ? (
+            <Row label="Created by">{credits.creators.join(" · ")}</Row>
+          ) : null}
+
+          {credits?.writers.length ? (
+            <Row label={credits.writers.length === 1 ? "Writer" : "Writers"}>
+              {credits.writers.join(" · ")}
+            </Row>
+          ) : null}
+
+          {canAskProviders && (
+            <Row label="Cast">
+              {credits === null ? (
+                <span className="text-muted">Loading...</span>
+              ) : credits.cast.length > 0 ? (
+                credits.cast.join(" · ")
+              ) : (
+                <span className="text-muted">Cast unavailable</span>
+              )}
             </Row>
           )}
 

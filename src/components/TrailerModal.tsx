@@ -14,11 +14,14 @@ import { useDialogFocus } from "@/lib/use-dialog-focus";
 export default function TrailerModal({
   trailerKey,
   loading = false,
+  stacked = false,
   title,
   onClose,
 }: {
   trailerKey: string | null;
   loading?: boolean;
+  /** Another modal already supplies the shared overlay underneath. */
+  stacked?: boolean;
   title: string;
   onClose: () => void;
 }) {
@@ -42,7 +45,7 @@ export default function TrailerModal({
 
   return createPortal(
     <div
-      className="overlay-in fixed inset-0 z-[60] flex items-center justify-center bg-background/90 p-4 [@media(max-height:500px)]:p-2"
+      className={`${stacked ? "" : "app-modal-overlay"} trailer-modal-overlay overlay-in fixed inset-0 z-[60] flex items-center justify-center p-4 [@media(max-height:500px)]:p-2`}
       onClick={onClose}
     >
       {/* Width is capped by whichever runs out first, the screen or the room

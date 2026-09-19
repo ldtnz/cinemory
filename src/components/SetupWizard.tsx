@@ -161,8 +161,8 @@ export default function SetupWizard({ initialStep = "welcome" }: { initialStep?:
             <div className="w-full space-y-3 text-left">
               <h1 className="text-[28px] font-semibold leading-tight tracking-tight">Make it yours.</h1>
               <p className="text-sm leading-relaxed text-foreground/65">
-                Pick the language and region TMDB uses for posters, ratings and genres. You can
-                change this later from Settings.
+                Pick the language and region used for posters, ratings and genres. You can change
+                this later from Settings.
               </p>
             </div>
 

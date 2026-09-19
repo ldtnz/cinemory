@@ -58,6 +58,26 @@ export type TmdbCandidate = {
   genres: string | null;
 };
 
+export type TitleCredits = {
+  cast: string[];
+  directors: string[];
+  creators: string[];
+  writers: string[];
+};
+
+type RawCreditPerson = {
+  name?: string;
+  order?: number;
+  job?: string;
+  jobs?: { job?: string; episode_count?: number }[];
+};
+
+type RawTitleDetails = {
+  created_by?: RawCreditPerson[];
+  credits?: { cast?: RawCreditPerson[]; crew?: RawCreditPerson[] };
+  aggregate_credits?: { cast?: RawCreditPerson[]; crew?: RawCreditPerson[] };
+};
+
 // Keyed by language, so a warm serverless instance picks up a language change
 // made later on the settings page instead of keeping the first one it saw.
 const genreCache = new Map<string, { film: Map<number, string>; series: Map<number, string> }>();
@@ -171,6 +191,154 @@ export async function searchTmdb(query: string, perType = 6): Promise<TmdbCandid
     if (seriesCandidates[i]) results.push(seriesCandidates[i]);
   }
   return results;
+}
+
+function shuffled<T>(items: T[]): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+/** Suggestions shown before anything is typed in the Add title dialog. */
+export async function browseTmdb(): Promise<{
+  popular: TmdbCandidate[];
+  newReleases: TmdbCandidate[];
+}> {
+  if (!isTmdbConfigured()) return { popular: [], newReleases: [] };
+
+  const { language, region } = await getSettings();
+  const { film, series } = await genreMaps(language);
+
+  // "On the air" includes long-running series and exposes their original
+  // first-air date, which made a currently airing show look like a 2006
+  // release. Discover with an explicit window keeps this section about titles
+  // that actually debuted recently.
+  const releaseWindowEnd = new Date();
+  const releaseWindowStart = new Date(releaseWindowEnd);
+  releaseWindowStart.setUTCDate(releaseWindowStart.getUTCDate() - 180);
+  const isoDate = (date: Date) => date.toISOString().slice(0, 10);
+
+  async function list(
+    path: "movie/popular" | "tv/popular" | "discover/movie" | "discover/tv",
+    mediaType: "Movie" | "Series",
+  ): Promise<TmdbCandidate[]> {
+    const url = withKey(new URL(`https://api.themoviedb.org/3/${path}`));
+    url.searchParams.set("language", language);
+    url.searchParams.set("include_adult", "false");
+    if (mediaType === "Movie") url.searchParams.set("region", region);
+    if (path === "discover/movie") {
+      url.searchParams.set("primary_release_date.gte", isoDate(releaseWindowStart));
+      url.searchParams.set("primary_release_date.lte", isoDate(releaseWindowEnd));
+      url.searchParams.set("include_video", "false");
+      url.searchParams.set("sort_by", "popularity.desc");
+    }
+    if (path === "discover/tv") {
+      url.searchParams.set("first_air_date.gte", isoDate(releaseWindowStart));
+      url.searchParams.set("first_air_date.lte", isoDate(releaseWindowEnd));
+      url.searchParams.set("include_null_first_air_dates", "false");
+      url.searchParams.set("sort_by", "popularity.desc");
+    }
+
+    const response = await fetch(url, { headers: authHeaders(), cache: "no-store" });
+    if (!response.ok) return [];
+    const data = (await response.json()) as { results?: RawTmdbResult[] };
+    const genreMap = mediaType === "Movie" ? film : series;
+    const candidates = (data.results ?? [])
+      .filter((item) => item.poster_path && (item.title || item.name))
+      .map((item) => normalize(item, mediaType, genreMap));
+    if (!path.startsWith("discover/")) return candidates;
+
+    // TMDB may filter movies by their primary date but return a localized
+    // release date for `region`. Apply the same window to the displayed date
+    // too, so an upcoming or old date cannot leak into New releases.
+    const start = isoDate(releaseWindowStart);
+    const end = isoDate(releaseWindowEnd);
+    return candidates.filter(
+      (candidate) =>
+        candidate.dataUscita !== null &&
+        candidate.dataUscita >= start &&
+        candidate.dataUscita <= end,
+    );
+  }
+
+  const [popularMovies, popularSeries, newMovies, newSeries] = await Promise.all([
+    list("movie/popular", "Movie"),
+    list("tv/popular", "Series"),
+    list("discover/movie", "Movie"),
+    list("discover/tv", "Series"),
+  ]);
+
+  function mix(
+    movies: TmdbCandidate[],
+    series: TmdbCandidate[],
+    excluded = new Set<string>(),
+  ): TmdbCandidate[] {
+    const unique = new Map<string, TmdbCandidate>();
+    for (const candidate of shuffled([...movies, ...series])) {
+      const key = `${candidate.mediaType}-${candidate.tmdbId}`;
+      if (!excluded.has(key)) unique.set(key, candidate);
+    }
+    // Return a larger pool because the client removes titles already present
+    // in this user's catalog before displaying the first six.
+    return [...unique.values()].slice(0, 16);
+  }
+
+  const popular = mix(popularMovies, popularSeries);
+  const popularKeys = new Set(popular.map((candidate) => `${candidate.mediaType}-${candidate.tmdbId}`));
+  return {
+    popular,
+    newReleases: mix(newMovies, newSeries, popularKeys),
+  };
+}
+
+/** Cast and principal creative credits shown on demand in the title modal. */
+export async function fetchTitleCredits(
+  tmdbId: number,
+  mediaType: "Movie" | "Series",
+): Promise<TitleCredits> {
+  const empty: TitleCredits = { cast: [], directors: [], creators: [], writers: [] };
+  if (!isTmdbConfigured() || !(tmdbId > 0)) return empty;
+
+  const language = (await getSettings()).language;
+  const endpoint = mediaType === "Series" ? "tv" : "movie";
+  const url = withKey(new URL(`https://api.themoviedb.org/3/${endpoint}/${tmdbId}`));
+  url.searchParams.set("language", language);
+  url.searchParams.set(
+    "append_to_response",
+    mediaType === "Series" ? "aggregate_credits" : "credits",
+  );
+
+  const response = await fetch(url, { headers: authHeaders() });
+  if (!response.ok) return empty;
+  const data = (await response.json()) as RawTitleDetails;
+  const credits = mediaType === "Series" ? data.aggregate_credits : data.credits;
+
+  const uniqueNames = (people: RawCreditPerson[], limit: number) =>
+    [...new Set(people.map((person) => person.name?.trim()).filter((name): name is string => Boolean(name)))]
+      .slice(0, limit);
+  const cast = [...(credits?.cast ?? [])].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  const crew = credits?.crew ?? [];
+  const hasJob = (person: RawCreditPerson, jobs: Set<string>) =>
+    (person.job ? jobs.has(person.job) : false) ||
+    (person.jobs ?? []).some((credit) => credit.job !== undefined && jobs.has(credit.job));
+
+  return {
+    cast: uniqueNames(cast, 8),
+    directors: uniqueNames(
+      crew.filter((person) => hasJob(person, new Set(["Director"]))),
+      3,
+    ),
+    creators: uniqueNames(data.created_by ?? [], 3),
+    writers: uniqueNames(
+      crew.filter((person) =>
+        hasJob(person, new Set(["Writer", "Screenplay", "Story", "Teleplay"])),
+      ),
+      3,
+    ),
+  };
 }
 
 /**

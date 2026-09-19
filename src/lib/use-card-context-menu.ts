@@ -47,12 +47,7 @@ function releasePress(owner: object) {
   if (activePress?.owner === owner) activePress = null;
 }
 
-export function useCardContextMenu<T extends HTMLElement>(
-  /** Whether the card currently has a dialog of its own open. The menu hands
-   *  the grid's blur over to it rather than dropping it — see the effect
-   *  below. Cards with no dialogs (DiscoverCard) leave it at false. */
-  dialogOpen = false,
-) {
+export function useCardContextMenu<T extends HTMLElement>() {
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const cardRef = useRef<T>(null);
   /** This card's identity in the claim above — a stable object, nothing more. */
@@ -121,19 +116,13 @@ export function useCardContextMenu<T extends HTMLElement>(
    * out. Toggled directly on the DOM rather than through React state, so it
    * never re-renders the (up to 1500-card) grid.
    *
-   * The menu and any dialog it opens share one blur. Menu items act and then
-   * close the menu, so tearing the blur down on close and having the dialog's
-   * own backdrop build it again showed a frame with neither: the background
-   * snapped sharp and then blurred a second time. Driving it from "menu or
-   * dialog" instead keeps it up across the handover, and the acted-on card
-   * stops being the exception once the menu is gone — with no menu pinned
-   * over it there is nothing left to keep sharp, and an evenly blurred grid
-   * behind the dialog reads better than one card floating in focus.
+   * The blur belongs only to the context menu. Dialogs use the shared auth
+   * scrim instead, which keeps the poster wall sharp like the sign-in screen.
    */
   useEffect(() => {
     const card = cardRef.current;
     const grid = card?.closest<HTMLElement>(".title-grid");
-    if (!grid || !card || (!menuPos && !dialogOpen)) return;
+    if (!grid || !card || !menuPos) return;
     // Another card may have been left marked if its own cleanup never ran.
     grid
       .querySelectorAll("[data-context-target]")
@@ -142,13 +131,12 @@ export function useCardContextMenu<T extends HTMLElement>(
     // An attribute, not a class: React rewrites the card's class attribute
     // whole on every re-render and would drop a class set from out here. The
     // grid's own class is safe — nothing renders that element from React.
-    if (menuPos) card.dataset.contextTarget = "true";
-    else delete card.dataset.contextTarget;
+    card.dataset.contextTarget = "true";
     return () => {
       grid.classList.remove("title-grid--context-open");
       delete card.dataset.contextTarget;
     };
-  }, [menuPos, dialogOpen]);
+  }, [menuPos]);
 
   function handleContextMenu(e: ReactMouseEvent) {
     if (!startedOnCard(e)) return;

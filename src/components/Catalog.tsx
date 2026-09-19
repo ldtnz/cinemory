@@ -6,7 +6,7 @@ import FilterBar from "@/components/FilterBar";
 import TitleCard from "@/components/TitleCard";
 import type { SeasonEdit } from "@/components/EditWatchedDialog";
 import { cardElement, pixelDissolve, pixelDissolveAll } from "@/lib/pixel-dissolve";
-import AddTitleCard from "@/components/AddTitleCard";
+import AddTitleCard, { AddTitleCardTrigger } from "@/components/AddTitleCard";
 import DiscoverCard from "@/components/DiscoverCard";
 import RecommendationsCard from "@/components/RecommendationsCard";
 import RecommendationsRow from "@/components/RecommendationsRow";
@@ -94,6 +94,7 @@ export default function Catalog({
   // results below, which is also what narrows it when the filters change.
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(new Set());
   const [bulkAction, setBulkAction] = useState<"watched" | "towatch" | "delete" | null>(null);
+  const [addTitle, setAddTitle] = useState({ open: false, initialQuery: "" });
 
   const toggleSelect = useCallback((title: CatalogTitle) => {
     setSelectedIds((prev) => {
@@ -122,8 +123,8 @@ export default function Catalog({
     setRecs((prev) => prev.filter((r) => r !== rec));
   }
 
-  // Searching the watchlist searches TMDB, not the catalog: the point there
-  // is to find something new to add, not to filter what is already saved.
+  // In To watch, the page search also remains a quick TMDB discovery path.
+  // The dedicated Add title button complements it rather than replacing it.
   const discoverQuery = mode === "watchlist" ? deferredQ.trim() : "";
   const {
     results: discovered,
@@ -375,8 +376,8 @@ export default function Catalog({
         return false;
       }
       if (aiIds) return aiIds.has(t.id);
-      // In watchlist mode the query drives the TMDB search below instead of
-      // filtering the saved list, so it is deliberately ignored here.
+      // In To watch the query drives TMDB discovery below, as it did before
+      // the dedicated button was introduced.
       if (mode === "watched" && words.length && !matchesSearchWords(t.searchTitle, words)) {
         return false;
       }
@@ -428,9 +429,7 @@ export default function Catalog({
     [mode],
   );
 
-  // What is already watched must not come back as something to add. Matched
-  // on TMDB id where there is one, and on the normalized title otherwise —
-  // imported rows that never got a TMDB match still count as watched.
+  // Keep titles already watched out of To watch discovery results.
   const watchedKeys = useMemo(() => {
     const tmdbIds = new Set<number>();
     const titleKeys = new Set<string>();
@@ -462,17 +461,16 @@ export default function Catalog({
     return { tmdbIds, titleKeys };
   }, [catalog]);
 
-  // An AI search stands in for the TMDB results the typed query produced —
-  // the point of running it was that those were not what was being looked for.
   const aiCandidates =
     mode === "watchlist" && aiSearch?.status === "done" ? aiSearch.candidates : null;
   const discoverResults = useMemo(() => {
     const source = aiCandidates ?? discovered;
     return source.filter(
-      (c) =>
-        !watchedKeys.tmdbIds.has(c.tmdbId) && !watchedKeys.titleKeys.has(normalizeTitle(c.title)),
+      (candidate) =>
+        !watchedKeys.tmdbIds.has(candidate.tmdbId) &&
+        !watchedKeys.titleKeys.has(normalizeTitle(candidate.title)),
     );
-  }, [discovered, watchedKeys, aiCandidates]);
+  }, [aiCandidates, discovered, watchedKeys]);
 
   const titles = useMemo(() => {
     const arr = [...filtered];
@@ -559,8 +557,6 @@ export default function Catalog({
   const aiFoundNothing =
     aiSearch?.status === "done" &&
     (mode === "watchlist" ? discoverResults.length === 0 : shownTitles.length === 0);
-  // With a query, the watchlist grid becomes TMDB results to add rather than
-  // the saved list.
   const discoverMode = mode === "watchlist" && discoverQuery !== "";
   const modeTotal = useMemo(
     () => catalog.filter((t) => t.inWatchlist === (mode === "watchlist")).length,
@@ -579,7 +575,7 @@ export default function Catalog({
         countLabel={
           discoverMode
             ? discovering
-              ? "Searching TMDB..."
+              ? "Searching..."
               : `${discoverResults.length} to add`
             : undefined
         }
@@ -611,7 +607,20 @@ export default function Catalog({
             : null
         }
         onAiSearch={() => runAiSearch(trimmedQuery)}
+        onAddTitle={() => setAddTitle({ open: true, initialQuery: "" })}
       />
+
+      {addTitle.open && (
+        <AddTitleCard
+          open
+          onOpenChange={(open) => setAddTitle((current) => ({ ...current, open }))}
+          initialQuery={addTitle.initialQuery}
+          initialDestination={mode}
+          savedTmdbIds={savedKeys.tmdbIds}
+          savedTitleKeys={savedKeys.titleKeys}
+          onAdded={handleAdded}
+        />
+      )}
 
       {/* "To watch" gets the recommendations as a strip you add from, not as
           a tile you open: here the list is something to pick from. Above the
@@ -629,7 +638,7 @@ export default function Catalog({
 
       {discoverMode ? (
         discovering && discoverResults.length === 0 ? (
-          <p className="mt-16 text-center text-muted">Searching TMDB...</p>
+          <p className="mt-16 text-center text-muted">Searching...</p>
         ) : discoverError ? (
           <p className="mt-16 text-center text-muted">{discoverError}</p>
         ) : discoverResults.length === 0 ? (
@@ -640,12 +649,12 @@ export default function Catalog({
           </p>
         ) : (
           <div className="title-grid grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] sm:gap-4">
-            {discoverResults.map((c, i) => (
+            {discoverResults.map((candidate, index) => (
               <DiscoverCard
-                key={`${c.mediaType}-${c.tmdbId}`}
-                candidate={c}
-                alreadyOnWatchlist={watchlistKeys.has(c.tmdbId)}
-                priority={i < 12}
+                key={`${candidate.mediaType}-${candidate.tmdbId}`}
+                candidate={candidate}
+                alreadyOnWatchlist={watchlistKeys.has(candidate.tmdbId)}
+                priority={index < 12}
                 onAdded={handleAdded}
               />
             ))}
@@ -653,18 +662,19 @@ export default function Catalog({
         )
       ) : shownTitles.length === 0 && !deferredQ.trim() ? (
         <p className="mt-16 text-center text-muted">
-          {mode === "watchlist"
-            ? "Nothing to watch yet. Search for a title to add it here."
+          {!platform && !mediaType && !genre
+            ? mode === "watchlist"
+              ? "Nothing to watch yet. Use Add title to start your watchlist."
+              : "No watched titles yet. Use Add title to start your catalog."
             : "No titles match these filters."}
         </p>
       ) : (
         <div className="title-grid grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] sm:gap-4">
           {deferredQ.trim() && (
-            <AddTitleCard
-              initialQuery={deferredQ.trim()}
-              savedTmdbIds={savedKeys.tmdbIds}
-              savedTitleKeys={savedKeys.titleKeys}
-              onAdded={handleAdded}
+            <AddTitleCardTrigger
+              onClick={() =>
+                setAddTitle({ open: true, initialQuery: deferredQ.trim() })
+              }
             />
           )}
           {/* Only in the unfiltered default view — a taste-based suggestion

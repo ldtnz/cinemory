@@ -133,7 +133,7 @@ export default function RecommendationsModal({
 
   return createPortal(
     <div
-      className="overlay-in fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm"
+      className="app-modal-overlay overlay-in fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
@@ -141,7 +141,7 @@ export default function RecommendationsModal({
         role="dialog"
         aria-modal="true"
         aria-label="Recommended for you"
-        className="dialog-in flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-white/10 bg-surface shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
+        className={`app-modal-panel dialog-in flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl ${trailerFor ? "invisible" : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-white/5 p-4">
@@ -231,6 +231,7 @@ export default function RecommendationsModal({
         <TrailerModal
           trailerKey={trailerFor.trailerKey}
           title={trailerFor.title}
+          stacked
           onClose={() => setTrailerFor(null)}
         />
       )}

@@ -29,22 +29,47 @@ function candidateKey(c: TmdbCandidate): string {
 }
 
 type ItemStatus = "adding" | "added" | "duplicate" | "error";
+type BrowseSuggestions = {
+  popular: TmdbCandidate[];
+  newReleases: TmdbCandidate[];
+};
+
+export function AddTitleCardTrigger({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex aspect-[2/3] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-surface-2/50 text-muted transition-colors hover:border-white/30 hover:bg-surface-2 hover:text-foreground"
+    >
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-muted transition-colors group-hover:text-foreground">
+        <Plus className="h-5 w-5" strokeWidth={1.8} />
+      </div>
+      <span className="px-2 text-center text-[11px] font-medium leading-tight">Add title</span>
+    </button>
+  );
+}
 
 /**
  * The search here is one-off by nature — a franchise like Lord of the Rings
  * or The Hobbit turns up several results for the same query — so picking one
  * result used to mean closing the picker and re-typing the same near-
- * identical title to add the next one. Results are now multi-select: check
- * several, choose one platform for all of them (they were usually watched on
- * the same one), and they go in together.
+ * identical title to add the next one. Results are multi-select: check
+ * several, choose whether they belong in Watched or To watch, and they go in
+ * together. Watched batches also share one platform and date.
  */
 export default function AddTitleCard({
+  open,
+  onOpenChange,
   initialQuery,
+  initialDestination,
   savedTmdbIds,
   savedTitleKeys,
   onAdded,
 }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   initialQuery: string;
+  initialDestination: "watched" | "watchlist";
   /** Both halves of the catalog: adding something already on the watchlist
    *  is refused the same way adding something already watched is, so a
    *  result counts as "already there" either way. */
@@ -52,10 +77,10 @@ export default function AddTitleCard({
   savedTitleKeys: Set<string>;
   onAdded: (title: Title) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [step, setStep] = useState<"search" | "confirm">("search");
+  const [destination, setDestination] = useState<"watched" | "watchlist">(initialDestination);
   const { results, searching, error } = useTmdbSearch(query, {
     enabled: open && step === "search",
     resetOnEnable: true,
@@ -71,16 +96,39 @@ export default function AddTitleCard({
   // but editable, same date-for-the-whole-batch convention as platform.
   const [watchedDate, setWatchedDate] = useState(() => toDateInputValue(new Date()));
   const [saving, setSaving] = useState(false);
+  const [browseSuggestions, setBrowseSuggestions] = useState<BrowseSuggestions | null>(null);
+  const [browseError, setBrowseError] = useState(false);
   // Read from the auto-close timer below, which fires after this render has
   // moved on — a plain closure over `open`/`step` would see whatever they
   // were when confirmBatch() was called, not whether the user has since hit
   // "Back to results" or closed the picker themselves.
   const openRef = useRef(open);
   const stepRef = useRef(step);
+  const autoCloseTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     setMounted(true);
+    return () => {
+      if (autoCloseTimerRef.current !== null) window.clearTimeout(autoCloseTimerRef.current);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const response = await fetch("/api/tmdb-browse", { signal: controller.signal });
+        if (!response.ok) throw new Error();
+        const data = (await response.json()) as BrowseSuggestions;
+        setBrowseSuggestions(data);
+        setBrowseError(false);
+      } catch {
+        if (!controller.signal.aborted) setBrowseError(true);
+      }
+    })();
+    return () => controller.abort();
+  }, [open]);
 
   useEffect(() => {
     openRef.current = open;
@@ -100,18 +148,8 @@ export default function AddTitleCard({
     };
   }, [open]);
 
-  function openModal() {
-    setQuery(initialQuery);
-    setStep("search");
-    setSelected(new Map());
-    setItemStatus(new Map());
-    setPlatform("");
-    setWatchedDate(toDateInputValue(new Date()));
-    setOpen(true);
-  }
-
   function close() {
-    setOpen(false);
+    onOpenChange(false);
   }
 
   function toggleSelect(c: TmdbCandidate) {
@@ -144,7 +182,8 @@ export default function AddTitleCard({
       const status = itemStatus.get(key);
       return status !== "added" && status !== "duplicate";
     });
-    if (toSubmit.length === 0 || !platform) return;
+    const watchlist = destination === "watchlist";
+    if (toSubmit.length === 0 || (!watchlist && !platform)) return;
     const watchedAt = fromDateInputValue(watchedDate);
 
     setSaving(true);
@@ -162,8 +201,10 @@ export default function AddTitleCard({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               candidate,
-              platform,
-              lastWatchedAt: watchedAt ? watchedAt.toISOString() : undefined,
+              watchlist,
+              platform: watchlist ? "" : platform,
+              lastWatchedAt:
+                !watchlist && watchedAt ? watchedAt.toISOString() : undefined,
             }),
           });
           // Already in the catalog: not a failure, the outcome wanted is
@@ -198,8 +239,8 @@ export default function AddTitleCard({
       // before the picker disappears out from under them — but only close if
       // the user is still where this batch left them, not if they have since
       // gone back to search for more or closed it themselves.
-      window.setTimeout(() => {
-        if (openRef.current && stepRef.current === "confirm") setOpen(false);
+      autoCloseTimerRef.current = window.setTimeout(() => {
+        if (openRef.current && stepRef.current === "confirm") onOpenChange(false);
       }, 700);
     }
   }
@@ -217,29 +258,114 @@ export default function AddTitleCard({
   const selectedList = [...selected.entries()];
   const failedCount = selectedList.filter(([key]) => itemStatus.get(key) === "error").length;
   const isRetry = selectedList.some(([key]) => itemStatus.has(key));
+  const visiblePopular =
+    browseSuggestions?.popular.filter((candidate) => !alreadyInCatalog(candidate)).slice(0, 6) ?? [];
+  const visibleNewReleases =
+    browseSuggestions?.newReleases
+      .filter((candidate) => !alreadyInCatalog(candidate))
+      .slice(0, 6) ?? [];
+
+  function suggestionSection(label: string, candidates: TmdbCandidate[]) {
+    return (
+      <section className="space-y-2.5">
+        <h3 className="text-xs font-semibold text-foreground">{label}</h3>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {candidates.map((candidate) => {
+            const key = candidateKey(candidate);
+            const isSelected = selected.has(key);
+            const inCatalog = alreadyInCatalog(candidate);
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => toggleSelect(candidate)}
+                disabled={inCatalog}
+                aria-pressed={isSelected}
+                aria-label={
+                  inCatalog
+                    ? `${candidate.title} is already in your catalog`
+                    : `Select ${candidate.title}`
+                }
+                className={`group relative aspect-[2/3] overflow-hidden rounded-xl bg-surface-2 text-left outline-none ring-white/40 transition ${
+                  inCatalog
+                    ? "cursor-default opacity-55"
+                    : `hover:ring-1 ${isSelected ? "ring-1 ring-accent-2/70" : ""}`
+                }`}
+              >
+                {candidate.posterUrl && (
+                  <Image
+                    src={candidate.posterUrl}
+                    alt=""
+                    fill
+                    unoptimized
+                    sizes="(max-width: 640px) 28vw, 110px"
+                    className="object-cover"
+                  />
+                )}
+                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent p-2 pt-8">
+                  <span className="line-clamp-2 block text-[10px] font-medium leading-tight text-white">
+                    {candidate.title}
+                  </span>
+                  <span className="mt-0.5 block text-[9px] text-white/60">
+                    {[candidate.mediaType, candidate.year].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                <span
+                  className={`absolute left-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full border backdrop-blur-sm ${
+                    inCatalog || isSelected
+                      ? "border-accent-2 bg-accent-2 text-background"
+                      : "border-white/50 bg-black/45 text-transparent"
+                  }`}
+                >
+                  {(inCatalog || isSelected) && <Check className="h-3 w-3" strokeWidth={3} />}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
+
+  function suggestionSkeleton(label: string) {
+    return (
+      <section className="space-y-2.5" aria-hidden>
+        <div className="h-3 w-24 animate-pulse rounded bg-surface-3" />
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {Array.from({ length: 6 }, (_, index) => (
+            <div key={`${label}-${index}`} className="aspect-[2/3] animate-pulse rounded-xl bg-surface-2" />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  function searchResultsSkeleton() {
+    return (
+      <div className="space-y-2" aria-label="Searching titles" aria-busy="true">
+        {Array.from({ length: 5 }, (_, index) => (
+          <div key={index} className="flex gap-3 rounded-2xl bg-surface-2 p-2.5" aria-hidden>
+            <div className="h-[81px] w-[54px] flex-none animate-pulse rounded-lg bg-surface-3" />
+            <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
+              <div className="h-3.5 w-2/5 animate-pulse rounded bg-surface-3" />
+              <div className="h-3 w-1/4 animate-pulse rounded bg-surface-3" />
+              <div className="h-3 w-3/5 animate-pulse rounded bg-surface-3" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <>
-      <button
-        type="button"
-        onClick={openModal}
-        className="group flex aspect-[2/3] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-surface-2/50 text-muted transition-colors hover:border-white/30 hover:bg-surface-2 hover:text-foreground"
-      >
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-muted transition-colors group-hover:text-foreground">
-          <Plus className="h-5 w-5" strokeWidth={1.8} />
-        </div>
-        <span className="px-2 text-center text-[11px] font-medium leading-tight">
-          Add title
-        </span>
-      </button>
-
       {open && mounted && createPortal(
-        <div className="overlay-in fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm">
+        <div className="app-modal-overlay overlay-in fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             role="dialog"
             aria-modal="true"
             aria-label="Add title"
-            className={`dialog-in flex max-h-[90vh] w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-surface shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] transition-[max-width] duration-200 ${
+            className={`app-modal-panel dialog-in flex max-h-[90vh] w-full flex-col overflow-hidden rounded-3xl transition-[max-width] duration-200 ${
               step === "confirm" ? "max-w-lg" : "max-w-3xl"
             }`}
           >
@@ -254,8 +380,8 @@ export default function AddTitleCard({
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     autoFocus
-                    placeholder="Title to search on TMDB"
-                    className="h-10 min-w-0 flex-1 rounded-xl bg-surface-2 px-3 text-base text-foreground outline-none focus:ring-2 focus:ring-white/20 sm:text-sm"
+                    placeholder="Search for a title"
+                    className="h-10 min-w-0 flex-1 rounded-xl bg-surface-2 px-3 text-base text-foreground outline-none focus:ring-1 focus:ring-white/20 sm:text-sm"
                   />
                   {selected.size > 0 && (
                     <button
@@ -274,7 +400,7 @@ export default function AddTitleCard({
                 type="button"
                 onClick={close}
                 aria-label="Close"
-                className="flex h-10 w-10 flex-none items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-foreground"
+                className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-surface-2 text-muted transition-colors hover:bg-surface-3 hover:text-foreground"
               >
                 <X className="h-4 w-4" strokeWidth={1.8} />
               </button>
@@ -283,19 +409,31 @@ export default function AddTitleCard({
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {step === "search" ? (
                 <div className="space-y-3">
-                  {error && <p className="text-xs text-red-400">{error}</p>}
+                  {!trimmedQuery ? (
+                    <div className="space-y-5">
+                      {browseSuggestions ? (
+                        <>
+                          {suggestionSection("Popular now", visiblePopular)}
+                          {suggestionSection("New releases", visibleNewReleases)}
+                        </>
+                      ) : browseError ? (
+                        <p className="py-6 text-center text-xs text-muted">
+                          Suggestions could not be loaded. Search for a title instead.
+                        </p>
+                      ) : (
+                        <>
+                          {suggestionSkeleton("popular")}
+                          {suggestionSkeleton("new")}
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      {error && <p className="text-xs text-red-400">{error}</p>}
 
-                  {searching && <p className="text-xs text-muted">Searching TMDB...</p>}
-
-                  {!searching && results.length === 0 && (
-                    <p className="text-xs text-muted">
-                      {trimmedQuery
-                        ? "No results. Try another title."
-                        : "Type a title to search TMDB."}
-                    </p>
-                  )}
-
-                  {results.length > 0 && (
+                      {searching ? searchResultsSkeleton() : results.length === 0 ? (
+                        <p className="text-xs text-muted">No results. Try another title.</p>
+                      ) : (
                     <ul className="space-y-2">
                       {results.map((c) => {
                         const data = formatReleaseDate(c.dataUscita);
@@ -315,8 +453,8 @@ export default function AddTitleCard({
                               className={`flex w-full gap-3 rounded-2xl bg-surface-2 p-2.5 text-left outline-none ring-white/40 transition-colors ${
                                 inCatalog
                                   ? "cursor-default"
-                                  : `hover:bg-surface-2/70 hover:ring-2 ${
-                                      isSelected ? "ring-2 ring-accent-2/60" : ""
+                                  : `hover:bg-surface-2/70 hover:ring-1 ${
+                                      isSelected ? "ring-1 ring-accent-2/60" : ""
                                     }`
                               }`}
                             >
@@ -407,6 +545,8 @@ export default function AddTitleCard({
                         );
                       })}
                     </ul>
+                      )}
+                    </>
                   )}
                 </div>
               ) : (
@@ -480,34 +620,70 @@ export default function AddTitleCard({
                   </ul>
 
                   <div className="space-y-2">
-                    <label
-                      htmlFor="add-title-watched-date"
-                      className="text-[11px] font-medium uppercase tracking-wide text-muted/80"
-                    >
-                      When did you watch {selectedList.length === 1 ? "it" : "them"}?
-                    </label>
-                    <input
-                      id="add-title-watched-date"
-                      type="date"
-                      value={watchedDate}
-                      onChange={(e) => setWatchedDate(e.target.value)}
-                      max={toDateInputValue(new Date())}
-                      className="h-10 w-full rounded-xl bg-surface-2 px-3 text-sm text-foreground outline-none [color-scheme:dark] focus:ring-2 focus:ring-white/20"
-                    />
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
+                      Add to
+                    </span>
+                    <div className="grid grid-cols-2 gap-2 rounded-2xl bg-surface-2 p-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setDestination("watched")}
+                        disabled={saving}
+                        className={`rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                          destination === "watched"
+                            ? "bg-foreground text-background"
+                            : "text-muted hover:bg-surface-3 hover:text-foreground"
+                        }`}
+                      >
+                        Watched
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDestination("watchlist")}
+                        disabled={saving}
+                        className={`rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                          destination === "watchlist"
+                            ? "bg-foreground text-background"
+                            : "text-muted hover:bg-surface-3 hover:text-foreground"
+                        }`}
+                      >
+                        To watch
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
-                      Where did you watch {selectedList.length === 1 ? "it" : "them"}?
-                    </span>
-                    <PlatformPicker value={platform} onChange={setPlatform} />
-                    {selectedList.length > 1 && (
-                      <p className="text-[11px] text-muted/80">
-                        Applies to all {selectedList.length} titles. Add a different-platform
-                        batch separately.
-                      </p>
-                    )}
-                  </div>
+                  {destination === "watched" && (
+                    <div className="space-y-2">
+                      <label
+                        htmlFor="add-title-watched-date"
+                        className="text-[11px] font-medium uppercase tracking-wide text-muted/80"
+                      >
+                        When did you watch {selectedList.length === 1 ? "it" : "them"}?
+                      </label>
+                      <input
+                        id="add-title-watched-date"
+                        type="date"
+                        value={watchedDate}
+                        onChange={(e) => setWatchedDate(e.target.value)}
+                        max={toDateInputValue(new Date())}
+                        className="h-10 w-full rounded-xl bg-surface-2 px-3 text-sm text-foreground outline-none [color-scheme:dark] focus:ring-1 focus:ring-white/20"
+                      />
+                    </div>
+                  )}
+
+                  {destination === "watched" && (
+                    <div className="space-y-2">
+                      <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
+                        Where did you watch {selectedList.length === 1 ? "it" : "them"}?
+                      </span>
+                      <PlatformPicker value={platform} onChange={setPlatform} />
+                      {selectedList.length > 1 && (
+                        <p className="text-[11px] text-muted/80">
+                          Applies to all {selectedList.length} titles. Add a different-platform
+                          batch separately.
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {failedCount > 0 && (
                     <p className="text-xs text-red-400">
@@ -518,17 +694,23 @@ export default function AddTitleCard({
                   <button
                     type="button"
                     onClick={confirmBatch}
-                    disabled={!platform || saving || selectedList.every(([key]) => {
-                      const status = itemStatus.get(key);
-                      return status === "added" || status === "duplicate";
-                    })}
+                    disabled={
+                      (destination === "watched" && !platform) ||
+                      saving ||
+                      selectedList.every(([key]) => {
+                        const status = itemStatus.get(key);
+                        return status === "added" || status === "duplicate";
+                      })
+                    }
                     className="w-full rounded-2xl bg-foreground py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
                     {saving
                       ? "Adding..."
                       : isRetry
                         ? `Retry ${failedCount || selectedList.length}`
-                        : `Add ${selectedList.length} to catalog`}
+                        : `Add ${selectedList.length} to ${
+                            destination === "watched" ? "watched" : "to watch"
+                          }`}
                   </button>
                 </div>
               )}

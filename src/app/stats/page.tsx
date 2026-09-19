@@ -189,7 +189,7 @@ export default async function StatsPage() {
           <Bars
             title="Top genres"
             buckets={stats.genres}
-            empty="No genres yet — they arrive with the TMDB data."
+            empty="No genres yet — they appear as title details are added."
           />
           <Bars
             title="Titles per year watched"

@@ -63,7 +63,7 @@ export default function MarkWatchedDialog({
 
   return createPortal(
     <div
-      className="overlay-in fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm"
+      className="app-modal-overlay overlay-in fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={onCancel}
     >
       <div
@@ -72,7 +72,7 @@ export default function MarkWatchedDialog({
         aria-modal="true"
         aria-label={batch ? `Mark ${titles.length} titles as watched` : `Mark ${title.title} as watched`}
         onClick={(e) => e.stopPropagation()}
-        className="dialog-in flex w-[min(94vw,460px)] flex-col gap-5 rounded-3xl border border-white/10 bg-surface p-6 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
+        className="app-modal-panel dialog-in flex w-[min(94vw,460px)] flex-col gap-5 rounded-3xl p-6"
       >
         {batch ? (
           <div className="flex items-center gap-4">
