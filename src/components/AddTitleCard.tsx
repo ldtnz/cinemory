@@ -103,6 +103,20 @@ export default function AddTitleCard({
   // and a hook cannot.
   const popularRow = useHorizontalWheel<HTMLDivElement>();
   const newReleasesRow = useHorizontalWheel<HTMLDivElement>();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus the field where a keyboard costs nothing, and not where it costs
+  // half the screen. On a touch device autofocusing raises the keyboard over
+  // the very suggestions this dialog opens to show, and the first touch
+  // anywhere else is then spent dismissing it rather than acting — which made
+  // the suggestion rows look frozen until they had been tapped once first.
+  useEffect(() => {
+    // `mounted` belongs here: the dialog is portalled behind it, so on the
+    // render this effect first runs there is no field yet to focus.
+    if (!open || !mounted || step !== "search") return;
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    searchInputRef.current?.focus();
+  }, [open, mounted, step]);
   const [browseError, setBrowseError] = useState(false);
   // Read from the auto-close timer below, which fires after this render has
   // moved on — a plain closure over `open`/`step` would see whatever they
@@ -402,9 +416,9 @@ export default function AddTitleCard({
               {step === "search" ? (
                 <>
                   <input
+                    ref={searchInputRef}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    autoFocus
                     placeholder="Search for a title"
                     className="h-10 min-w-0 flex-1 rounded-xl bg-surface-2 px-3 text-base text-foreground outline-none sm:text-sm"
                   />

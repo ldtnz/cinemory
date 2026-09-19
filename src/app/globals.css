@@ -286,6 +286,19 @@ svg.tooltip-in {
   backdrop-filter: blur(4px);
 }
 
+/* Every overlay here is `fixed inset-0`, which is not the whole screen in the
+   installed PWA on iOS: measured off a sign-in screenshot, a frame built that
+   way came out 142px of 2000 short at the bottom — one status bar, the top
+   safe area it starts under. That is what left a dark band below an open
+   dialog. An explicit height is the whole screen there and exactly what
+   `inset-0` already gives everywhere else, so `bottom` gives way to it. */
+.app-modal-overlay,
+.trailer-modal-overlay,
+.landscape-notice {
+  bottom: auto;
+  height: 100dvh;
+}
+
 .app-modal-panel {
   background-color: var(--surface);
   background-image: none;
