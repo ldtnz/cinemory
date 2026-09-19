@@ -53,6 +53,14 @@ export async function send(input: string, init?: RequestInit): Promise<Response 
  */
 export function writeFailed(message: string): string {
   return typeof navigator !== "undefined" && !navigator.onLine
-    ? "You are offline, so nothing was changed. Try again once you are back."
+    ? "Action unavailable offline. Reconnect and try again."
     : message;
+}
+
+export const WRITE_FAILED_EVENT = "cinemory:write-failed";
+
+export function notifyWriteFailed(message: string): void {
+  window.dispatchEvent(new CustomEvent<string>(WRITE_FAILED_EVENT, {
+    detail: writeFailed(message),
+  }));
 }

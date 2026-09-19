@@ -165,7 +165,8 @@ test("a title already in the catalog is left exactly as it was", async () => {
 });
 
 test("the same title twice inside one file still yields one row", async () => {
-  const report = await restore(backup([exported("doubled"), exported("doubled")]));
+  // This fixture is a different work from the earlier round-trip title (TMDB 111).
+  const report = await restore(backup([exported("doubled", { tmdbId: 112 }), exported("doubled", { tmdbId: 112 })]));
   assert.equal(report.added, 1);
   assert.equal(report.alreadyPresent, 1);
   assert.equal(await prisma.title.count({ where: { title: `${MARK} doubled` } }), 1);

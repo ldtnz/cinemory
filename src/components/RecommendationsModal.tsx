@@ -1,13 +1,14 @@
 "use client";
 
+import type { TitleIdentityIndex } from "@/lib/title-identity";
+
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, Play, Plus, ThumbsDown, X } from "lucide-react";
 import type { Title } from "@prisma/client";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
-import { recommendationToCandidate } from "@/lib/recommendation-candidate";
-import { normalizeTitle } from "@/lib/title-key";
+import { recommendationKey, recommendationToCandidate } from "@/lib/recommendation-candidate";
 import { useAddToWatchlist } from "@/lib/use-add-to-watchlist";
 import { useDismissRecommendation } from "@/lib/use-dismiss-recommendation";
 import TrailerModal from "@/components/TrailerModal";
@@ -83,8 +84,7 @@ export default function RecommendationsModal({
   onClose,
   onAdded,
   onDismissed,
-  savedTmdbIds,
-  savedTitleKeys,
+  savedTitles,
 }: {
   titles: EnrichedRecommendation[];
   onClose: () => void;
@@ -95,10 +95,7 @@ export default function RecommendationsModal({
   /** "Not interested" — omitted, same as onAdded, hides the button rather
    *  than rendering one with nothing to call. */
   onDismissed?: (rec: EnrichedRecommendation) => void;
-  /** TMDB ids already in the catalog, watched or waiting. */
-  savedTmdbIds?: Set<number>;
-  /** Normalized titles already in the catalog, for the rows TMDB never matched. */
-  savedTitleKeys?: Set<string>;
+  savedTitles?: TitleIdentityIndex;
 }) {
   const dialogRef = useDialogFocus<HTMLDivElement>();
 
@@ -160,7 +157,7 @@ export default function RecommendationsModal({
           {titles.map((rec) => {
             const hasTrailer = Boolean(rec.trailerKey);
             return (
-              <li key={rec.tmdbId} className="flex w-full gap-3 rounded-2xl bg-surface-2 p-2.5">
+              <li key={recommendationKey(rec)} className="flex w-full gap-3 rounded-2xl bg-surface-2 p-2.5">
                 <button
                   type="button"
                   onClick={() => hasTrailer && setTrailerFor(rec)}
@@ -210,10 +207,7 @@ export default function RecommendationsModal({
                       <AddButton
                         rec={rec}
                         alreadySaved={
-                          (rec.tmdbId != null &&
-                            rec.tmdbId > 0 &&
-                            (savedTmdbIds?.has(rec.tmdbId) ?? false)) ||
-                          (savedTitleKeys?.has(normalizeTitle(rec.title)) ?? false)
+                          savedTitles?.has(rec) ?? false
                         }
                         onAdded={onAdded}
                       />

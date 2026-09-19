@@ -1,14 +1,15 @@
 "use client";
 
+import type { TitleIdentityIndex } from "@/lib/title-identity";
+
 import Image from "next/image";
 import { useState } from "react";
 import { Check, Play, Plus, Sparkles, ThumbsDown } from "lucide-react";
 import type { Title } from "@prisma/client";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
-import { recommendationToCandidate } from "@/lib/recommendation-candidate";
+import { recommendationKey, recommendationToCandidate } from "@/lib/recommendation-candidate";
 import { useAddToWatchlist } from "@/lib/use-add-to-watchlist";
 import { useDismissRecommendation } from "@/lib/use-dismiss-recommendation";
-import { normalizeTitle } from "@/lib/title-key";
 import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 import { useRevealOnView } from "@/lib/reveal-on-view";
 import RecommendationsModal from "@/components/RecommendationsModal";
@@ -153,16 +154,12 @@ function Tile({
  */
 export default function RecommendationsRow({
   titles,
-  savedTmdbIds,
-  savedTitleKeys,
+  savedTitles,
   onAdded,
   onDismissed,
 }: {
   titles: EnrichedRecommendation[];
-  /** TMDB ids already in the catalog, watched or waiting. */
-  savedTmdbIds: Set<number>;
-  /** Normalized titles already in the catalog, for the rows TMDB never matched. */
-  savedTitleKeys: Set<string>;
+  savedTitles: TitleIdentityIndex;
   onAdded: (title: Title) => void;
   onDismissed: (rec: EnrichedRecommendation) => void;
 }) {
@@ -196,11 +193,10 @@ export default function RecommendationsRow({
         >
           {titles.map((rec) => (
             <Tile
-              key={`${rec.mediaType}-${rec.tmdbId ?? rec.title}`}
+              key={recommendationKey(rec)}
               rec={rec}
               alreadySaved={
-                (rec.tmdbId != null && rec.tmdbId > 0 && savedTmdbIds.has(rec.tmdbId)) ||
-                savedTitleKeys.has(normalizeTitle(rec.title))
+                savedTitles.has(rec)
               }
               onAdded={onAdded}
               onDismissed={onDismissed}
@@ -215,8 +211,7 @@ export default function RecommendationsRow({
           onClose={() => setOpen(false)}
           onAdded={onAdded}
           onDismissed={onDismissed}
-          savedTmdbIds={savedTmdbIds}
-          savedTitleKeys={savedTitleKeys}
+          savedTitles={savedTitles}
         />
       )}
     </>

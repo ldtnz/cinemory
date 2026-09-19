@@ -1,10 +1,13 @@
 "use client";
 
+import type { TitleIdentityIndex } from "@/lib/title-identity";
+
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { useRevealOnView } from "@/lib/reveal-on-view";
 import type { Title } from "@prisma/client";
+import { recommendationKey } from "@/lib/recommendation-candidate";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
 import RecommendationsModal from "@/components/RecommendationsModal";
 
@@ -38,8 +41,7 @@ const PREVIEW_LAYOUTS: Record<number, { grid: string; first?: string }> = {
  *  call by itself. */
 export default function RecommendationsCard({
   titles,
-  savedTmdbIds,
-  savedTitleKeys,
+  savedTitles,
   onAdded,
   onDismissed,
 }: {
@@ -47,8 +49,7 @@ export default function RecommendationsCard({
   /** TMDB ids already in the catalog, watched or waiting — passed through to
    *  the modal so its "add to watchlist" button can mark what is already
    *  saved, on the Watched page just as it does on To watch. */
-  savedTmdbIds: Set<number>;
-  savedTitleKeys: Set<string>;
+  savedTitles: TitleIdentityIndex;
   onAdded: (title: Title) => void;
   onDismissed: (rec: EnrichedRecommendation) => void;
 }) {
@@ -111,7 +112,7 @@ export default function RecommendationsCard({
         >
           {preview.map((rec, i) => (
             <div
-              key={rec.tmdbId}
+              key={recommendationKey(rec)}
               className={`relative overflow-hidden rounded-lg bg-surface ${
                 i === 0 && layout.first ? layout.first : ""
               }`}
@@ -137,8 +138,7 @@ export default function RecommendationsCard({
           onClose={() => setOpen(false)}
           onAdded={onAdded}
           onDismissed={onDismissed}
-          savedTmdbIds={savedTmdbIds}
-          savedTitleKeys={savedTitleKeys}
+          savedTitles={savedTitles}
         />
       )}
     </>

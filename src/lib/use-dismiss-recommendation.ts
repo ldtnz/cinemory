@@ -24,7 +24,7 @@ export function useDismissRecommendation(
       const res = await fetch("/api/recommendations/dismiss", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tmdbId: rec.tmdbId, title: rec.title, mediaType: rec.mediaType }),
+        body: JSON.stringify({ tmdbId: rec.tmdbId, title: rec.title, mediaType: rec.mediaType, year: rec.year }),
       });
       if (!res.ok) throw new Error();
       onDismissed(rec);

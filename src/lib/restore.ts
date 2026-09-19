@@ -9,6 +9,7 @@
 // silently replace something newer with something older.
 
 import { prisma } from "@/lib/prisma";
+import { TitleIdentityIndex } from "@/lib/title-identity";
 import { seriesKey } from "@/lib/history";
 import { normalizeTitle } from "@/lib/title-key";
 
@@ -164,32 +165,28 @@ export type RestoreReport = {
 /**
  * Inserts the rows that are not in the catalog yet.
  *
- * "Already there" is decided by seriesKey — the same comparison the CSV
- * import uses, so a title counts as present under either route and a backup
- * restored over an imported catalog does not produce two of everything. The
- * key is also added as each row is accepted, so a backup that somehow
- * contains the same title twice still yields one row.
+ * Uses the shared identity rule, with season suffixes normalized for old
+ * backups. Accepted rows join the index so repeated entries stay idempotent.
  */
 export async function restoreTitles(
   rows: RestorableTitle[],
   read: number,
   unreadable: number,
 ): Promise<RestoreReport> {
-  const present = new Set(
-    (await prisma.title.findMany({ select: { title: true, mediaType: true } })).map((t) =>
-      seriesKey(t.title, t.mediaType),
-    ),
+  const present = new TitleIdentityIndex(
+    (await prisma.title.findMany({ select: { title: true, mediaType: true, tmdbId: true, year: true } }))
+      .map((t) => ({ ...t, title: seriesKey(t.title, t.mediaType) })),
   );
 
   const toInsert: RestorableTitle[] = [];
   let alreadyPresent = 0;
   for (const row of rows) {
-    const key = seriesKey(row.title, row.mediaType);
-    if (present.has(key)) {
+    const identity = { ...row, title: seriesKey(row.title, row.mediaType) };
+    if (present.has(identity)) {
       alreadyPresent += 1;
       continue;
     }
-    present.add(key);
+    present.add(identity);
     toInsert.push(row);
   }
 

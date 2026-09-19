@@ -8,19 +8,18 @@ import type { SeasonEdit } from "@/components/EditWatchedDialog";
 import { cardElement, pixelAppear, pixelDissolve, pixelDissolveAll } from "@/lib/pixel-dissolve";
 import AddTitleCard, { AddTitleCardTrigger } from "@/components/AddTitleCard";
 import EmptyCatalog from "@/components/EmptyCatalog";
-import DiscoverCard from "@/components/DiscoverCard";
 import RecommendationsCard from "@/components/RecommendationsCard";
 import RecommendationsRow from "@/components/RecommendationsRow";
 import SelectionBar from "@/components/SelectionBar";
 import MarkWatchedDialog from "@/components/MarkWatchedDialog";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import type { EnrichedRecommendation } from "@/lib/recommendations";
-import type { TmdbCandidate } from "@/lib/tmdb";
-import { matchesSearchWords, normalizeTitle, searchWords } from "@/lib/title-key";
+import { matchesSearchWords, searchWords } from "@/lib/title-key";
+import { watchProviderKey } from "@/lib/watch-providers";
+import { TitleIdentityIndex } from "@/lib/title-identity";
 import { useWatchProviders } from "@/lib/use-watch-providers";
-import { send, writeFailed } from "@/lib/offline";
+import { send, notifyWriteFailed } from "@/lib/offline";
 import { splitGenres } from "@/lib/genres";
-import { useTmdbSearch } from "@/lib/use-tmdb-search";
 import type { WatchMode } from "@/lib/watch-mode";
 import { useEditMode } from "@/lib/edit-mode";
 
@@ -38,10 +37,12 @@ const PAGE_SIZE = 60;
 
 export default function Catalog({
   initialTitles,
+  region,
   recommendations = [],
   aiSearchEnabled = false,
 }: {
   initialTitles: CatalogTitle[];
+  region: string;
   recommendations?: EnrichedRecommendation[];
   /** Same gate as recommendations — ANTHROPIC_API_KEY configured — since the
    *  "search with AI" hint calls Claude too. */
@@ -80,8 +81,6 @@ export default function Catalog({
     status: "loading" | "error" | "done";
     /** Watched: the catalog rows Claude picked out. */
     ids: number[];
-    /** To watch: the same answer resolved through TMDB, ready to add. */
-    candidates: TmdbCandidate[];
   } | null>(null);
   const trimmedQuery = deferredQ.trim();
   const aiSearch =
@@ -95,7 +94,11 @@ export default function Catalog({
   // results below, which is also what narrows it when the filters change.
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(new Set());
   const [bulkAction, setBulkAction] = useState<"watched" | "towatch" | "delete" | null>(null);
-  const [addTitle, setAddTitle] = useState({ open: false, initialQuery: "" });
+  const [addTitle, setAddTitle] = useState<{
+    open: boolean;
+    initialQuery: string;
+    initialDestination: WatchMode | null;
+  }>({ open: false, initialQuery: "", initialDestination: null });
 
   const toggleSelect = useCallback((title: CatalogTitle) => {
     setSelectedIds((prev) => {
@@ -149,15 +152,6 @@ export default function Catalog({
     setRecs((prev) => prev.filter((r) => r !== rec));
   }
 
-  // In To watch, the page search also remains a quick TMDB discovery path.
-  // The dedicated Add title button complements it rather than replacing it.
-  const discoverQuery = mode === "watchlist" ? deferredQ.trim() : "";
-  const {
-    results: discovered,
-    searching: discovering,
-    error: discoverError,
-  } = useTmdbSearch(discoverQuery, { enabled: mode === "watchlist", perType: 20 });
-
   // Stable, otherwise TitleCard's memo would be pointless: a fresh function
   // on every render would re-render every card.
   // TitleCard already confirms with the user (ConfirmDialog) before calling
@@ -165,7 +159,7 @@ export default function Catalog({
   const remove = useCallback(async (title: CatalogTitle) => {
     const res = await send(`/api/titles/${title.id}`, { method: "DELETE" });
     if (!res?.ok) {
-      window.alert(writeFailed("Could not delete the title."));
+      notifyWriteFailed("Could not delete the title.");
       return;
     }
     const card = cardElement(title.id);
@@ -179,7 +173,10 @@ export default function Catalog({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ watchedSeasons }),
     });
-    if (!res?.ok) return;
+    if (!res?.ok) {
+      notifyWriteFailed("Could not update the title.");
+      return;
+    }
     // Read it back from the response rather than trusting what was sent: the
     // server clamps to zero and to the known total, so it may have adjusted it.
     const { title: saved } = (await res.json()) as {
@@ -207,7 +204,7 @@ export default function Catalog({
         }),
       });
       if (!res?.ok) {
-        window.alert(writeFailed("Could not mark the title as watched."));
+        notifyWriteFailed("Could not mark the title as watched.");
         return;
       }
       const { title: updated } = (await res.json()) as {
@@ -259,7 +256,7 @@ export default function Catalog({
         }),
       });
       if (!res?.ok) {
-        window.alert(writeFailed("Could not update the title."));
+        notifyWriteFailed("Could not update the title.");
         return;
       }
       const { title: updated } = (await res.json()) as {
@@ -289,7 +286,10 @@ export default function Catalog({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ dismissNewSeason: true }),
     });
-    if (!res?.ok) return;
+    if (!res?.ok) {
+      notifyWriteFailed("Could not update the title.");
+      return;
+    }
     setCatalog((prev) =>
       prev.map((t) => (t.id === title.id ? { ...t, newSeasonAvailable: false } : t)),
     );
@@ -318,7 +318,7 @@ export default function Catalog({
     );
     const byId = new Map(updated.filter((t): t is CatalogTitle => t !== null).map((t) => [t.id, t]));
     if (byId.size < rows.length) {
-      window.alert(writeFailed(`Could not move ${rows.length - byId.size} of ${rows.length} titles.`));
+      notifyWriteFailed(`Could not move ${rows.length - byId.size} of ${rows.length} titles.`);
     }
     // The same going back as coming: this half of the catalog is the one being
     // left, so the card comes apart here too. Only the ones that actually
@@ -343,7 +343,7 @@ export default function Catalog({
     );
     const gone = new Set(results.filter((id): id is number => id !== null));
     if (gone.size < rows.length) {
-      window.alert(writeFailed(`Could not delete ${rows.length - gone.size} of ${rows.length} titles.`));
+      notifyWriteFailed(`Could not delete ${rows.length - gone.size} of ${rows.length} titles.`);
     }
     const cards = [...gone].map(cardElement).filter((el): el is HTMLElement => el !== null);
     if (cards.length) await pixelDissolveAll(cards);
@@ -379,7 +379,7 @@ export default function Catalog({
       );
       const byId = new Map(updated.filter((t): t is CatalogTitle => t !== null).map((t) => [t.id, t]));
       if (byId.size < rows.length) {
-        window.alert(writeFailed(`Could not update ${rows.length - byId.size} of ${rows.length} titles.`));
+        notifyWriteFailed(`Could not update ${rows.length - byId.size} of ${rows.length} titles.`);
       }
       // Only the ones that actually moved: a card whose request failed is
       // still there afterwards, and must not be shown leaving.
@@ -406,9 +406,8 @@ export default function Catalog({
         return false;
       }
       if (aiIds) return aiIds.has(t.id);
-      // In To watch the query drives TMDB discovery below, as it did before
-      // the dedicated button was introduced.
-      if (mode === "watched" && words.length && !matchesSearchWords(t.searchTitle, words)) {
+      // Search the current half of the catalog; discovery lives in Add title.
+      if (words.length && !matchesSearchWords(t.searchTitle, words)) {
         return false;
       }
       return true;
@@ -433,7 +432,7 @@ export default function Catalog({
   // it also narrows whatever you search next.
   const runAiSearch = useCallback(
     async (query: string) => {
-      const pending = { query, mode, ids: [], candidates: [] };
+      const pending = { query, mode, ids: [] };
       setAiSearchAttempt({ ...pending, status: "loading" });
       try {
         const res = await fetch("/api/search/ai", {
@@ -445,12 +444,11 @@ export default function Catalog({
           setAiSearchAttempt({ ...pending, status: "error" });
           return;
         }
-        const data = (await res.json()) as { ids?: number[]; candidates?: TmdbCandidate[] };
+        const data = (await res.json()) as { ids?: number[] };
         setAiSearchAttempt({
           ...pending,
           status: "done",
           ids: data.ids ?? [],
-          candidates: data.candidates ?? [],
         });
       } catch {
         setAiSearchAttempt({ ...pending, status: "error" });
@@ -459,48 +457,9 @@ export default function Catalog({
     [mode],
   );
 
-  // Keep titles already watched out of To watch discovery results.
-  const watchedKeys = useMemo(() => {
-    const tmdbIds = new Set<number>();
-    const titleKeys = new Set<string>();
-    for (const t of catalog) {
-      if (t.inWatchlist) continue;
-      if (t.tmdbId && t.tmdbId > 0) tmdbIds.add(t.tmdbId);
-      titleKeys.add(t.searchTitle);
-    }
-    return { tmdbIds, titleKeys };
-  }, [catalog]);
-
-  const watchlistKeys = useMemo(() => {
-    const tmdbIds = new Set<number>();
-    for (const t of catalog) {
-      if (t.inWatchlist && t.tmdbId && t.tmdbId > 0) tmdbIds.add(t.tmdbId);
-    }
-    return tmdbIds;
-  }, [catalog]);
-
   // Both halves at once: a recommendation is "already yours" whether it is
   // waiting on the watchlist or was watched years ago.
-  const savedKeys = useMemo(() => {
-    const tmdbIds = new Set<number>();
-    const titleKeys = new Set<string>();
-    for (const t of catalog) {
-      if (t.tmdbId && t.tmdbId > 0) tmdbIds.add(t.tmdbId);
-      titleKeys.add(t.searchTitle);
-    }
-    return { tmdbIds, titleKeys };
-  }, [catalog]);
-
-  const aiCandidates =
-    mode === "watchlist" && aiSearch?.status === "done" ? aiSearch.candidates : null;
-  const discoverResults = useMemo(() => {
-    const source = aiCandidates ?? discovered;
-    return source.filter(
-      (candidate) =>
-        !watchedKeys.tmdbIds.has(candidate.tmdbId) &&
-        !watchedKeys.titleKeys.has(normalizeTitle(candidate.title)),
-    );
-  }, [aiCandidates, discovered, watchedKeys]);
+  const savedTitles = useMemo(() => new TitleIdentityIndex(catalog), [catalog]);
 
   const titles = useMemo(() => {
     const arr = [...filtered];
@@ -540,7 +499,7 @@ export default function Catalog({
   const shownTitles = titles.filter((t) => !heldIds.has(t.id)).slice(0, shownCount);
   // Only in the "to watch" half: for something already watched the platform
   // is recorded, and where it happens to be streaming today is noise.
-  const providers = useWatchProviders(mode === "watchlist" ? shownTitles : null);
+  const providers = useWatchProviders(mode === "watchlist" ? shownTitles : null, region);
   // Resolved against the visible results, so changing a filter narrows the
   // selection to what is still on screen rather than acting on rows the
   // reader can no longer see.
@@ -573,21 +532,14 @@ export default function Catalog({
     },
     [resultKey],
   );
-  // Under Watched it is a way out of a dead end, so it only appears once the
-  // title match has come up empty. Under "To watch" the typed query always
-  // returns something from TMDB — just often not what was meant — so there it
-  // stands as an offer from the moment there is a query at all.
+  // AI search is a fallback for Watched. Watchlist searches stay local;
+  // new titles are found through the Add title dialog.
   const showAiSearchHint =
     aiSearchEnabled &&
+    mode === "watched" &&
     trimmedQuery !== "" &&
-    (mode === "watchlist" || shownTitles.length === 0);
-  // Ran and came back with nothing to show — which under "To watch" is not the
-  // same as having run at all, since there the offer stays up over its own
-  // results and clicking it again is a legitimate retry.
-  const aiFoundNothing =
-    aiSearch?.status === "done" &&
-    (mode === "watchlist" ? discoverResults.length === 0 : shownTitles.length === 0);
-  const discoverMode = mode === "watchlist" && discoverQuery !== "";
+    shownTitles.length === 0;
+  const aiFoundNothing = aiSearch?.status === "done" && shownTitles.length === 0;
   const modeTotal = useMemo(
     () => catalog.filter((t) => t.inWatchlist === (mode === "watchlist")).length,
     [catalog, mode],
@@ -602,13 +554,6 @@ export default function Catalog({
       <FilterBar
         total={modeTotal}
         filteredTotal={titles.length}
-        countLabel={
-          discoverMode
-            ? discovering
-              ? "Searching..."
-              : `${discoverResults.length} to add`
-            : undefined
-        }
         q={q}
         onQChange={setQ}
         mode={mode}
@@ -637,7 +582,7 @@ export default function Catalog({
             : null
         }
         onAiSearch={() => runAiSearch(trimmedQuery)}
-        onAddTitle={() => setAddTitle({ open: true, initialQuery: "" })}
+        onAddTitle={() => setAddTitle({ open: true, initialQuery: "", initialDestination: null })}
       />
 
       {addTitle.open && (
@@ -652,8 +597,8 @@ export default function Catalog({
             }
           }}
           initialQuery={addTitle.initialQuery}
-          savedTmdbIds={savedKeys.tmdbIds}
-          savedTitleKeys={savedKeys.titleKeys}
+          initialDestination={addTitle.initialDestination}
+          savedTitles={savedTitles}
           onAdded={handleAdded}
         />
       )}
@@ -662,45 +607,20 @@ export default function Catalog({
           a tile you open: here the list is something to pick from. Above the
           grid rather than in it, so it is also there when the watchlist is
           still empty — which is exactly when it is most useful. */}
-      {mode === "watchlist" && !discoverMode && !platform && !mediaType && (
+      {mode === "watchlist" && !trimmedQuery && !platform && !mediaType && (
         <RecommendationsRow
           titles={recs}
-          savedTmdbIds={savedKeys.tmdbIds}
-          savedTitleKeys={savedKeys.titleKeys}
+          savedTitles={savedTitles}
           onAdded={handleAdded}
           onDismissed={handleDismissed}
         />
       )}
 
-      {discoverMode ? (
-        discovering && discoverResults.length === 0 ? (
-          <p className="mt-16 text-center text-muted">Searching...</p>
-        ) : discoverError ? (
-          <p className="mt-16 text-center text-muted">{discoverError}</p>
-        ) : discoverResults.length === 0 ? (
-          <p className="mt-16 text-center text-muted">
-            {(aiCandidates ?? discovered).length > 0
-              ? "Everything matching this search is already in your watched list."
-              : "No results. Try another title."}
-          </p>
-        ) : (
-          <div className="title-grid grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] sm:gap-4">
-            {discoverResults.map((candidate, index) => (
-              <DiscoverCard
-                key={`${candidate.mediaType}-${candidate.tmdbId}`}
-                candidate={candidate}
-                alreadyOnWatchlist={watchlistKeys.has(candidate.tmdbId)}
-                priority={index < 12}
-                onAdded={handleAdded}
-              />
-            ))}
-          </div>
-        )
-      ) : shownTitles.length === 0 && !deferredQ.trim() ? (
+      {shownTitles.length === 0 && !deferredQ.trim() ? (
         !platform && !mediaType && !genre ? (
           <EmptyCatalog
             mode={mode === "watchlist" ? "watchlist" : "watched"}
-            onAddTitle={() => setAddTitle({ open: true, initialQuery: "" })}
+            onAddTitle={() => setAddTitle({ open: true, initialQuery: "", initialDestination: mode })}
           />
         ) : (
           <p className="mt-16 text-center text-muted">No titles match these filters.</p>
@@ -710,7 +630,7 @@ export default function Catalog({
           {deferredQ.trim() && (
             <AddTitleCardTrigger
               onClick={() =>
-                setAddTitle({ open: true, initialQuery: deferredQ.trim() })
+                setAddTitle({ open: true, initialQuery: deferredQ.trim(), initialDestination: mode })
               }
             />
           )}
@@ -719,8 +639,7 @@ export default function Catalog({
           {mode === "watched" && !platform && !mediaType && !deferredQ.trim() && (
             <RecommendationsCard
               titles={recs}
-              savedTmdbIds={savedKeys.tmdbIds}
-              savedTitleKeys={savedKeys.titleKeys}
+              savedTitles={savedTitles}
               onAdded={handleAdded}
               onDismissed={handleDismissed}
             />
@@ -740,13 +659,13 @@ export default function Catalog({
               selected={selectedIds.has(t.id)}
               selectionActive={selectedTitles.length > 0}
               onToggleSelect={toggleSelect}
-              watchProviders={t.tmdbId ? providers[t.tmdbId] : undefined}
+              watchProviders={t.tmdbId ? providers[watchProviderKey(region, { tmdbId: t.tmdbId, mediaType: t.mediaType })] : undefined}
             />
           ))}
         </div>
       )}
 
-      {!discoverMode && hasMore && (
+      {hasMore && (
         <div ref={loadMoreRef} className="mt-8 text-center text-xs text-muted">
           Loading more... ({shownTitles.length.toLocaleString("en-US")} of{" "}
           {titles.length.toLocaleString("en-US")})

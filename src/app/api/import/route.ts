@@ -1,3 +1,4 @@
+import { TitleIdentityIndex } from "@/lib/title-identity";
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -32,8 +33,8 @@ type FileOutcome = {
  * needs nothing special here).
  *
  * It only adds titles that are not there yet: de-duplication is on the
- * normalized title regardless of platform, so a movie already in the catalog
- * from Netflix does not come back when the Prime Video export is loaded too.
+ * shared title identity regardless of platform. Names with different known
+ * years or media types remain separate.
  */
 export async function POST(request: NextRequest) {
   if (!(await isAuthenticated())) {
@@ -49,12 +50,12 @@ export async function POST(request: NextRequest) {
   // The existing catalog is held in memory: the normalized title for
   // de-duplication, and the seasons already recorded to tell whether the
   // export brings new ones.
-  const existing = new Map(
+  const existing = new TitleIdentityIndex(
     (
       await prisma.title.findMany({
-        select: { id: true, title: true, mediaType: true, watchedSeasons: true },
+        select: { id: true, title: true, mediaType: true, watchedSeasons: true, tmdbId: true, year: true },
       })
-    ).map((t) => [seriesKey(t.title, t.mediaType), t]),
+    ).map((t) => ({ ...t, title: seriesKey(t.title, t.mediaType) })),
   );
 
   // Highest id before inserting: the starting point for the enrichment, which
@@ -119,8 +120,8 @@ export async function POST(request: NextRequest) {
     for (const row of rows) {
       // The map grows as it goes, so two files uploaded together cannot
       // duplicate each other.
-      const key = seriesKey(row.title, row.mediaType);
-      const found = existing.get(key);
+      const identity = { ...row, title: seriesKey(row.title, row.mediaType) };
+      const found = existing.find(identity);
       if (found) {
         alreadyPresent += 1;
         // The title was already there, but the export can carry watched
@@ -133,10 +134,12 @@ export async function POST(request: NextRequest) {
         }
         continue;
       }
-      existing.set(key, {
+      existing.add({
         // Not inserted yet: this entry only exists to block duplicates inside the file.
         id: -1,
-        title: row.title,
+        title: identity.title,
+        tmdbId: null,
+        year: row.year ?? null,
         mediaType: row.mediaType,
         watchedSeasons: row.watchedSeasons,
       });

@@ -15,6 +15,7 @@ import { findBestTmdbMatch, getTrailerKey, isTmdbConfigured } from "@/lib/tmdb";
 import { recommendationKey } from "@/lib/recommendation-candidate";
 import { splitGenres } from "@/lib/genres";
 import { normalizeTitle } from "@/lib/title-key";
+import { TitleIdentityIndex } from "@/lib/title-identity";
 
 export const REFRESH_INTERVAL_DAYS = 5;
 // How long a claimed lock is honored before being treated as abandoned (the
@@ -85,7 +86,7 @@ export async function getStoredRecommendations(): Promise<RecommendationsState |
     return {
       titles: titles.filter((t) => {
         const key = recommendationKey(t);
-        if (dismissed.has(key) || watched.has(key) || seen.has(key)) return false;
+        if (isDismissed(dismissed, t) || watched.has(t) || seen.has(key)) return false;
         seen.add(key);
         return true;
       }),
@@ -104,20 +105,29 @@ export async function getStoredRecommendations(): Promise<RecommendationsState |
 /** Every "not interested" the user has ever said, keyed the same way
  *  recommendations are. */
 async function getDismissedKeys(): Promise<Set<string>> {
-  const rows = await prisma.dismissedRecommendation.findMany({ select: { key: true } });
-  return new Set(rows.map((r) => r.key));
+  const rows = await prisma.dismissedRecommendation.findMany({ select: { key: true, mediaType: true } });
+  return new Set(rows.map((r) => {
+    // Old persisted keys did not include the media type. Recover it from
+    // the same row so previous dismissals continue to apply to that type.
+    if (/^tmdb:\d+$/.test(r.key)) return `tmdb:${r.mediaType}:${r.key.slice(5)}`;
+    if (r.key.startsWith("title:") && !r.key.startsWith("title:[")) {
+      return `legacy:${r.mediaType}:${r.key.slice(6)}`;
+    }
+    return r.key;
+  }));
 }
 
-/** TMDB ids and normalized titles of everything already watched — the
- *  watchlist half is left out on purpose, see getStoredRecommendations().
- *  Keyed with the same recommendationKey() every other identity check here
- *  uses, so it never drifts out of sync with it. */
-async function getWatchedKeys(): Promise<Set<string>> {
+function isDismissed(keys: Set<string>, title: EnrichedRecommendation): boolean {
+  return keys.has(recommendationKey(title)) ||
+    keys.has(`legacy:${title.mediaType}:${normalizeTitle(title.title)}`);
+}
+
+async function getWatchedKeys(): Promise<TitleIdentityIndex> {
   const rows = await prisma.title.findMany({
     where: { inWatchlist: false },
-    select: { tmdbId: true, title: true },
+    select: { tmdbId: true, title: true, mediaType: true, year: true },
   });
-  return new Set(rows.map((r) => recommendationKey({ tmdbId: r.tmdbId, title: r.title })));
+  return new TitleIdentityIndex(rows);
 }
 
 /**
@@ -130,6 +140,7 @@ export async function dismissRecommendation(rec: {
   tmdbId: number | null;
   title: string;
   mediaType: string;
+  year?: number | null;
 }): Promise<void> {
   const key = recommendationKey(rec);
   await prisma.dismissedRecommendation.upsert({
@@ -222,6 +233,8 @@ async function buildCatalogSummary() {
       tmdbRating: true,
       personalRating: true,
       tmdbId: true,
+      mediaType: true,
+      year: true,
       searchTitle: true,
     },
     orderBy: { lastWatchedAt: "desc" },
@@ -242,18 +255,8 @@ async function buildCatalogSummary() {
     .filter((t) => (t.personalRating ?? t.tmdbRating ?? 0) >= 7.5)
     .slice(0, 20)
     .map((t) => t.title);
-  const allTitles = titles.map((t) => t.title);
-  // The actual exclusion set, for filtering the response in code — allTitles
-  // above is only the prompt text, and an instruction is not a guarantee:
-  // Claude occasionally suggests something already in the catalog anyway,
-  // especially once that list runs long. Matched the same way the rest of
-  // the app recognises "the same work": TMDB id when there is one, the
-  // normalized title otherwise (searchTitle is already that, stored at
-  // creation time).
-  const catalogTmdbIds = new Set(
-    titles.filter((t) => t.tmdbId != null && t.tmdbId > 0).map((t) => t.tmdbId as number),
-  );
-  const catalogTitleKeys = new Set(titles.map((t) => t.searchTitle));
+  const allTitles = titles.map((t) => `${t.title} (${t.mediaType}, ${t.year ?? "year unknown"})`);
+  const catalogIdentity = new TitleIdentityIndex(titles);
 
   // Capped: an unbounded "never suggest any of these" list would eventually
   // crowd out the rest of the prompt, and the most recent dismissals are the
@@ -273,8 +276,7 @@ async function buildCatalogSummary() {
     highlyRated,
     allTitles,
     notInterested,
-    catalogTmdbIds,
-    catalogTitleKeys,
+    catalogIdentity,
   };
 }
 
@@ -349,9 +351,8 @@ export async function generateRecommendations(): Promise<RecommendationsState> {
   const confirmed = enriched.filter((r) => {
     if (r.tmdbId === null) return false;
     const key = recommendationKey(r);
-    if (dismissed.has(key)) return false;
-    if (summary.catalogTmdbIds.has(r.tmdbId)) return false;
-    if (summary.catalogTitleKeys.has(normalizeTitle(r.title))) return false;
+    if (isDismissed(dismissed, r)) return false;
+    if (summary.catalogIdentity.has(r)) return false;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

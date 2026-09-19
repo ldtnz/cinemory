@@ -496,17 +496,16 @@ export async function totalSeasonsFromTmdb(tmdbId: number): Promise<number | nul
 export async function fetchWatchProviders(
   tmdbId: number,
   mediaType: string,
+  region: string,
 ): Promise<string[]> {
-  if (!isTmdbConfigured() || !(tmdbId > 0)) return [];
-
-  const region = (await getSettings()).region;
+  if (!isTmdbConfigured() || !(tmdbId > 0)) throw new Error("Cannot check streaming availability.");
   const path = mediaType === "Series" ? "tv" : "movie";
   const url = withKey(new URL(`https://api.themoviedb.org/3/${path}/${tmdbId}/watch/providers`));
 
-  const res = await fetch(url, { headers: authHeaders() }).catch(() => null);
-  if (!res?.ok) return [];
+  const res = await fetch(url, { headers: authHeaders(), signal: AbortSignal.timeout(3000) });
+  if (!res.ok) throw new Error(`Streaming availability request failed (${res.status}).`);
 
-  const data = (await res.json().catch(() => null)) as {
+  const data = (await res.json()) as {
     results?: Record<
       string,
       {
@@ -517,12 +516,24 @@ export async function fetchWatchProviders(
     >;
   } | null;
 
-  const here = data?.results?.[region];
-  if (!here) return [];
-
-  const names = [...(here.flatrate ?? []), ...(here.free ?? []), ...(here.ads ?? [])]
-    .map((p) => p.provider_name)
-    .filter(Boolean);
+  if (!data?.results || typeof data.results !== "object" || Array.isArray(data.results)) {
+    throw new Error("Invalid streaming availability response.");
+  }
+  const here = data.results[region];
+  if (here === undefined) return [];
+  if (!here || typeof here !== "object" || Array.isArray(here)) {
+    throw new Error("Invalid regional streaming availability response.");
+  }
+  const names: string[] = [];
+  for (const category of [here.flatrate, here.free, here.ads]) {
+    if (category === undefined) continue;
+    if (!Array.isArray(category) || category.some((p) =>
+      !p || typeof p.provider_name !== "string" || !p.provider_name.trim(),
+    )) {
+      throw new Error("Invalid streaming provider list.");
+    }
+    names.push(...category.map((p) => p.provider_name));
+  }
   // A title can be on half a dozen services; the card has room for two.
   return [...new Set(names)];
 }

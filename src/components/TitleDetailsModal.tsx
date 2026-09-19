@@ -1,5 +1,7 @@
 "use client";
 
+import { watchProviderKey, type ProviderResponse } from "@/lib/watch-providers";
+
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -47,10 +49,11 @@ export default function TitleDetailsModal({
 }) {
   const dialogRef = useDialogFocus<HTMLDivElement>();
   const [extra, setExtra] = useState<Extra | null>(null);
-  // Null while the answer is on its way. A title TMDB never matched has no
+  // Undefined while loading, null if the check failed. A title TMDB never matched has no
   // id to ask about, which is not "still loading" — so that case is derived
   // below rather than written into state from an effect.
-  const [fetchedProviders, setFetchedProviders] = useState<string[] | null>(null);
+  const [fetchedProviders, setFetchedProviders] = useState<string[] | null | undefined>(undefined);
+  const [providerRetry, setProviderRetry] = useState(0);
   const [credits, setCredits] = useState<TitleCredits | null>(null);
 
   useEffect(() => {
@@ -87,16 +90,16 @@ export default function TitleDetailsModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items: [{ tmdbId, mediaType: title.mediaType }] }),
       }).catch(() => null);
-      if (!res?.ok || !current) return;
-      const data = (await res.json().catch(() => null)) as {
-        providers?: Record<number, string[]>;
-      } | null;
-      if (current) setFetchedProviders(data?.providers?.[tmdbId as number] ?? []);
+      if (!current) return;
+      const data: ProviderResponse | null = res?.ok ? await res.json().catch(() => null) : null;
+      if (current) setFetchedProviders(data?.providers?.[
+        watchProviderKey(data.region, { tmdbId: tmdbId as number, mediaType: title.mediaType })
+      ] ?? null);
     })();
     return () => {
       current = false;
     };
-  }, [canAskProviders, tmdbId, title.mediaType]);
+  }, [canAskProviders, tmdbId, title.mediaType, providerRetry]);
 
   useEffect(() => {
     if (!canAskProviders) return;
@@ -221,15 +224,25 @@ export default function TitleDetailsModal({
           {/* Where it can be streamed now. Worth knowing for a watchlist
               entry above all, but a watched title is often worth a rewatch,
               so it is not hidden there. */}
-          {providers === null ? (
+          {canAskProviders && (providers === undefined ? (
             <Row label="Where to watch">
               <span className="text-muted">Checking...</span>
+            </Row>
+          ) : providers === null ? (
+            <Row label="Where to watch">
+              <span className="text-muted">Availability check failed.</span>{" "}
+              <button type="button" className="underline underline-offset-2" onClick={() => {
+                setFetchedProviders(undefined);
+                setProviderRetry((n) => n + 1);
+              }}>Retry</button>
             </Row>
           ) : providers.length > 0 ? (
             <Row label="Where to watch">
               <span className="font-semibold text-accent-2">{providers.join(" · ")}</span>
             </Row>
-          ) : null}
+          ) : (
+            <Row label="Where to watch">No streaming providers listed in your region.</Row>
+          ))}
 
           {credits?.directors.length ? (
             <Row label={credits.directors.length === 1 ? "Director" : "Directors"}>

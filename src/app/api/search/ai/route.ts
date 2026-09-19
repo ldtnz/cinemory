@@ -1,3 +1,4 @@
+import { tmdbIdentity } from "@/lib/title-identity";
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
@@ -119,10 +120,12 @@ export async function POST(request: NextRequest) {
           .slice(0, MAX_DISCOVER)
           .map((t) => findBestTmdbMatch(t.title, t.mediaType).catch(() => null)),
       );
-      const seen = new Set<number>();
+      const seen = new Set<string>();
       const candidates = resolved.filter((c): c is TmdbCandidate => {
-        if (!c || seen.has(c.tmdbId)) return false;
-        seen.add(c.tmdbId);
+        if (!c) return false;
+        const key = tmdbIdentity(c)!;
+        if (seen.has(key)) return false;
+        seen.add(key);
         return true;
       });
       return NextResponse.json({ candidates });

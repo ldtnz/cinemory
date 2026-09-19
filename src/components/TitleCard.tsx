@@ -60,8 +60,8 @@ function TitleCard({
   onToggleSelect?: (title: CatalogTitle) => void;
   /** Where this one is streaming right now, for watchlist entries — see
    *  src/lib/use-watch-providers.ts. Undefined while the answer is on its
-   *  way, and empty when there is nowhere. */
-  watchProviders?: string[];
+   *  way, null on failure, and empty when no services are listed. */
+  watchProviders?: string[] | null;
 }) {
   const [loaded, setLoaded] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -388,6 +388,10 @@ function TitleCard({
             <p className="mt-0.5 line-clamp-1 text-[10px] font-semibold text-accent-2">
               {watchProviders.slice(0, 2).join(" · ")}
               {watchProviders.length > 2 ? ` +${watchProviders.length - 2}` : ""}
+            </p>
+          ) : !platformLabel && watchProviders !== undefined ? (
+            <p className="mt-0.5 line-clamp-1 text-[10px] text-muted">
+              {watchProviders === null ? "Availability check failed" : "No streaming providers listed"}
             </p>
           ) : null}
         </div>

@@ -97,6 +97,7 @@ export default async function Home({
   return (
     <Catalog
       initialTitles={titles}
+      region={settings.region}
       recommendations={recommendations?.titles ?? []}
       aiSearchEnabled={isAnthropicConfigured()}
     />

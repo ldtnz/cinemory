@@ -27,7 +27,7 @@ export default function SelectionBar({
   onClear: () => void;
 }) {
   return createPortal(
-    <div className="fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex justify-center px-3">
+    <div className="selection-bar fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex justify-center px-3">
       <div className="tooltip-in flex h-12 items-center gap-1 rounded-2xl border border-white/10 bg-background/95 p-1.5 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.85)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <span className="px-3 text-sm font-medium whitespace-nowrap text-foreground">
           {count} selected

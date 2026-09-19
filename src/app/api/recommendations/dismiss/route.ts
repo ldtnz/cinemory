@@ -6,6 +6,7 @@ type Body = {
   tmdbId: number | null;
   title: string;
   mediaType: string;
+  year?: number | null;
 };
 
 /** "Not interested" on an AI recommendation: excludes it from what is shown
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest) {
   await dismissRecommendation({
     tmdbId: typeof body.tmdbId === "number" ? body.tmdbId : null,
     title: body.title,
+    year: Number.isInteger(body.year) ? body.year : null,
     mediaType: body.mediaType === "Series" ? "Series" : "Movie",
   });
 

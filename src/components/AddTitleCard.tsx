@@ -1,15 +1,17 @@
 "use client";
 
+import type { TitleIdentityIndex } from "@/lib/title-identity";
+
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Check, Plus, X } from "lucide-react";
 import type { Title } from "@prisma/client";
 import type { TmdbCandidate } from "@/lib/tmdb";
+import type { WatchMode } from "@/lib/watch-mode";
 import PlatformPicker from "@/components/PlatformPicker";
 import { useTmdbSearch } from "@/lib/use-tmdb-search";
 import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
-import { normalizeTitle } from "@/lib/title-key";
 import { toDateInputValue, fromDateInputValue } from "@/lib/date-input";
 
 /** "2022-03-01" -> "1 March 2022". Empty string when TMDB has no date. */
@@ -62,24 +64,23 @@ export default function AddTitleCard({
   open,
   onOpenChange,
   initialQuery,
-  savedTmdbIds,
-  savedTitleKeys,
+  initialDestination = null,
+  savedTitles,
   onAdded,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialQuery: string;
-  /** Both halves of the catalog: adding something already on the watchlist
-   *  is refused the same way adding something already watched is, so a
-   *  result counts as "already there" either way. */
-  savedTmdbIds: Set<number>;
-  savedTitleKeys: Set<string>;
+  /** The opening section supplies a default; the navbar leaves it unset. */
+  initialDestination?: WatchMode | null;
+  /** The same identity rules as the add-title API. */
+  savedTitles: TitleIdentityIndex;
   onAdded: (title: Title) => void;
 }) {
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [step, setStep] = useState<"search" | "confirm">("search");
-  const [destination, setDestination] = useState<"watched" | "watchlist" | null>(null);
+  const [destination, setDestination] = useState<WatchMode | null>(initialDestination);
   const { results, searching, error } = useTmdbSearch(query, {
     enabled: open && step === "search",
     resetOnEnable: true,
@@ -285,12 +286,10 @@ export default function AddTitleCard({
     }
   }
 
-  // Matched on the TMDB id where there is one and on the normalized title
-  // otherwise — the same pair /api/titles checks before refusing a duplicate,
-  // so what is marked here is exactly what would come back as one.
+  // The browser and API share the same typed-ID and name/year rules.
   function alreadyInCatalog(c: TmdbCandidate): boolean {
     return (
-      (c.tmdbId > 0 && savedTmdbIds.has(c.tmdbId)) || savedTitleKeys.has(normalizeTitle(c.title))
+      savedTitles.has(c)
     );
   }
 

@@ -1,6 +1,6 @@
 /**
  * Imports the titles you rated on IMDb (the "ratings.csv" export) that are not
- * already in the catalog (de-duplicated on normalised title + year).
+ * already in the catalog (de-duplicated by media type and TMDB ID, with a name/year fallback).
  *
  * For every new title it:
  *  - looks it up on TMDB through the exact IMDb ID (the /find endpoint) rather
@@ -25,6 +25,7 @@
  */
 // Must come first: it makes .env visible to everything below.
 import "./load-env";
+import { TitleIdentityIndex } from "@/lib/title-identity";
 import { PrismaClient } from "@prisma/client";
 import { resolveLocalDatabaseUrl } from "@/lib/prisma";
 import { parse } from "csv-parse/sync";
@@ -204,52 +205,12 @@ async function main() {
 
   console.log(`${rows.length} rows in the IMDb export.`);
 
-  // Builds the de-duplication index from the existing catalog: normalised title
-  // -> set of years already present for that title.
-  const existing = await prisma.title.findMany({
-    select: { searchTitle: true, year: true },
-  });
-  const existingIndex = new Map<string, Set<number | null>>();
-  for (const e of existing) {
-    if (!existingIndex.has(e.searchTitle)) {
-      existingIndex.set(e.searchTitle, new Set());
-    }
-    existingIndex.get(e.searchTitle)!.add(e.year);
-  }
-
-  function alreadyPresent(normalisedTitle: string, year: number | null): boolean {
-    const years = existingIndex.get(normalisedTitle);
-    if (!years) return false;
-    if (years.has(year)) return true;
-    // Tolerates a one-year gap between the IMDb year and the TMDB one (it
-    // happens for releases that straddle December/January).
-    if (year !== null) {
-      for (const y of years) {
-        if (y !== null && Math.abs(y - year) <= 1) return true;
-      }
-    }
-    return years.has(null);
-  }
-
-  const fresh: ImdbRow[] = [];
-  let skippedExisting = 0;
-  for (const row of rows) {
-    const imdbYear = row.Year ? parseInt(row.Year, 10) : null;
-    if (alreadyPresent(normalize(row.Title), isNaN(imdbYear!) ? null : imdbYear)) {
-      skippedExisting++;
-      continue;
-    }
-    fresh.push(row);
-  }
-
-  console.log(
-    `${skippedExisting} already in the catalog, ${fresh.length} to evaluate/import.`,
-  );
-
-  if (fresh.length === 0) {
-    console.log("Nothing to import.");
-    return;
-  }
+  const existingIndex = new TitleIdentityIndex(await prisma.title.findMany({
+    select: { title: true, mediaType: true, tmdbId: true, year: true },
+  }));
+  // Resolve the IMDb ID before deciding identity: a name match must not
+  // exclude a different confirmed TMDB work.
+  const fresh = rows;
 
   const [movieGenres, seriesGenres] = await Promise.all([
     genresByMediaType("movie", language),
@@ -295,6 +256,29 @@ async function main() {
   }
 
   await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+
+  let skippedExisting = 0;
+  for (let i = 0; i < outcomes.length;) {
+    const outcome = outcomes[i];
+    const match = outcome.tmdbMatch;
+    const release = match?.release_date || match?.first_air_date;
+    const year = Number(release?.slice(0, 4) || outcome.row.Year) || null;
+    const identity = {
+      title: (match?.title || match?.name || outcome.row.Title).trim(),
+      mediaType: match ? (match.mediaType === "tv" ? "Series" : "Movie") : outcome.mediaType,
+      tmdbId: match?.id ?? null,
+      year,
+    };
+    outcome.mediaType = identity.mediaType as typeof outcome.mediaType;
+    if (existingIndex.has(identity)) {
+      outcomes.splice(i, 1);
+      skippedExisting++;
+    } else {
+      existingIndex.add(identity);
+      i++;
+    }
+  }
+  console.log(`${skippedExisting} already in the catalog, ${outcomes.length} to import.`);
 
   const perPlatform = new Map<string, number>();
   let withoutTmdbMatch = 0;

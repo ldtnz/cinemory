@@ -15,6 +15,7 @@ import { parse } from "csv-parse/sync";
 // CSV parser above. See src/lib/title-key.ts.
 export { normalizeTitle } from "@/lib/title-key";
 import { normalizeTitle } from "@/lib/title-key";
+import { fallbackIdentity } from "@/lib/title-identity";
 
 export type HistoryRow = {
   title: string;
@@ -186,7 +187,7 @@ export function readNetflix(content: string): HistoryRow[] {
       }
     }
 
-    const key = normalizeTitle(base);
+    const key = fallbackIdentity({ title: base, mediaType: isSeries ? "Series" : "Movie" });
     if (!groups.has(key)) {
       groups.set(key, { title: base, date: [], seasons: new Set(), isSeries: false });
     }
@@ -244,7 +245,7 @@ export function readAmazon(content: string): HistoryRow[] {
     // name with the season stripped, so one row is left.
     const season = mediaType === "Series" ? seasonNumber(rawTitle) : null;
     const title = mediaType === "Series" ? withoutSeason(rawTitle) || rawTitle : rawTitle;
-    const key = mediaType === "Series" ? normalizeTitle(title) : path || normalizeTitle(title);
+    const key = `${mediaType}:${mediaType === "Series" ? normalizeTitle(title) : path || normalizeTitle(title)}`;
 
     let watchedAt: Date | null = null;
     const dateStr = row["Date Watched"]?.trim();
@@ -317,7 +318,7 @@ export function readImdb(content: string): HistoryRow[] {
       : "Movie";
 
     const title = mediaType === "Series" ? withoutSeason(rawTitle) || rawTitle : rawTitle;
-    const key = seriesKey(title, mediaType);
+    const key = fallbackIdentity({ title: seriesKey(title, mediaType), mediaType, year: Number(row["Year"]) || null });
     if (!key || seen.has(key)) continue;
 
     const rated = (row["Date Rated"] || "").trim();
@@ -380,7 +381,7 @@ export function readLetterboxd(
   for (const row of records) {
     const title = (row["Name"] || "").trim();
     if (!title) continue;
-    const key = seriesKey(title, "Movie");
+    const key = fallbackIdentity({ title, mediaType: "Movie", year: Number(row["Year"]) || null });
     if (!key) continue;
 
     // "Watched Date" is the day it was seen; "Date" is the day the row was
@@ -477,13 +478,13 @@ export function readDisneyWatchlist(content: string): HistoryRow[] {
           : "Movie";
 
     const title = mediaType === "Series" ? withoutSeason(rawTitle) || rawTitle : rawTitle;
-    const key = normalizeTitle(title);
-    if (!key || seen.has(key)) continue;
+    const key = fallbackIdentity({ title, mediaType });
+    if (seen.has(key)) continue;
 
     const link = row.Link?.trim();
     seen.set(key, {
       title,
-      searchTitle: key,
+      searchTitle: normalizeTitle(title),
       platform: "",
       mediaType,
       status: "To watch",

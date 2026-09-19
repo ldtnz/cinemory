@@ -1,3 +1,4 @@
+import { duplicateTitleWhere, TitleIdentityIndex } from "@/lib/title-identity";
 /**
  * What the MCP endpoint can read, and how it is phrased.
  *
@@ -210,11 +211,15 @@ export async function addToWatchlist(
   const wanted = title.trim();
   if (!wanted) return { added: false, title, reason: "No title given." };
 
-  const searchTitle = normalizeTitle(wanted);
-  const existing = await prisma.title.findFirst({
-    where: { searchTitle },
-    select: { title: true, inWatchlist: true, platform: true },
+  const match = await findBestTmdbMatch(wanted, mediaType ?? "Movie");
+  if (!match) {
+    return { added: false, title: wanted, reason: "No match on TMDB for that title." };
+  }
+  const matches = await prisma.title.findMany({
+    where: duplicateTitleWhere(match),
+    select: { title: true, mediaType: true, tmdbId: true, year: true, inWatchlist: true, platform: true },
   });
+  const existing = new TitleIdentityIndex(matches).find(match);
   if (existing) {
     return {
       added: false,
@@ -223,11 +228,6 @@ export async function addToWatchlist(
         ? "Already on the watchlist."
         : `Already watched${existing.platform ? ` on ${existing.platform}` : ""}.`,
     };
-  }
-
-  const match = await findBestTmdbMatch(wanted, mediaType ?? "Movie");
-  if (!match) {
-    return { added: false, title: wanted, reason: "No match on TMDB for that title." };
   }
 
   // Same shape the app writes (see src/app/api/titles/route.ts): a watchlist
@@ -269,10 +269,15 @@ export async function markAsWatched(
   const wanted = title.trim();
   if (!wanted) return { moved: false, title, reason: "No title given." };
 
-  const row = await prisma.title.findFirst({
+  const matches = await prisma.title.findMany({
     where: { searchTitle: { contains: normalizeTitle(wanted) } },
-    select: { id: true, title: true, inWatchlist: true },
+    select: { id: true, title: true, inWatchlist: true, mediaType: true, year: true },
+    take: 6,
   });
+  if (matches.length > 1) {
+    return { moved: false, title: wanted, reason: "Ambiguous title. Choose the exact work in the app." };
+  }
+  const row = matches[0];
   if (!row) return { moved: false, title: wanted, reason: "Not in the catalog." };
   if (!row.inWatchlist) return { moved: false, title: row.title, reason: "Already marked as watched." };
 
@@ -311,11 +316,12 @@ async function theWatchedTitle(
   const name = normalizeTitle(wanted);
   if (!name) return { reason: "No title given." };
 
-  const exact = await prisma.title.findFirst({
+  const exact = await prisma.title.findMany({
     where: { searchTitle: name, inWatchlist: false },
     select: { id: true, title: true },
   });
-  if (exact) return { row: exact };
+  if (exact.length === 1) return { row: exact[0] };
+  if (exact.length > 1) return { reason: "Ambiguous title. Choose the exact work in the app." };
 
   const near = await prisma.title.findMany({
     where: { searchTitle: { contains: name }, inWatchlist: false },

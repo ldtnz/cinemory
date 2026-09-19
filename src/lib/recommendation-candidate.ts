@@ -1,6 +1,6 @@
 import type { EnrichedRecommendation } from "@/lib/recommendations";
 import type { TmdbCandidate } from "@/lib/tmdb";
-import { normalizeTitle } from "@/lib/title-key";
+import { titleIdentityKey, type TitleIdentity } from "@/lib/title-identity";
 
 /**
  * Two small helpers for identifying and converting a recommendation, shared
@@ -14,17 +14,9 @@ import { normalizeTitle } from "@/lib/title-key";
  * into the browser bundle.
  */
 
-/**
- * The identity of a recommendation, for de-duplication and for the
- * DismissedRecommendation table's unique key: a TMDB id when there is one
- * (Claude's suggestion was confirmed against TMDB), the normalized title
- * otherwise. The same rule the rest of the app uses to recognise "the same
- * work" when there is no reliable id.
- */
-export function recommendationKey(rec: { tmdbId: number | null; title: string }): string {
-  return rec.tmdbId != null && rec.tmdbId > 0
-    ? `tmdb:${rec.tmdbId}`
-    : `title:${normalizeTitle(rec.title)}`;
+/** Typed TMDB identity, or type/name/year when no ID is available. */
+export function recommendationKey(rec: TitleIdentity): string {
+  return titleIdentityKey(rec);
 }
 
 /**
@@ -37,7 +29,7 @@ export function recommendationToCandidate(rec: EnrichedRecommendation): TmdbCand
   return {
     // Null means TMDB had no match for what Claude suggested. Zero is the
     // "no id" value the API already understands: it falls back to matching
-    // on the normalized title alone when checking for duplicates.
+    // on type, normalized title and year when checking for duplicates.
     tmdbId: rec.tmdbId ?? 0,
     mediaType: rec.mediaType,
     title: rec.title,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { TmdbCandidate } from "@/lib/tmdb";
+import { duplicateTitleWhere, TitleIdentityIndex } from "@/lib/title-identity";
 import { normalizeTitle } from "@/lib/title-key";
 import { parseWatchedDate } from "@/lib/watched-date";
 import { isValidPlatform } from "@/lib/platforms";
@@ -58,21 +59,11 @@ export async function POST(request: NextRequest) {
   const platform = watchlist ? "" : body.platform;
   const searchTitle = normalizeTitle(candidate.title);
 
-  // No duplicates: same normalised name, or same work on TMDB (the user picked
-  // that exact candidate, so the id is trustworthy). -1 is the conventional
-  // value for titles flagged as "ignore" on the settings page, not a real
-  // work, so it has to be excluded from the comparison.
-  const existing = await prisma.title.findFirst({
-    where: {
-      OR: [
-        { searchTitle },
-        ...(candidate.tmdbId > 0
-          ? [{ tmdbId: candidate.tmdbId, mediaType: candidate.mediaType }]
-          : []),
-      ],
-    },
-    select: { id: true, title: true, platform: true },
+  const matches = await prisma.title.findMany({
+    where: duplicateTitleWhere(candidate),
+    select: { id: true, title: true, platform: true, mediaType: true, tmdbId: true, year: true },
   });
+  const existing = new TitleIdentityIndex(matches).find(candidate);
   if (existing) {
     return NextResponse.json(
       {

@@ -235,6 +235,17 @@ body:has(.title-grid--context-open) .watch-mode-pill {
 .tooltip-in {
   animation: tooltip-in 150ms ease-out;
 }
+
+/* Keep the bottom notice above the catalog's floating controls. */
+body:has(.selection-bar) .offline-notice {
+  bottom: calc(max(0.75rem, env(safe-area-inset-bottom)) + 3.75rem);
+}
+
+@media (width < 48rem) {
+  body:has(.watch-mode-pill) .offline-notice {
+    bottom: calc(max(0.75rem, env(safe-area-inset-bottom)) + 3.75rem);
+  }
+}
 /* The arrow carries its own centering transform, which the keyframes above
    would otherwise overwrite halfway through. */
 svg.tooltip-in {
