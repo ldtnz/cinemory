@@ -8,6 +8,7 @@ import type { Title } from "@prisma/client";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import PlatformPicker from "@/components/PlatformPicker";
 import { useTmdbSearch } from "@/lib/use-tmdb-search";
+import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 import { normalizeTitle } from "@/lib/title-key";
 import { toDateInputValue, fromDateInputValue } from "@/lib/date-input";
 
@@ -97,6 +98,11 @@ export default function AddTitleCard({
   const [watchedDate, setWatchedDate] = useState(() => toDateInputValue(new Date()));
   const [saving, setSaving] = useState(false);
   const [browseSuggestions, setBrowseSuggestions] = useState<BrowseSuggestions | null>(null);
+  // A row each, so a wheel over one of them scrolls it rather than the
+  // dialog behind it. Declared here because suggestionSection runs twice
+  // and a hook cannot.
+  const popularRow = useHorizontalWheel<HTMLDivElement>();
+  const newReleasesRow = useHorizontalWheel<HTMLDivElement>();
   const [browseError, setBrowseError] = useState(false);
   // Read from the auto-close timer below, which fires after this render has
   // moved on — a plain closure over `open`/`step` would see whatever they
@@ -265,11 +271,25 @@ export default function AddTitleCard({
       .filter((candidate) => !alreadyInCatalog(candidate))
       .slice(0, 6) ?? [];
 
-  function suggestionSection(label: string, candidates: TmdbCandidate[]) {
+  function suggestionSection(
+    label: string,
+    candidates: TmdbCandidate[],
+    scroller: React.RefObject<HTMLDivElement | null>,
+  ) {
     return (
       <section className="space-y-2.5">
         <h3 className="text-xs font-semibold text-foreground">{label}</h3>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+        {/* A phone has no room for two grids of six: at three across they
+            were two rows each, and stacked the dialog ran past the bottom of
+            the screen. One scrolling row each holds it to a single poster's
+            height, and the grid comes back as soon as all six fit at once.
+            The negative margin lets the row bleed to the dialog's edges, so
+            the last poster is visibly cut rather than sitting in a gutter
+            looking like the end of the list. */}
+        <div
+          ref={scroller}
+          className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-6 sm:overflow-visible sm:px-0 sm:pb-0"
+        >
           {candidates.map((candidate) => {
             const key = candidateKey(candidate);
             const isSelected = selected.has(key);
@@ -286,7 +306,7 @@ export default function AddTitleCard({
                     ? `${candidate.title} is already in your catalog`
                     : `Select ${candidate.title}`
                 }
-                className={`group relative aspect-[2/3] overflow-hidden rounded-xl bg-surface-2 text-left outline-none ring-white/40 transition ${
+                className={`group relative aspect-[2/3] w-[28vw] flex-none overflow-hidden rounded-xl bg-surface-2 text-left outline-none ring-white/40 transition sm:w-auto ${
                   inCatalog
                     ? "cursor-default opacity-55"
                     : `hover:ring-1 ${isSelected ? "ring-1 ring-accent-2/70" : ""}`
@@ -331,9 +351,14 @@ export default function AddTitleCard({
     return (
       <section className="space-y-2.5" aria-hidden>
         <div className="h-3 w-24 animate-pulse rounded bg-surface-3" />
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+        {/* Same shape as the row it stands in for, or the dialog resizes
+            under the reader the moment the answer arrives. */}
+        <div className="-mx-4 flex gap-2 overflow-hidden px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-6 sm:px-0 sm:pb-0">
           {Array.from({ length: 6 }, (_, index) => (
-            <div key={`${label}-${index}`} className="aspect-[2/3] animate-pulse rounded-xl bg-surface-2" />
+            <div
+              key={`${label}-${index}`}
+              className="aspect-[2/3] w-[28vw] flex-none animate-pulse rounded-xl bg-surface-2 sm:w-auto"
+            />
           ))}
         </div>
       </section>
@@ -413,8 +438,8 @@ export default function AddTitleCard({
                     <div className="space-y-5">
                       {browseSuggestions ? (
                         <>
-                          {suggestionSection("Popular now", visiblePopular)}
-                          {suggestionSection("New releases", visibleNewReleases)}
+                          {suggestionSection("Popular now", visiblePopular, popularRow)}
+                          {suggestionSection("New releases", visibleNewReleases, newReleasesRow)}
                         </>
                       ) : browseError ? (
                         <p className="py-6 text-center text-xs text-muted">
