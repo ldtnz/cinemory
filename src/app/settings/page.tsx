@@ -24,6 +24,7 @@ import FetchMissingDetails from "@/components/FetchMissingDetails";
 import EditModeToggle from "@/components/EditModeToggle";
 import SignInSettings from "@/components/SignInSettings";
 import SeriesSeasons from "@/components/SeriesSeasons";
+import DisplayNameEditor from "@/components/DisplayNameEditor";
 import PreferencesEditor from "@/components/PreferencesEditor";
 import LoginBackgroundEditor from "@/components/LoginBackgroundEditor";
 import RecommendationsPanel from "@/components/RecommendationsPanel";
@@ -81,6 +82,8 @@ export default async function SettingsPage() {
       {/* One gap between sections, set here rather than as a bottom margin on
           each of them — which is how they had come to differ by section. */}
       <div className="space-y-4">
+        <DisplayNameEditor initialName={settings.displayName} />
+
         <PreferencesEditor initialLanguage={settings.language} initialRegion={settings.region} />
 
         {!isTmdbConfigured() ? (
