@@ -465,7 +465,7 @@ export default function FilterBar({
                   role="dialog"
                   aria-modal="true"
                   aria-label="Filters and sort"
-                  className="app-modal-panel absolute right-0 top-full z-20 mt-2 w-56 space-y-4 rounded-2xl p-4"
+                  className="app-modal-panel app-modal-panel--solid absolute right-0 top-full z-20 mt-2 w-56 space-y-4 rounded-2xl p-4"
                 >
                   <div className="space-y-2">
                     <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">

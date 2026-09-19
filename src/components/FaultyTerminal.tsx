@@ -48,6 +48,8 @@ export interface FaultyTerminalProps extends React.HTMLAttributes<HTMLDivElement
   dpr?: number;
   pageLoadAnimation?: boolean;
   brightness?: number;
+  /** Share a rendered frame with decorative poster canvases. */
+  onFrame?: (canvas: HTMLCanvasElement) => void;
 }
 
 const vertexShader = `
@@ -296,6 +298,7 @@ export default function FaultyTerminal({
   dpr,
   pageLoadAnimation = true,
   brightness = 1,
+  onFrame,
   className,
   style,
   ...rest
@@ -424,6 +427,7 @@ export default function FaultyTerminal({
       }
 
       renderer.render({ scene: mesh });
+      onFrame?.(gl.canvas);
     };
     rafRef.current = requestAnimationFrame(update);
     ctn.appendChild(gl.canvas);
@@ -459,6 +463,7 @@ export default function FaultyTerminal({
     pageLoadAnimation,
     brightness,
     handleMouseMove,
+    onFrame,
   ]);
 
   return (

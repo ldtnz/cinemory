@@ -3,10 +3,8 @@ import Image from "next/image";
 /**
  * Shown while the catalog is being loaded from the server.
  *
- * It repeats the centred icon of the native splash screens (the manifest on
- * Android, apple-touch-startup-image on iOS): launching the app from the home
- * screen shows one single thing from startup to catalog, with no intermediate
- * step that looks different.
+ * A smaller, subdued version of the centred app icon keeps page transitions
+ * unobtrusive.
  */
 export default function Loading() {
   return (
@@ -17,7 +15,7 @@ export default function Loading() {
         width={96}
         height={96}
         priority
-        className="h-24 w-24 animate-pulse"
+        className="h-[4.2rem] w-[4.2rem] animate-pulse brightness-[0.4]"
       />
     </div>
   );

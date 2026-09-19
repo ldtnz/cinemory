@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { Check, Minus, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Check, Film, Minus, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import type { CatalogTitle } from "@/lib/catalog-title";
 import { useCardContextMenu } from "@/lib/use-card-context-menu";
 import { formatDate, platformStyle, seasonsLabel } from "@/lib/title-display";
@@ -15,6 +15,7 @@ import EditWatchedDialog, { type SeasonEdit } from "@/components/EditWatchedDial
 import { hasSeasonTotal } from "@/lib/season-counts";
 import TrailerModal from "@/components/TrailerModal";
 import TitleDetailsModal from "@/components/TitleDetailsModal";
+import PosterTerminalBackground from "@/components/PosterTerminalBackground";
 
 function TitleCard({
   title,
@@ -249,34 +250,16 @@ function TitleCard({
         </>
       ) : (
         <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-surface-2 p-4 text-center">
-          <Image
-            src="/logo.png"
-            alt=""
-            width={220}
-            height={220}
-            aria-hidden
-            className="pointer-events-none absolute left-1/2 top-1/2 w-[82%] max-w-56 -translate-x-1/2 -translate-y-1/2 opacity-[0.035] blur-[1px]"
-          />
-          <div className="pointer-events-none absolute inset-px rounded-[15px] border border-white/[0.035]" aria-hidden />
-          <div className="relative flex max-w-full flex-col items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.035] ring-1 ring-white/[0.07]">
-              <Image
-                src="/logo.png"
-                alt=""
-                width={25}
-                height={25}
-                aria-hidden
-                className="h-[25px] w-[25px] opacity-60"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <span className="line-clamp-4 block text-[11px] font-medium leading-snug text-foreground/75">
-                {title.title}
-              </span>
-              <span className="block text-[8px] font-medium uppercase tracking-[0.16em] text-muted/55">
-                {title.mediaType}
-              </span>
-            </div>
+          <PosterTerminalBackground />
+          <div className="poster-edge-vignette pointer-events-none absolute inset-0" aria-hidden />
+          <div className="relative flex max-w-full flex-col gap-1.5 [text-shadow:0_1px_3px_#000,0_0_6px_#000]">
+            <Film className="mx-auto mb-1.5 h-7 w-7 text-foreground/70 drop-shadow-[0_1px_3px_#000]" strokeWidth={1.5} aria-hidden />
+            <span className="relative line-clamp-4 block text-[11px] font-semibold leading-snug text-foreground">
+              {title.title}
+            </span>
+            <span className="relative block text-[8px] font-medium uppercase tracking-[0.16em] text-foreground/70">
+              {title.mediaType}
+            </span>
           </div>
         </div>
       )}

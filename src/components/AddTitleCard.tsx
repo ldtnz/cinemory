@@ -381,7 +381,7 @@ export default function AddTitleCard({
                     onChange={(e) => setQuery(e.target.value)}
                     autoFocus
                     placeholder="Search for a title"
-                    className="h-10 min-w-0 flex-1 rounded-xl bg-surface-2 px-3 text-base text-foreground outline-none focus:ring-1 focus:ring-white/20 sm:text-sm"
+                    className="h-10 min-w-0 flex-1 rounded-xl bg-surface-2 px-3 text-base text-foreground outline-none sm:text-sm"
                   />
                   {selected.size > 0 && (
                     <button
