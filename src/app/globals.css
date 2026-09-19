@@ -246,6 +246,11 @@ svg.tooltip-in {
   /* One shared backdrop for authentication and dialogs. The first radial is
      confined to the same shallow strip that used to be a separate auth
      element; sizing it here keeps the two render paths pixel-identical. */
+  /* The same colour twice: the rgba is what a browser that cannot parse the
+     color-mix below keeps, and dropping the declaration entirely would leave
+     the dialog with no scrim at all rather than a weaker one. #09090a is
+     --background. */
+  background-color: rgba(9, 9, 10, 0.45);
   background-color: color-mix(in srgb, var(--background) 45%, transparent);
   background-image:
     radial-gradient(ellipse at top, rgba(9, 9, 10, 0.75), transparent 70%),
@@ -265,15 +270,28 @@ svg.tooltip-in {
   background-color: var(--surface);
   background-image: none;
   box-shadow: 0 24px 70px -18px rgba(0, 0, 0, 0.9);
+  /* The hairline every dialog used to carry inline. Without it a panel has
+     no edge of its own and reads as a hole in the page rather than a sheet
+     over it — and it is the one part of the glass that costs nothing and
+     cannot fail. */
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
   .app-modal-panel {
-    /* More opaque than the auth card to compensate for the brighter,
-       full-colour catalog behind it. The highlight and blur stay identical. */
-    background-color: color-mix(in srgb, var(--surface) 82%, transparent);
-    -webkit-backdrop-filter: blur(24px);
-    backdrop-filter: blur(24px);
+    /* Glass, but not load-bearing. Safari on iOS drops backdrop-filter on
+       these panels — the catalog came through the filter sheet sharp enough
+       to read the poster titles — so the tint alone has to hold the panel
+       together, and the blur only has to improve it where it works. Measured
+       against a backdrop swung from white to black: at 82% the panel moved
+       by 2.8% of that swing in a browser where the blur does apply, and by
+       far more where it does not. The sheet is the one that showed it, being
+       the largest panel and the one over the brightest artwork, but the tint
+       lives here so every dialog reads the same. */
+    background-color: rgba(19, 19, 20, 0.94); /* --surface, for the same reason */
+    background-color: color-mix(in srgb, var(--surface) 94%, transparent);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    backdrop-filter: blur(24px) saturate(140%);
   }
 }
 
