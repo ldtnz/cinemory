@@ -457,6 +457,12 @@ html.landscape-ok .landscape-notice {
   visibility: hidden;
 }
 
+/* Already dissolved, and waiting only for the rest of its batch: out of the
+   grid at once, so the row closes up as each card goes. */
+.title-card[data-dissolved="true"] {
+  display: none;
+}
+
 /* The sign-in screen's poster wall: columns of real artwork drifting in
    opposite directions, one copy of each column stacked twice so the loop has
    nowhere to jump — the translation is exactly half the stack, which is one

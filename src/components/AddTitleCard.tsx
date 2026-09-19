@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, Plus, X } from "lucide-react";
+import { ArrowLeft, Check, Plus, X } from "lucide-react";
 import type { Title } from "@prisma/client";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import PlatformPicker from "@/components/PlatformPicker";
@@ -62,7 +62,6 @@ export default function AddTitleCard({
   open,
   onOpenChange,
   initialQuery,
-  initialDestination,
   savedTmdbIds,
   savedTitleKeys,
   onAdded,
@@ -70,7 +69,6 @@ export default function AddTitleCard({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialQuery: string;
-  initialDestination: "watched" | "watchlist";
   /** Both halves of the catalog: adding something already on the watchlist
    *  is refused the same way adding something already watched is, so a
    *  result counts as "already there" either way. */
@@ -81,7 +79,7 @@ export default function AddTitleCard({
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [step, setStep] = useState<"search" | "confirm">("search");
-  const [destination, setDestination] = useState<"watched" | "watchlist">(initialDestination);
+  const [destination, setDestination] = useState<"watched" | "watchlist" | null>(null);
   const { results, searching, error } = useTmdbSearch(query, {
     enabled: open && step === "search",
     resetOnEnable: true,
@@ -96,6 +94,13 @@ export default function AddTitleCard({
   // Defaults to today — not everything gets added the moment it's watched —
   // but editable, same date-for-the-whole-batch convention as platform.
   const [watchedDate, setWatchedDate] = useState(() => toDateInputValue(new Date()));
+  // With several titles the two fields above are the default for all of them;
+  // clicking a poster focuses that title, and the fields then edit only its
+  // own platform and date, which win over the default.
+  const [overrides, setOverrides] = useState<
+    Map<string, { platform?: string; date?: string }>
+  >(new Map());
+  const [focusKey, setFocusKey] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [browseSuggestions, setBrowseSuggestions] = useState<BrowseSuggestions | null>(null);
   // A row each, so a wheel over one of them scrolls it rather than the
@@ -182,7 +187,21 @@ export default function AddTitleCard({
     });
   }
 
+  function setOverride(key: string, patch: { platform?: string; date?: string }) {
+    setOverrides((prev) => {
+      const next = new Map(prev);
+      next.set(key, { ...next.get(key), ...patch });
+      return next;
+    });
+  }
+
   function removeSelected(key: string) {
+    setFocusKey((prev) => (prev === key ? null : prev));
+    setOverrides((prev) => {
+      const next = new Map(prev);
+      next.delete(key);
+      return next;
+    });
     setSelected((prev) => {
       const next = new Map(prev);
       next.delete(key);
@@ -203,8 +222,8 @@ export default function AddTitleCard({
       return status !== "added" && status !== "duplicate";
     });
     const watchlist = destination === "watchlist";
-    if (toSubmit.length === 0 || (!watchlist && !platform)) return;
-    const watchedAt = fromDateInputValue(watchedDate);
+    if (!destination || toSubmit.length === 0) return;
+    if (!watchlist && toSubmit.some(([key]) => !platformFor(key))) return;
 
     setSaving(true);
     setItemStatus((prev) => {
@@ -215,6 +234,7 @@ export default function AddTitleCard({
 
     const outcomes = await Promise.all(
       toSubmit.map(async ([key, candidate]): Promise<[string, ItemStatus]> => {
+        const watchedAt = fromDateInputValue(dateFor(key));
         try {
           const res = await fetch("/api/titles", {
             method: "POST",
@@ -222,7 +242,7 @@ export default function AddTitleCard({
             body: JSON.stringify({
               candidate,
               watchlist,
-              platform: watchlist ? "" : platform,
+              platform: watchlist ? "" : platformFor(key),
               lastWatchedAt:
                 !watchlist && watchedAt ? watchedAt.toISOString() : undefined,
             }),
@@ -276,6 +296,17 @@ export default function AddTitleCard({
 
   const trimmedQuery = query.trim();
   const selectedList = [...selected.entries()];
+  const platformFor = (key: string) => overrides.get(key)?.platform ?? platform;
+  const dateFor = (key: string) => overrides.get(key)?.date ?? watchedDate;
+  // Only meaningful with several titles; a lone one just uses the defaults.
+  const focused =
+    selectedList.length > 1 && focusKey && selected.has(focusKey) ? focusKey : null;
+  const missingPlatform = selectedList.some(
+    ([key]) =>
+      itemStatus.get(key) !== "added" &&
+      itemStatus.get(key) !== "duplicate" &&
+      !platformFor(key),
+  );
   const failedCount = selectedList.filter(([key]) => itemStatus.get(key) === "error").length;
   const isRetry = selectedList.some(([key]) => itemStatus.has(key));
   const visiblePopular =
@@ -590,14 +621,84 @@ export default function AddTitleCard({
                 </div>
               ) : (
                 <div className="space-y-5 py-1">
-                  <button
-                    type="button"
-                    onClick={() => setStep("search")}
-                    className="text-xs font-medium text-muted hover:text-foreground"
-                  >
-                    ← Back to results
-                  </button>
-
+                  {selectedList.length > 1 ? (
+                  <ul className="-mx-1 flex gap-3 overflow-x-auto px-1 py-1">
+                    {selectedList.map(([key, c]) => {
+                      const status = itemStatus.get(key);
+                      return (
+                        <li
+                          key={key}
+                          title={c.title}
+                          className={`relative aspect-[2/3] w-20 flex-none overflow-hidden rounded-xl bg-surface-2 ${
+                            focused === key ? "ring-2 ring-foreground" : ""
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setFocusKey((prev) => (prev === key ? null : key))}
+                            disabled={saving}
+                            aria-pressed={focused === key}
+                            aria-label={`Set platform and date for ${c.title}`}
+                            className="absolute inset-0 z-[1]"
+                          />
+                          {c.posterUrl ? (
+                            <Image
+                              src={c.posterUrl}
+                              alt={c.title}
+                              fill
+                              unoptimized
+                              sizes="80px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <span className="flex h-full items-center justify-center p-1.5 text-center text-[10px] text-muted">
+                              {c.title}
+                            </span>
+                          )}
+                          {status && status !== "error" && (
+                            <span className="absolute inset-0 flex items-center justify-center bg-black/55">
+                              {status === "adding" && (
+                                <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+                              )}
+                              {status === "added" && (
+                                <Check className="h-5 w-5 text-accent-2" strokeWidth={2.4} />
+                              )}
+                              {status === "duplicate" && (
+                                <span className="px-1 text-center text-[10px] font-medium text-white/80">
+                                  Already in catalog
+                                </span>
+                              )}
+                            </span>
+                          )}
+                          {destination === "watched" && !status && (
+                            <span
+                              className={`pointer-events-none absolute inset-x-0 bottom-0 truncate px-1 py-0.5 text-center text-[10px] font-medium ${
+                                platformFor(key) ? "bg-black/70 text-white" : "bg-amber-500/85 text-black"
+                              }`}
+                            >
+                              {platformFor(key) || "Pick platform"}
+                            </span>
+                          )}
+                          {status === "error" && (
+                            <span className="absolute inset-x-0 bottom-0 bg-red-500/80 py-0.5 text-center text-[10px] font-medium text-white">
+                              Failed
+                            </span>
+                          )}
+                          {(!status || status === "error") && !saving && (
+                            <button
+                              type="button"
+                              onClick={() => removeSelected(key)}
+                              aria-label={`Remove ${c.title}`}
+                              className="absolute right-1 top-1 z-[2] flex h-6 w-6 items-center justify-center rounded-md bg-black/70 text-white hover:bg-black/85"
+                            >
+                              <X className="h-3.5 w-3.5" strokeWidth={1.8} />
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  ) : (
                   <ul className="space-y-2">
                     {selectedList.map(([key, c]) => {
                       const status = itemStatus.get(key);
@@ -657,6 +758,7 @@ export default function AddTitleCard({
                       );
                     })}
                   </ul>
+                  )}
 
                   <div className="space-y-2">
                     <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
@@ -696,13 +798,19 @@ export default function AddTitleCard({
                         htmlFor="add-title-watched-date"
                         className="text-[11px] font-medium uppercase tracking-wide text-muted/80"
                       >
-                        When did you watch {selectedList.length === 1 ? "it" : "them"}?
+                        {focused
+                          ? `When did you watch ${selected.get(focused)?.title}?`
+                          : `When did you watch ${selectedList.length === 1 ? "it" : "them"}?`}
                       </label>
                       <input
                         id="add-title-watched-date"
                         type="date"
-                        value={watchedDate}
-                        onChange={(e) => setWatchedDate(e.target.value)}
+                        value={focused ? dateFor(focused) : watchedDate}
+                        onChange={(e) =>
+                          focused
+                            ? setOverride(focused, { date: e.target.value })
+                            : setWatchedDate(e.target.value)
+                        }
                         max={toDateInputValue(new Date())}
                         className="h-10 w-full rounded-xl bg-surface-2 px-3 text-sm text-foreground outline-none [color-scheme:dark] focus:ring-1 focus:ring-white/20"
                       />
@@ -712,13 +820,50 @@ export default function AddTitleCard({
                   {destination === "watched" && (
                     <div className="space-y-2">
                       <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
-                        Where did you watch {selectedList.length === 1 ? "it" : "them"}?
+                        {focused
+                          ? `Where did you watch ${selected.get(focused)?.title}?`
+                          : `Where did you watch ${selectedList.length === 1 ? "it" : "them"}?`}
                       </span>
-                      <PlatformPicker value={platform} onChange={setPlatform} />
+                      <PlatformPicker
+                        value={focused ? platformFor(focused) : platform}
+                        onChange={(v) =>
+                          focused ? setOverride(focused, { platform: v }) : setPlatform(v)
+                        }
+                      />
                       {selectedList.length > 1 && (
                         <p className="text-[11px] text-muted/80">
-                          Applies to all {selectedList.length} titles. Add a different-platform
-                          batch separately.
+                          {focused ? (
+                            <>
+                              Only for this title.{" "}
+                              <button
+                                type="button"
+                                onClick={() => setFocusKey(null)}
+                                className="font-medium text-foreground underline underline-offset-2"
+                              >
+                                Back to all
+                              </button>
+                              {overrides.has(focused) && (
+                                <>
+                                  {" · "}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setOverrides((prev) => {
+                                        const next = new Map(prev);
+                                        next.delete(focused);
+                                        return next;
+                                      })
+                                    }
+                                    className="font-medium text-foreground underline underline-offset-2"
+                                  >
+                                    Use the default
+                                  </button>
+                                </>
+                              )}
+                            </>
+                          ) : (
+                            "Applies to all titles. Click a poster to set its own platform and date."
+                          )}
                         </p>
                       )}
                     </div>
@@ -730,27 +875,41 @@ export default function AddTitleCard({
                     </p>
                   )}
 
+                  <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep("search")}
+                    disabled={saving}
+                    className="flex flex-none items-center justify-center gap-1.5 rounded-2xl bg-surface-2 px-5 py-3 text-sm font-medium text-muted transition-colors hover:bg-surface-3 hover:text-foreground disabled:opacity-50"
+                  >
+                    <ArrowLeft className="h-4 w-4" strokeWidth={1.8} />
+                    Back
+                  </button>
                   <button
                     type="button"
                     onClick={confirmBatch}
                     disabled={
-                      (destination === "watched" && !platform) ||
+                      !destination ||
+                      (destination === "watched" && missingPlatform) ||
                       saving ||
                       selectedList.every(([key]) => {
                         const status = itemStatus.get(key);
                         return status === "added" || status === "duplicate";
                       })
                     }
-                    className="w-full rounded-2xl bg-foreground py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+                    className="min-w-0 flex-1 rounded-2xl bg-foreground py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
                     {saving
                       ? "Adding..."
                       : isRetry
                         ? `Retry ${failedCount || selectedList.length}`
-                        : `Add ${selectedList.length} to ${
-                            destination === "watched" ? "watched" : "to watch"
-                          }`}
+                        : destination
+                          ? `Add ${selectedList.length} to ${
+                              destination === "watched" ? "watched" : "to watch"
+                            }`
+                          : `Add ${selectedList.length}`}
                   </button>
+                  </div>
                 </div>
               )}
             </div>

@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useDeferredValue, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CatalogTitle } from "@/lib/catalog-title";
 import FilterBar from "@/components/FilterBar";
 import TitleCard from "@/components/TitleCard";
 import type { SeasonEdit } from "@/components/EditWatchedDialog";
-import { cardElement, pixelDissolve, pixelDissolveAll } from "@/lib/pixel-dissolve";
+import { cardElement, pixelAppear, pixelDissolve, pixelDissolveAll } from "@/lib/pixel-dissolve";
 import AddTitleCard, { AddTitleCardTrigger } from "@/components/AddTitleCard";
 import DiscoverCard from "@/components/DiscoverCard";
 import RecommendationsCard from "@/components/RecommendationsCard";
@@ -112,8 +112,33 @@ export default function Catalog({
 
   const editing = useEditMode();
 
+  // Titles added while the Add title dialog is up. They are in the catalog
+  // at once (so the dialog knows they are taken) but stay out of the grid
+  // until it closes: a card that mounts behind the dialog plays its entrance
+  // where nobody can see it, and is simply there afterwards.
+  const [heldIds, setHeldIds] = useState<ReadonlySet<CatalogTitle["id"]>>(new Set());
+  // The dialog closes itself from a timer that captured an older render, so
+  // what to release has to be read from a ref, not from this render's state.
+  const heldRef = useRef<Set<CatalogTitle["id"]>>(new Set());
+
+  // Released from the hold: they assemble out of pixels, the way a card
+  // dissolves on its way out of the other half.
+  const [appearingIds, setAppearingIds] = useState<CatalogTitle["id"][]>([]);
+  useLayoutEffect(() => {
+    if (appearingIds.length === 0) return;
+    for (const id of appearingIds) {
+      const card = cardElement(id);
+      if (card) void pixelAppear(card);
+    }
+    setAppearingIds([]);
+  }, [appearingIds]);
+
   function handleAdded(added: CatalogTitle) {
     setCatalog((prev) => [added, ...prev]);
+    if (addTitle.open) {
+      heldRef.current.add(added.id);
+      setHeldIds(new Set(heldRef.current));
+    }
   }
 
   // The POST already happened by the time this is called — see
@@ -142,6 +167,8 @@ export default function Catalog({
       window.alert(writeFailed("Could not delete the title."));
       return;
     }
+    const card = cardElement(title.id);
+    if (card) await pixelDissolve(card);
     setCatalog((prev) => prev.filter((t) => t.id !== title.id));
   }, []);
 
@@ -317,6 +344,8 @@ export default function Catalog({
     if (gone.size < rows.length) {
       window.alert(writeFailed(`Could not delete ${rows.length - gone.size} of ${rows.length} titles.`));
     }
+    const cards = [...gone].map(cardElement).filter((el): el is HTMLElement => el !== null);
+    if (cards.length) await pixelDissolveAll(cards);
     setCatalog((prev) => prev.filter((t) => !gone.has(t.id)));
   }, []);
 
@@ -507,7 +536,7 @@ export default function Catalog({
   }`;
   const [page, setPage] = useState({ key: resultKey, count: PAGE_SIZE });
   const shownCount = page.key === resultKey ? page.count : PAGE_SIZE;
-  const shownTitles = titles.slice(0, shownCount);
+  const shownTitles = titles.filter((t) => !heldIds.has(t.id)).slice(0, shownCount);
   // Only in the "to watch" half: for something already watched the platform
   // is recorded, and where it happens to be streaming today is noise.
   const providers = useWatchProviders(mode === "watchlist" ? shownTitles : null);
@@ -613,9 +642,15 @@ export default function Catalog({
       {addTitle.open && (
         <AddTitleCard
           open
-          onOpenChange={(open) => setAddTitle((current) => ({ ...current, open }))}
+          onOpenChange={(open) => {
+            setAddTitle((current) => ({ ...current, open }));
+            if (!open) {
+              setAppearingIds([...heldRef.current]);
+              heldRef.current = new Set();
+              setHeldIds(new Set());
+            }
+          }}
           initialQuery={addTitle.initialQuery}
-          initialDestination={mode}
           savedTmdbIds={savedKeys.tmdbIds}
           savedTitleKeys={savedKeys.titleKeys}
           onAdded={handleAdded}

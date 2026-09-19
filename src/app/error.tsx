@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { CloudAlert, RotateCcw } from "lucide-react";
+import AuthLayout from "@/components/AuthLayout";
+import LoginTerminal from "@/components/LoginTerminal";
 
 /**
  * What a crash looks like.
@@ -27,7 +29,7 @@ export default function ErrorPage({
   }, [error]);
 
   return (
-    <main className="flex min-h-dvh items-center justify-center p-4">
+    <AuthLayout background={<LoginTerminal tint="#e5484d" />}>
       <div className="flex w-[min(90vw,380px)] flex-col items-center gap-5 rounded-3xl border border-white/10 bg-surface/95 p-8 text-center shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-foreground">
           <CloudAlert className="h-5 w-5" strokeWidth={1.8} />
@@ -59,6 +61,6 @@ export default function ErrorPage({
           </Link>
         </div>
       </div>
-    </main>
+    </AuthLayout>
   );
 }

@@ -69,6 +69,8 @@ function TitleCard({
   const [editingWatched, setEditingWatched] = useState(false);
   const [trailer, setTrailer] = useState<{ loading: boolean; key: string | null } | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  // Set when the trailer was opened from the details dialog, so it can offer the way back.
+  const [trailerFromDetails, setTrailerFromDetails] = useState(false);
   // Tapping a poster on touch shows the details overlay that desktop gets on
   // hover, then hides it again after a few seconds — touch has no hover.
   const [tapDetailsVisible, setTapDetailsVisible] = useState(false);
@@ -175,7 +177,6 @@ function TitleCard({
   }
 
   const platform = platformStyle(title.platform);
-  const platformColor = platform.color;
   const platformLabel = platform.label;
   const seasons = seasonsLabel(title);
 
@@ -380,22 +381,15 @@ function TitleCard({
               </span>
             ) : null}
           </div>
-          {/* A watched title says where it was watched; one still to watch
+          {/* A watched title says nothing about where; one still to watch
               says where it can be, which is the only useful thing to know
               about it tonight. */}
-          {platformLabel ? (
-            <p className={`mt-0.5 text-[10px] font-semibold ${platformColor}`}>
-              {platformLabel}
-            </p>
-          ) : watchProviders && watchProviders.length > 0 ? (
+          {!platformLabel && watchProviders && watchProviders.length > 0 ? (
             <p className="mt-0.5 line-clamp-1 text-[10px] font-semibold text-accent-2">
               {watchProviders.slice(0, 2).join(" · ")}
               {watchProviders.length > 2 ? ` +${watchProviders.length - 2}` : ""}
             </p>
           ) : null}
-          {seasons && (
-            <p className="mt-0.5 text-[10px] text-neutral-400">{seasons}</p>
-          )}
         </div>
       )}
 
@@ -468,6 +462,7 @@ function TitleCard({
             title.tmdbId && title.tmdbId > 0
               ? () => {
                   setDetailsOpen(false);
+                  setTrailerFromDetails(true);
                   void openTrailer();
                 }
               : undefined
@@ -481,7 +476,19 @@ function TitleCard({
           title={title.title}
           trailerKey={trailer.key}
           loading={trailer.loading}
-          onClose={() => setTrailer(null)}
+          onBack={
+            trailerFromDetails
+              ? () => {
+                  setTrailer(null);
+                  setTrailerFromDetails(false);
+                  setDetailsOpen(true);
+                }
+              : undefined
+          }
+          onClose={() => {
+            setTrailer(null);
+            setTrailerFromDetails(false);
+          }}
         />
       )}
     </div>

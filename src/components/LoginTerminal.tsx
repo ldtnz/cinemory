@@ -18,10 +18,13 @@ export default function LoginTerminal({
   onFrame,
   pageLoadAnimation = true,
   variant = "login",
+  tint = "#8db3ce",
 }: {
   onFrame?: (canvas: HTMLCanvasElement) => void;
   pageLoadAnimation?: boolean;
   variant?: "login" | "poster";
+  /** The shader's colour; the pale blue of the catalog's selection by default. */
+  tint?: string;
 } = {}) {
   return (
     <div aria-hidden className="absolute inset-0">
@@ -35,8 +38,7 @@ export default function LoginTerminal({
         flickerAmount={0}
         noiseAmp={1}
         curvature={variant === "poster" ? 0 : 0.1}
-        // The same pale blue as the catalog's multi-title selection.
-        tint="#8db3ce"
+        tint={tint}
         brightness={variant === "poster" ? 0.28 : 0.65}
         mouseReact={false}
         onFrame={onFrame}

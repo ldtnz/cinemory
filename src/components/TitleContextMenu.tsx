@@ -53,7 +53,7 @@ export default function TitleContextMenu({
           className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm whitespace-nowrap text-foreground hover:bg-white/5"
         >
           <Check className="h-3.5 w-3.5 flex-none text-accent-2" strokeWidth={2.2} />
-          Mark as watched
+          Watched
         </button>
       )}
       <button
@@ -93,7 +93,7 @@ export default function TitleContextMenu({
           className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm whitespace-nowrap text-foreground hover:bg-white/5"
         >
           <Bookmark className="h-3.5 w-3.5 flex-none text-muted" strokeWidth={1.8} />
-          Move to To watch
+          To watch
         </button>
       )}
       {onEdit && (

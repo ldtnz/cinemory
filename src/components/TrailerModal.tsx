@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 import { setLandscapeAllowed } from "@/lib/landscape";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
 
@@ -16,6 +16,7 @@ export default function TrailerModal({
   loading = false,
   stacked = false,
   title,
+  onBack,
   onClose,
 }: {
   trailerKey: string | null;
@@ -23,6 +24,8 @@ export default function TrailerModal({
   /** Another modal already supplies the shared overlay underneath. */
   stacked?: boolean;
   title: string;
+  /** Opened from the details dialog: a way back to it, next to the close. */
+  onBack?: () => void;
   onClose: () => void;
 }) {
   const dialogRef = useDialogFocus<HTMLDivElement>();
@@ -62,14 +65,27 @@ export default function TrailerModal({
       >
         <div className="mb-2 flex items-center justify-between gap-3 [@media(max-height:500px)]:hidden">
           <p className="truncate text-sm font-medium text-white">{title}</p>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close trailer"
-            className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white"
-          >
-            <X className="h-4 w-4" strokeWidth={1.8} />
-          </button>
+          <div className="flex flex-none items-center gap-1">
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                aria-label="Back to details"
+                className="flex h-8 flex-none items-center justify-center gap-1.5 rounded-lg px-2.5 text-sm text-white/70 hover:bg-white/10 hover:text-white"
+              >
+                <ArrowLeft className="h-4 w-4" strokeWidth={1.8} />
+                Back
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close trailer"
+              className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white"
+            >
+              <X className="h-4 w-4" strokeWidth={1.8} />
+            </button>
+          </div>
         </div>
         <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-2xl bg-black [@media(max-height:500px)]:rounded-xl">
           {loading ? (

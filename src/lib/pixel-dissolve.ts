@@ -159,7 +159,7 @@ function buildGrid(width: number, height: number, cap: number): { squares: Squar
  * depend on the animation, so there is nothing to special-case at the call
  * site.
  */
-export function pixelDissolve(element: HTMLElement): Promise<void> {
+function runSwap(element: HTMLElement, reverse: boolean): Promise<void> {
   const rect = element.getBoundingClientRect();
   if (!rect.width || !rect.height || prefersReducedMotion() || !("animate" in element)) {
     return Promise.resolve();
@@ -188,8 +188,10 @@ export function pixelDissolve(element: HTMLElement): Promise<void> {
     // clipping the whole ghost to the same shape.
     borderRadius: getComputedStyle(element).borderRadius,
     overflow: "hidden",
-    // Under the dialogs (z-50), over the grid.
-    zIndex: "40",
+    // Over the grid but under everything that floats over it: the sticky
+    // header (z-10), so a card half behind it is cut off by it rather than
+    // drawn across it, and the dialogs (z-50).
+    zIndex: "5",
   });
 
   // Sampled rather than interpolated: the window's scale and the content's
@@ -267,6 +269,8 @@ export function pixelDissolve(element: HTMLElement): Promise<void> {
       delay: square.delay,
       easing: "linear",
       fill: "both",
+      // Played backwards the same squares grow into place instead.
+      direction: reverse ? "reverse" : "normal",
     };
     animations.push(pane.animate(windowFrames, timing), content.animate(contentFrames, timing));
   }
@@ -286,12 +290,63 @@ export function pixelDissolve(element: HTMLElement): Promise<void> {
       animations.forEach((animation) => animation.cancel());
       overlay.remove();
       delete element.dataset.dissolving;
+      // Gone for good: the caller removes it from the catalog once the rest of
+      // its batch has had its turn, but this one should not wait for that.
+      if (!reverse) element.dataset.dissolved = "true";
       resolve();
     };
     // The timer, not the animations' own promises: one square finishing last
     // is the end of it, and a cancelled animation rejects rather than settles.
     const timer = window.setTimeout(finish, TOTAL_MS + 20);
   });
+}
+
+/** How many cards may be mid-swap at once. Each is a couple of hundred
+ *  animated squares, and a batch of them together is what made moving or
+ *  adding several titles stutter: the rest wait their turn instead. */
+const MAX_CONCURRENT = 1;
+let running = 0;
+const waiting: Array<() => void> = [];
+
+function queued(run: () => Promise<void>): Promise<void> {
+  return new Promise((resolve) => {
+    const start = () => {
+      running += 1;
+      void run().finally(() => {
+        running -= 1;
+        waiting.shift()?.();
+        resolve();
+      });
+    };
+    if (running < MAX_CONCURRENT) start();
+    else waiting.push(start);
+  });
+}
+
+function pixelSwap(element: HTMLElement, reverse: boolean): Promise<void> {
+  // A card still to assemble is out of the grid altogether until its turn, so
+  // it leaves no gap while it waits. One still to dissolve stays as it is.
+  if (reverse) element.dataset.dissolved = "true";
+  return queued(() => {
+    if (reverse) {
+      delete element.dataset.dissolved;
+      element.dataset.dissolving = "true";
+    }
+    return runSwap(element, reverse);
+  }).then(() => {
+    if (reverse) delete element.dataset.dissolving;
+  });
+}
+
+export function pixelDissolve(element: HTMLElement): Promise<void> {
+  return pixelSwap(element, false);
+}
+
+/** The same picture run backwards: a card assembling out of pixels. Called
+ *  right after the card mounts, before it has been painted, so it never shows
+ *  whole first. */
+export function pixelAppear(element: HTMLElement): Promise<void> {
+  return pixelSwap(element, true);
 }
 
 /** Every card in the list, coming apart together. */
