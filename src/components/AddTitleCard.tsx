@@ -274,7 +274,7 @@ export default function AddTitleCard({
   function suggestionSection(
     label: string,
     candidates: TmdbCandidate[],
-    scroller: React.RefObject<HTMLDivElement | null>,
+    scroller: (element: HTMLDivElement | null) => void,
   ) {
     return (
       <section className="space-y-2.5">
@@ -288,7 +288,7 @@ export default function AddTitleCard({
             looking like the end of the list. */}
         <div
           ref={scroller}
-          className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-6 sm:overflow-visible sm:px-0 sm:pb-0"
+          className="-mx-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-6 sm:overflow-visible sm:px-0 sm:pb-0"
         >
           {candidates.map((candidate) => {
             const key = candidateKey(candidate);

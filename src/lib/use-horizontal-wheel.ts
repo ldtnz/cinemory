@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback } from "react";
 
 /**
  * Lets a sideways-scrolling row be scrolled with an ordinary mouse wheel.
@@ -16,12 +16,17 @@ import { useEffect, useRef } from "react";
  * would have. The listener is registered by hand rather than through `onWheel`
  * because React attaches wheel handlers passively, where `preventDefault` is
  * ignored.
+ *
+ * A callback ref rather than an effect over a ref object, because a row does
+ * not always exist when its component first mounts: the add-title dialog
+ * shows a skeleton until TMDB answers, and an effect that read the ref once
+ * found nothing there and never looked again — that row scrolled by touch and
+ * ignored the wheel entirely. This attaches whenever the node appears and
+ * detaches with it (React 19 runs the returned cleanup when the ref is
+ * released).
  */
 export function useHorizontalWheel<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-
-  useEffect(() => {
-    const element = ref.current;
+  return useCallback((element: T | null) => {
     if (!element) return;
 
     function onWheel(e: WheelEvent) {
@@ -39,6 +44,4 @@ export function useHorizontalWheel<T extends HTMLElement>() {
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => element.removeEventListener("wheel", onWheel);
   }, []);
-
-  return ref;
 }
