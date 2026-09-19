@@ -132,62 +132,104 @@ export default function TitleDetailsModal({
         aria-modal="true"
         aria-label={`${title.title} details`}
         onClick={(e) => e.stopPropagation()}
-        className="app-modal-panel dialog-in flex max-h-[85dvh] w-[min(92vw,34rem)] flex-col overflow-hidden rounded-3xl"
+        className="app-modal-panel dialog-in relative flex max-h-[85dvh] w-[min(92vw,34rem)] flex-col overflow-hidden rounded-3xl"
       >
-        <div className="flex items-start gap-3 p-4 pb-3">
+        {/* The identity card: what it is, how it is rated, and — the fact
+            this whole app exists for — where and when it was watched. All of
+            them fit on one line, so they sit beside the poster without the
+            label column the rows below need: "Watched on Netflix" says what
+            it is, and a 7rem label costs more width here than the answer. */}
+        <div className="flex items-start gap-4 p-4 pb-3">
           {title.posterUrl && (
-            <div className="relative h-24 w-16 flex-none overflow-hidden rounded-xl bg-surface-2">
-              <Image src={title.posterUrl} alt="" fill unoptimized sizes="64px" className="object-cover" />
+            <div className="relative h-36 w-24 flex-none overflow-hidden rounded-xl bg-surface-2">
+              <Image src={title.posterUrl} alt="" fill unoptimized sizes="96px" className="object-cover" />
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-semibold leading-tight tracking-tight">{title.title}</h2>
-            <p className="mt-0.5 text-xs text-muted">
-              {[title.mediaType, title.year].filter(Boolean).join(" · ")}
+            <h2 className="pr-8 text-base font-semibold leading-tight tracking-tight">{title.title}</h2>
+            <p className="mt-1 text-xs text-muted">
+              {[title.mediaType, title.year, seasons].filter(Boolean).join(" · ")}
             </p>
-            {title.tmdbRating ? (
-              <p className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-amber-400">
-                <Star className="h-3.5 w-3.5 flex-none fill-current" strokeWidth={0} />
-                {title.tmdbRating.toFixed(1)}
-                <span className="font-normal text-muted">on TMDB</span>
+
+            {(title.tmdbRating || extra?.personalRating != null) && (
+              <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold">
+                {title.tmdbRating ? (
+                  <span className="flex items-center gap-1 text-amber-400">
+                    <Star className="h-3.5 w-3.5 flex-none fill-current" strokeWidth={0} />
+                    {title.tmdbRating.toFixed(1)}
+                    <span className="font-normal text-muted">on TMDB</span>
+                  </span>
+                ) : null}
+                {extra?.personalRating != null && (
+                  <span className="flex items-center gap-1 text-accent-2">
+                    <Star className="h-3.5 w-3.5 flex-none fill-current" strokeWidth={0} />
+                    {extra.personalRating.toFixed(1)}
+                    <span className="font-normal text-muted">yours</span>
+                  </span>
+                )}
               </p>
-            ) : null}
+            )}
+
+            <p className="mt-2 text-xs">
+              {title.inWatchlist ? (
+                <span className="text-muted">Waiting on your watchlist</span>
+              ) : (
+                <>
+                  <span className="text-muted">Watched on </span>
+                  <span className={`font-semibold ${platform.color}`}>{platform.label}</span>
+                  {watchedOn ? <span className="text-muted"> · {watchedOn}</span> : null}
+                </>
+              )}
+            </p>
+
+            {genres.length > 0 && (
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {genres.map((g) => (
+                  <span key={g} className="rounded-lg bg-surface-2 px-2 py-1 text-[11px] leading-none text-muted">
+                    {g}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+            className="absolute right-3 top-3 flex h-8 w-8 flex-none items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
           >
             <X className="h-4 w-4" strokeWidth={1.8} />
           </button>
         </div>
 
+        {/* Everything that needs the whole line to be read: a synopsis, a
+            cast list, two provider names. Each is dropped rather than shown
+            empty — a row that says "unavailable" is a row that has to be read
+            before it can be skipped. */}
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-          <Row label={title.inWatchlist ? "Status" : "Watched"}>
-            {title.inWatchlist ? (
-              <span className="text-muted">Waiting on your watchlist</span>
-            ) : (
-              <>
-                <span className={`font-semibold ${platform.color}`}>{platform.label}</span>
-                {watchedOn ? <span className="text-muted"> · {watchedOn}</span> : null}
-              </>
-            )}
-          </Row>
-
-          {seasons && <Row label="Seasons">{seasons}</Row>}
-
-          {genres.length > 0 && (
-            <Row label="Genre">
-              <div className="flex flex-wrap gap-1.5">
-                {genres.map((g) => (
-                  <span key={g} className="rounded-lg bg-surface-2 px-2 py-1 text-[11px] leading-none">
-                    {g}
-                  </span>
-                ))}
-              </div>
+          {extra === null ? (
+            <Row label="Description">
+              <span className="inline-flex items-center gap-1.5 text-muted">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+                Loading...
+              </span>
             </Row>
-          )}
+          ) : extra.overview ? (
+            <Row label="Description">{extra.overview}</Row>
+          ) : null}
+
+          {/* Where it can be streamed now. Worth knowing for a watchlist
+              entry above all, but a watched title is often worth a rewatch,
+              so it is not hidden there. */}
+          {providers === null ? (
+            <Row label="Where to watch">
+              <span className="text-muted">Checking...</span>
+            </Row>
+          ) : providers.length > 0 ? (
+            <Row label="Where to watch">
+              <span className="font-semibold text-accent-2">{providers.join(" · ")}</span>
+            </Row>
+          ) : null}
 
           {credits?.directors.length ? (
             <Row label={credits.directors.length === 1 ? "Director" : "Directors"}>
@@ -205,51 +247,13 @@ export default function TitleDetailsModal({
             </Row>
           ) : null}
 
-          {canAskProviders && (
+          {credits === null && canAskProviders ? (
             <Row label="Cast">
-              {credits === null ? (
-                <span className="text-muted">Loading...</span>
-              ) : credits.cast.length > 0 ? (
-                credits.cast.join(" · ")
-              ) : (
-                <span className="text-muted">Cast unavailable</span>
-              )}
+              <span className="text-muted">Loading...</span>
             </Row>
-          )}
-
-          {/* Where it can be streamed now. Worth knowing for a watchlist
-              entry above all, but a watched title is often worth a rewatch,
-              so it is not hidden there. */}
-          <Row label="Where to watch">
-            {providers === null ? (
-              <span className="text-muted">Checking...</span>
-            ) : providers.length > 0 ? (
-              <span className="font-semibold text-accent-2">{providers.join(" · ")}</span>
-            ) : (
-              <span className="text-muted">Not on any service here right now</span>
-            )}
-          </Row>
-
-          {extra?.personalRating != null && (
-            <Row label="Your rating">
-              <span className="font-semibold text-amber-400">
-                {extra.personalRating.toFixed(1)}
-              </span>
-            </Row>
-          )}
-
-          <Row label="Description">
-            {extra === null ? (
-              <span className="inline-flex items-center gap-1.5 text-muted">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-                Loading...
-              </span>
-            ) : extra.overview ? (
-              extra.overview
-            ) : (
-              <span className="text-muted">No synopsis for this one.</span>
-            )}
-          </Row>
+          ) : credits?.cast.length ? (
+            <Row label="Cast">{credits.cast.join(" · ")}</Row>
+          ) : null}
         </div>
 
         {(onTrailer || extra?.link) && (
