@@ -1,7 +1,7 @@
 import Image from "next/image";
 
 /** Columns across the screen, by width. Kept in step with the grid below. */
-const COLUMNS = { base: 3, sm: 5, lg: 7 } as const;
+const COLUMNS = { base: 4, sm: 5, lg: 7 } as const;
 
 /**
  * The catalog itself, behind the sign-in card: columns of real posters
@@ -23,7 +23,7 @@ export default function LoginPosterWall({ posterUrl }: { posterUrl: string[] }) 
   return (
     <div
       aria-hidden
-      className="absolute inset-0 grid grid-cols-3 gap-3 overflow-hidden sm:grid-cols-5 lg:grid-cols-7"
+      className="absolute inset-0 grid grid-cols-4 gap-3 overflow-hidden sm:grid-cols-5 lg:grid-cols-7"
     >
       {columns.map((column, index) => (
         <div
@@ -47,7 +47,7 @@ export default function LoginPosterWall({ posterUrl }: { posterUrl: string[] }) 
                     alt=""
                     fill
                     unoptimized
-                    sizes="(max-width: 640px) 33vw, (max-width: 1024px) 20vw, 15vw"
+                    sizes="(max-width: 640px) 25vw, (max-width: 1024px) 20vw, 15vw"
                     className="object-cover saturate-[0.75]"
                   />
                 </div>

@@ -117,7 +117,7 @@ export default function SignInSettings({ backgroundPicker }: { backgroundPicker:
               Sign out
             </button>
           </div>
-          <div className="max-w-full sm:ml-auto">{backgroundPicker}</div>
+          <div className="w-full max-w-full sm:ml-auto sm:w-auto">{backgroundPicker}</div>
         </div>
       )}
 

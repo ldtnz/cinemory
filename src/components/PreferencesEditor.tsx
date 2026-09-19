@@ -44,26 +44,29 @@ export default function PreferencesEditor({
       title="Content language & region"
       description="Language TMDB answers in (posters, overviews, genres) and the region used to guess a title's streaming platform on import."
     >
-      <div className="flex flex-col gap-3 sm:flex-row">
+      {/* The two fields hold a language and a country, both short: side by
+          side they still read at phone width, and stacking them turned the
+          section into three identical full-width bars. Only Save wraps. */}
+      <div className="flex flex-wrap gap-3">
         <Select
           value={language}
           onChange={setLanguage}
           options={LANGUAGES}
           ariaLabel="Content language"
-          className="flex-1"
+          className="min-w-0 flex-1"
         />
         <Select
           value={region}
           onChange={setRegion}
           options={REGIONS}
           ariaLabel="Region"
-          className="flex-1"
+          className="min-w-0 flex-1"
         />
         <button
           type="button"
           onClick={save}
           disabled={!dirty || saving}
-          className="inline-flex h-10 flex-none items-center justify-center gap-1.5 rounded-xl bg-foreground px-4 text-xs font-medium text-background disabled:opacity-50"
+          className="inline-flex h-10 w-full flex-none items-center justify-center gap-1.5 rounded-xl bg-foreground px-4 text-xs font-medium text-background disabled:opacity-50 sm:w-auto"
         >
           {saved ? <Check className="h-3.5 w-3.5" strokeWidth={2} /> : null}
           {saving ? "Saving..." : saved ? "Saved" : "Save"}

@@ -7,7 +7,10 @@ import dynamic from "next/dynamic";
 // never needs to fetch.
 const FaultyTerminal = dynamic(() => import("@/components/FaultyTerminal"), { ssr: false });
 
-const GRID: [number, number] = [2, 1];
+// Cells are twice as dense across as down, which used to come out square
+// only because the shader stretched x to fill the width. Now that it does
+// not, 1.25 is what reproduces the shape a wide screen always showed.
+const GRID: [number, number] = [1.25, 1];
 
 /** The sign-in background for a catalog that has no wall to show yet. */
 export default function LoginTerminal() {

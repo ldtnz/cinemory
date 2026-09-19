@@ -49,16 +49,19 @@ export default function LoginBackgroundEditor({
       : `which is the animation until ${POSTER_WALL_MINIMUM} titles have artwork — ${postersAvailable.toLocaleString("en-US")} do so far`;
 
   return (
-    <div className="relative flex flex-wrap items-center gap-3" title={`Automatic picks for you, ${automatic}.`}>
+    <div
+      className="relative flex w-full flex-col items-start gap-1.5 sm:w-auto sm:flex-row sm:items-center sm:gap-3"
+      title={`Automatic picks for you, ${automatic}.`}
+    >
       <span className="text-xs text-muted">Sign-in background</span>
-      <div className="relative">
+      <div className="relative w-full sm:w-auto">
         <Select
           value={background}
           onChange={(value) => void save(value)}
           options={OPTIONS}
           ariaLabel="Sign-in screen background"
           feedback={saved ? "success" : error ? "error" : undefined}
-          className="w-48"
+          className="w-full sm:w-48"
         />
         <span className="sr-only" aria-live="polite">{saved ? "Saved" : ""}</span>
         {error && <span className="absolute right-0 top-full mt-1 whitespace-nowrap text-xs text-red-400">Could not save that.</span>}

@@ -8,7 +8,7 @@ import React, { useEffect, useRef, useMemo, useCallback } from "react";
  * catalog to show yet — from React Bits (reactbits.dev), a full-screen shader
  * of drifting glyphs.
  *
- * Three departures from the version published there, all forced by where it
+ * Five departures from the version published there, all forced by where it
  * runs here:
  *
  *  - `dpr` defaulted to reading `window.devicePixelRatio` in a parameter
@@ -22,6 +22,9 @@ import React, { useEffect, useRef, useMemo, useCallback } from "react";
  *  - WebGL can be unavailable (an old browser, a blocked context, a headless
  *    run): the constructor is guarded so the sign-in screen falls back to its
  *    background colour instead of failing to render.
+ *  - the pattern is corrected for the canvas aspect ratio (see `p` in the
+ *    fragment shader). Upstream it is stretched to whatever shape the canvas
+ *    is, which a landscape monitor hides and a portrait phone does not.
  */
 
 type Vec2 = [number, number];
@@ -148,7 +151,7 @@ float digit(vec2 p){
     float intensity = pattern(s * 0.1, q, r) * 1.3 - 0.03;
 
     if(uUseMouse > 0.5){
-        vec2 mouseWorld = uMouse * uScale;
+        vec2 mouseWorld = vec2(uMouse.x * iResolution.z, uMouse.y) * uScale;
         float distToMouse = distance(s, mouseWorld);
         float mouseInfluence = exp(-distToMouse * 8.0) * uMouseStrength * 10.0;
         intensity += mouseInfluence;
@@ -236,7 +239,13 @@ void main() {
       uv = barrel(uv);
     }
 
-    vec2 p = uv * uScale;
+    // vUv runs 0..1 on both axes, so upstream the same number of cells is
+    // squeezed across the width and down the height whatever shape the
+    // canvas is: on a portrait phone that came out more than four times
+    // taller than wide. Widening x by the aspect ratio (iResolution.z) ties
+    // a cell to one size in pixels instead, so the glyphs keep their shape
+    // and a narrow screen simply shows fewer columns of them.
+    vec2 p = vec2(uv.x * iResolution.z, uv.y) * uScale;
     vec3 col = getColor(p);
 
     if(uChromaticAberration != 0.0){

@@ -152,11 +152,11 @@ export async function isValidSession(
   sessionSecret: string,
 ): Promise<boolean> {
   if (!cookieValue) return false;
-  const [scadenzaStr, signature] = cookieValue.split(".");
-  if (!scadenzaStr || !signature) return false;
-  const expiry = Number(scadenzaStr);
+  const [expiryStr, signature] = cookieValue.split(".");
+  if (!expiryStr || !signature) return false;
+  const expiry = Number(expiryStr);
   if (!Number.isFinite(expiry) || expiry < Math.floor(Date.now() / 1000)) return false;
-  const expectedSignature = await hmacSha256(sessionSecret, scadenzaStr);
+  const expectedSignature = await hmacSha256(sessionSecret, expiryStr);
   return expectedSignature === signature;
 }
 

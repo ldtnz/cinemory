@@ -17,7 +17,7 @@ export default function EditModeToggle() {
   return (
     <SettingsSection
       title="Edit and remove"
-      description="While this is on, every poster in the catalog shows a button to delete the title, and series get controls to change how many seasons you have watched. Use it to clear duplicates left over from imports or artwork matched to the wrong film. Deleting is permanent and only affects this catalog, not the streaming service it came from. Remember to turn it off when you are done."
+      description="Adds a delete button to every poster and season controls to every series, for clearing import duplicates and wrong artwork. Deleting is permanent, but only here."
     >
       <button
         type="button"

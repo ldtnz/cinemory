@@ -130,7 +130,7 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
     <SettingsSection
       title="MCP connector"
       icon={<Plug className="h-4 w-4 text-accent-ai" strokeWidth={1.8} />}
-      description="Lets an AI assistant read your catalog in an ordinary chat, and optionally add to it and correct it. MCP is an open standard, so anything that speaks it can connect — claude.ai is just the worked example below."
+      description="Lets an AI assistant read your catalog in a chat, and optionally change it. The steps below are for claude.ai, but any MCP client works."
     >
       {token ? (
         <div className="space-y-3">
@@ -214,10 +214,9 @@ export default function McpConnector({ enabled, createdAt }: { enabled: boolean;
           </div>
           {on && (
             <p className="text-[11px] text-muted">
-              A connector is already set up
+              One is already set up
               {createdAt ? `, since ${new Date(createdAt).toLocaleDateString("en-US", { timeZone: "UTC" })}` : ""}. Generating
-              replaces it — whatever you set up with the old one stops working, so swap it for the
-              new one.
+              replaces it, and the old one stops working.
             </p>
           )}
         </div>
