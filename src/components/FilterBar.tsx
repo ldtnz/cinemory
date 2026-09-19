@@ -365,7 +365,7 @@ export default function FilterBar({
   }, [searchExpanded]);
 
   return (
-    <div className="sticky top-0 z-10 -mx-3 mb-[1.05rem] space-y-3 bg-background/95 px-3 pb-[0.7rem] pt-[calc(0.7rem+env(safe-area-inset-top))] backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-5 sm:px-5">
+    <div className="catalog-header sticky top-0 z-10 -mx-3 mb-[1.05rem] space-y-3 bg-background/95 px-3 pb-[0.7rem] pt-[calc(0.7rem+env(safe-area-inset-top))] backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-5 sm:px-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="hidden lg:block">
           <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
@@ -547,19 +547,25 @@ export default function FilterBar({
             </p>
           </div>
 
-          {/* Tablets are wide enough to keep the switch where the desktop
-              header has it, so the thumb-sized pill floating over the grid is
-              only for phones. It stays put when search opens: the title has
-              to give up its width for the field, this does not. */}
-          <div ref={watchSwitchRef} className="hidden flex-none md:block">
-            <WatchModeSwitch mode={mode} onModeChange={onModeChange} className="bg-surface" />
-          </div>
-
           {/* Search + filters: always anchored to the right of the row.
               Only one element animates its own width (the text field); the
               search/close button stays put, so there are no nested animations
               drifting out of sync. */}
           <div className="ml-auto flex h-9 items-center gap-2">
+            {/* Tablets are wide enough to keep the switch in the header, and
+                with the same label the desktop row gives it, so the
+                thumb-sized pill floating over the grid is only for phones.
+                It stays put when search opens: the title gives up its width
+                for the field, this does not. */}
+            <div ref={watchSwitchRef} className="hidden flex-none md:block">
+              <WatchModeSwitch
+                mode={mode}
+                onModeChange={onModeChange}
+                label="Status"
+                className="bg-surface"
+              />
+            </div>
+
             <div
               className={`relative h-9 flex-none overflow-hidden transition-all duration-300 ease-in-out ${
                 searchExpanded ? "opacity-100" : "opacity-0"
@@ -664,7 +670,7 @@ export default function FilterBar({
           the modal below — the sticky header's backdrop-blur would otherwise
           be the containing block for anything "fixed" inside it. */}
       {mounted && createPortal(
-        <div className="fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex justify-center px-3 md:hidden">
+        <div className="watch-mode-pill fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex justify-center px-3 md:hidden">
           <WatchModeSwitch
             mode={mode}
             onModeChange={onModeChange}

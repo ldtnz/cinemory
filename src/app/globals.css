@@ -185,11 +185,16 @@ html.reveal-ready .reveal-item[data-revealed] {
 .title-grid.title-grid--context-open > .title-card[data-context-target] .title-card__details {
   opacity: 1;
 }
-/* The recommendations strip in "To watch" sits above the grid rather than
-   inside it, so the rule above cannot reach it — but it has to fade back with
-   everything else when a card's menu opens, or it stays sharp and pulls the
-   eye away from the one title being acted on. */
-body:has(.title-grid--context-open) .recommendations-row {
+/* Three things sit outside the grid and so are out of the rule above's reach:
+   the recommendations strip in "To watch", the sticky header, and the watch
+   switch floating over the grid on a phone. All of them have to fade back
+   with everything else when a card's menu opens, or they stay sharp and pull
+   the eye away from the one title being acted on. `pointer-events: none` is
+   not a guard here — the menu still closes on a click anywhere outside it,
+   because an element that takes no events does not swallow them either. */
+body:has(.title-grid--context-open) .recommendations-row,
+body:has(.title-grid--context-open) .catalog-header,
+body:has(.title-grid--context-open) .watch-mode-pill {
   filter: blur(5px) brightness(0.55);
   transition: filter 200ms ease;
   pointer-events: none;
