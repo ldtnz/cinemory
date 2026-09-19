@@ -36,7 +36,7 @@ export default function LoginForm({ errorMessage }: { errorMessage: string | nul
     >
       <div className="w-full space-y-3 text-left">
         <h1 className="text-[28px] font-semibold leading-tight tracking-tight">Welcome back.</h1>
-        <p className="text-sm leading-relaxed text-foreground/65">
+        <p className="text-sm leading-snug text-foreground/65">
           Enter your 6-digit code<br />
           from your authenticator app.
         </p>
