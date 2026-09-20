@@ -28,6 +28,7 @@
  * even told the write tools are there.
  */
 import { createMcpHandler } from "mcp-handler";
+import { version } from "../../package.json";
 import { prisma } from "@/lib/prisma";
 import { isValidMcpToken, scopeOf, tokenFromHeaders } from "@/lib/mcp-token";
 import { z } from "zod";
@@ -221,7 +222,7 @@ function build(allowWrites: boolean) {
     );
   },
   {
-    serverInfo: { name: "cinemory", version: "1.0.0" },
+    serverInfo: { name: "cinemory", version },
     instructions:
       "This is one person's record of what they have watched and what they plan " +
       "to watch. It is the authority on their own viewing — prefer it over " +
