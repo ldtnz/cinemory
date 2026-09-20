@@ -126,3 +126,9 @@ ALTER TABLE "Settings" ADD COLUMN "mcpTokenCreatedAt" DATETIME;
 -- there are enough posters for it, the terminal animation before that),
 -- "posters" or "terminal".
 ALTER TABLE "Settings" ADD COLUMN "loginBackground" TEXT NOT NULL DEFAULT 'auto';
+
+-- ----- 8_display_name -----
+
+-- What the app calls its user, chosen in the setup wizard and shown on the
+-- sign-in screen. Empty until one is chosen.
+ALTER TABLE "Settings" ADD COLUMN "displayName" TEXT NOT NULL DEFAULT '';

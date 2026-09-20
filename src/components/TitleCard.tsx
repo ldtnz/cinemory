@@ -7,6 +7,7 @@ import { Check, Film, Minus, Pencil, Plus, Sparkles, Trash2 } from "lucide-react
 import type { CatalogTitle } from "@/lib/catalog-title";
 import { useCardContextMenu } from "@/lib/use-card-context-menu";
 import { formatDate, platformStyle, seasonsLabel } from "@/lib/title-display";
+import { hasHoverPointer } from "@/lib/pointer";
 import { useRevealOnView } from "@/lib/reveal-on-view";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import TitleContextMenu from "@/components/TitleContextMenu";
@@ -153,6 +154,11 @@ function TitleCard({
       return;
     }
     if (!title.posterUrl) return;
+    // This overlay is what hover already shows on a desktop, and it exists
+    // only because touch has none. Pinning it for five seconds there means a
+    // clicked card stays lit long after the pointer has moved on, which reads
+    // as stuck rather than as an answer.
+    if (hasHoverPointer()) return;
     setTapDetailsVisible(true);
     if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
     tapTimeoutRef.current = setTimeout(() => setTapDetailsVisible(false), 5000);

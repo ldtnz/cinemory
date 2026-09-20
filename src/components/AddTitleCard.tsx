@@ -12,6 +12,7 @@ import type { WatchMode } from "@/lib/watch-mode";
 import PlatformPicker from "@/components/PlatformPicker";
 import { useTmdbSearch } from "@/lib/use-tmdb-search";
 import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
+import { hasHoverPointer } from "@/lib/pointer";
 import { toDateInputValue, fromDateInputValue } from "@/lib/date-input";
 
 /** "2022-03-01" -> "1 March 2022". Empty string when TMDB has no date. */
@@ -120,7 +121,7 @@ export default function AddTitleCard({
     // `mounted` belongs here: the dialog is portalled behind it, so on the
     // render this effect first runs there is no field yet to focus.
     if (!open || !mounted || step !== "search") return;
-    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    if (!hasHoverPointer()) return;
     searchInputRef.current?.focus();
   }, [open, mounted, step]);
   const [browseError, setBrowseError] = useState(false);
