@@ -37,6 +37,7 @@ export default function NotFoundGate() {
             This page does not exist. Going back to the catalog in {seconds}s...
           </p>
         </div>
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- Reload even when the current URL is already the home page. */}
         <a
           href="/"
           className="flex w-full items-center justify-center rounded-xl bg-foreground py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90"

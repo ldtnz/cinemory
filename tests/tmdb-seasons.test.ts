@@ -13,7 +13,7 @@ import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
 process.env.DATABASE_URL ??= "file:./prisma/dev.db";
-process.env.TMDB_ACCESS_TOKEN ??= "test-token";
+process.env.TMDB_ACCESS_TOKEN = "test-token";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {

@@ -1,3 +1,4 @@
+import { toDateInputValue } from "@/lib/date-input";
 import { duplicateTitleWhere, TitleIdentityIndex } from "@/lib/title-identity";
 /**
  * What the MCP endpoint can read, and how it is phrased.
@@ -71,7 +72,7 @@ function toMcpTitle(t: Title): McpTitle {
     title: t.title,
     type: t.mediaType,
     year: t.year,
-    watchedOn: t.lastWatchedAt ? t.lastWatchedAt.toISOString().slice(0, 10) : null,
+    watchedOn: t.lastWatchedAt ? toDateInputValue(t.lastWatchedAt) : null,
     // Watchlist entries carry "" (see src/lib/platforms.ts) and "Unknown" is
     // the IMDb import's "could not say"; neither is worth reporting as a fact.
     platform: t.platform && t.platform !== "Unknown" ? t.platform : null,
@@ -154,10 +155,10 @@ export async function catalogStats() {
       .slice(0, 5)
       .map((b) => ({ year: b.label, titles: b.count })),
     firstWatched: s.firstWatchedTitle
-      ? { title: s.firstWatchedTitle, on: s.firstWatchedAt?.toISOString().slice(0, 10) ?? null }
+      ? { title: s.firstWatchedTitle, on: s.firstWatchedAt ? toDateInputValue(s.firstWatchedAt) : null }
       : null,
     lastWatched: s.lastWatchedTitle
-      ? { title: s.lastWatchedTitle, on: s.lastWatchedAt?.toISOString().slice(0, 10) ?? null }
+      ? { title: s.lastWatchedTitle, on: s.lastWatchedAt ? toDateInputValue(s.lastWatchedAt) : null }
       : null,
   };
 }
@@ -403,6 +404,6 @@ export async function editWatched(
     changed: true,
     title: updated.title,
     platform: updated.platform,
-    watchedOn: updated.lastWatchedAt ? updated.lastWatchedAt.toISOString().slice(0, 10) : null,
+    watchedOn: updated.lastWatchedAt ? toDateInputValue(updated.lastWatchedAt) : null,
   };
 }

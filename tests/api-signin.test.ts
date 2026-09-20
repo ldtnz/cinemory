@@ -72,6 +72,7 @@ function post(handler: (r: NextRequest) => Promise<Response>, url: string, body:
 
 before(async () => {
   ({ prisma } = await import("@/lib/prisma"));
+  await prisma.settings.create({ data: { id: 1 } });
   SESSION_COOKIE_NAME = realAuth.SESSION_COOKIE_NAME;
   ({ POST: logout } = await import("@/app/api/logout/route"));
   ({ POST: start } = await import("@/app/api/totp/start/route"));

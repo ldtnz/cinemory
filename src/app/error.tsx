@@ -53,6 +53,7 @@ export default function ErrorPage({
           {/* A plain anchor, not <Link>: when the crash happened on "/" itself a
               client-side navigation to "/" changes nothing and the boundary
               stays put. A full load starts the page over. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- A full reload resets the error boundary even on the same URL. */}
           <a
             href="/"
             className="flex w-full items-center justify-center rounded-xl bg-surface-2 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-surface-3"

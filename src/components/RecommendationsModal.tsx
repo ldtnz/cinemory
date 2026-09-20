@@ -105,6 +105,8 @@ export default function RecommendationsModal({
   const [trailerFor, setTrailerFor] = useState<EnrichedRecommendation | null>(null);
 
   useEffect(() => {
+    // Portals require document.body, which is available only after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 

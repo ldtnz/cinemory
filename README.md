@@ -49,6 +49,10 @@ code it produces. There is no password to choose and no account to create.
   movie/series, sortable by date watched, title, TMDB rating or release year.
   The search matches every word you type, in any order and accents or not, so
   "wars empire" finds *The Empire Strikes Back*.
+- **Local semantic search** — when title matching finds nothing, search by
+  meaning across saved descriptions, genres, dates, types and platforms: for
+  example “melancholy movies set in space”. It runs inside Cinemory without an
+  AI key; Claude remains an optional deeper fallback.
 - **Keyboard and screen readers** — "/" jumps to the search, Tab walks the
   grid, Enter opens a title's actions and Shift+Enter picks titles out for a
   batch. Dialogs keep the keyboard inside them and hand it back where it came
@@ -167,3 +171,17 @@ for posters. There is no analytics, no telemetry and no third-party account.
 modified version, or run one as a network service, you must make that
 version's source available to your users under the same license: see the
 license text for the exact terms.
+
+### Automated checks
+
+Run `npm test`, `npm run lint`, and `npx tsc --noEmit`. The test command
+preloads `tests/setup.ts`, which creates a separate temporary SQLite database
+from the migrations for each test process and removes it on exit. It overrides
+local and Turso database configuration and clears TMDB credentials; tests that
+exercise TMDB provide a dummy token and mock its responses.
+
+For a single file, invoke Node directly with the same preload:
+
+```sh
+node --import tsx --import ./tests/setup.ts --experimental-test-module-mocks --test tests/mcp-edit-watched.test.ts
+```

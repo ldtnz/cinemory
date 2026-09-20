@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { WATCH_MODES, type WatchMode } from "@/lib/watch-mode";
 import PlatformPicker from "@/components/PlatformPicker";
-import AiSearchHint, { type AiSearchHintState } from "@/components/AiSearchHint";
+import SemanticSearchHint, { type SemanticSearchHintState } from "@/components/SemanticSearchHint";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 
 const MEDIA_TYPES: { value: string; label: string }[] = [
@@ -173,7 +173,8 @@ export default function FilterBar({
   sort,
   onSortChange,
   countLabel,
-  aiSearchHint = null,
+  semanticSearchHint = null,
+  onSemanticSearch,
   onAiSearch,
   onAddTitle,
 }: {
@@ -198,9 +199,10 @@ export default function FilterBar({
   availableGenres: string[];
   sort: string;
   onSortChange: (v: string) => void;
-  /** Null hides the "search with AI" tooltip; it hangs off the search field
+  /** Null hides the semantic-search tooltip; it hangs off the search field
    *  itself, which is why it is rendered here and not next to the results. */
-  aiSearchHint?: AiSearchHintState | null;
+  semanticSearchHint?: SemanticSearchHintState | null;
+  onSemanticSearch?: () => void;
   onAiSearch?: () => void;
   onAddTitle: () => void;
 }) {
@@ -273,6 +275,8 @@ export default function FilterBar({
   // that CSS filter creates a containing block for "fixed" descendants, which
   // would otherwise position against it instead of the viewport.
   useEffect(() => {
+    // Portals require document.body, which is available only after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
@@ -437,10 +441,11 @@ export default function FilterBar({
                   <ClearIcon />
                 </button>
               )}
-              {aiSearchHint && onAiSearch && (
-                <AiSearchHint
-                  {...aiSearchHint}
-                  onSearch={onAiSearch}
+              {semanticSearchHint && onSemanticSearch && (
+                <SemanticSearchHint
+                  {...semanticSearchHint}
+                  onSemanticSearch={onSemanticSearch}
+                  onAiSearch={onAiSearch}
                   className="absolute inset-x-0 top-full z-20 mt-2"
                 />
               )}
@@ -663,10 +668,11 @@ export default function FilterBar({
               the field by the four buttons on its right, so it is padded back
               down to the field's own span and the bubble centres on that —
               centred under what it belongs to, and still never clipped. */}
-          {aiSearchHint && onAiSearch && (
-            <AiSearchHint
-              {...aiSearchHint}
-              onSearch={onAiSearch}
+          {semanticSearchHint && onSemanticSearch && (
+            <SemanticSearchHint
+              {...semanticSearchHint}
+              onSemanticSearch={onSemanticSearch}
+              onAiSearch={onAiSearch}
               className="absolute inset-x-0 top-full z-20 mt-2"
               style={
                 searchExpanded

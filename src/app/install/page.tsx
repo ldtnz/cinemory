@@ -36,6 +36,8 @@ export default function Install() {
   const [installAccepted, setInstallAccepted] = useState(false);
 
   useEffect(() => {
+    // Read browser-only installation state after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setInstalled(isAlreadyInstalled());
     setPlatform(detectPlatform());
 

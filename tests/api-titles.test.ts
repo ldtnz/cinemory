@@ -9,15 +9,21 @@
  * status codes, the guards and what actually lands in the row are all part of
  * what is checked.
  *
- * Only the session check is mocked — it reads a cookie through next/headers,
- * which needs a request context no test runner provides. Node's module
- * mocking is behind a flag; see the "test" script.
+ * The session check and background season scheduler are mocked: cookies and
+ * after() need Next's request lifecycle. Node's module mocking is behind a
+ * flag; see the "test" script.
  */
 import { test, before, after as afterAll, mock } from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
+import * as realSeasonCheck from "@/lib/season-check";
 
 process.env.DATABASE_URL ??= "file:./prisma/dev.db";
+
+// These tests call handlers directly, without Next's response lifecycle.
+mock.module("@/lib/season-check", {
+  namedExports: { ...realSeasonCheck, ensureFreshSeasonCheckInBackground: () => {} },
+});
 
 let authenticated = true;
 mock.module("@/lib/auth", { namedExports: { isAuthenticated: async () => authenticated } });

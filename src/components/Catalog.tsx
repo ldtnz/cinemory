@@ -70,11 +70,17 @@ export default function Catalog({
   const [genre, setGenre] = useState("");
   const [sort, setSort] = useState("recent");
 
-  // Tracks the "search with AI" (see AiSearchHint) attempt for whatever
-  // query and mode it was run against. Keyed by those rather than cleared on
+  // Tracks local semantic and optional AI searches for whatever query and
+  // mode they ran against. Keyed by those rather than cleared on
   // every keystroke via an effect: typing further, or switching halves, just
   // makes the pair below stop matching, which is enough to treat it as stale
   // without an explicit reset.
+  const [semanticSearchAttempt, setSemanticSearchAttempt] = useState<{
+    query: string;
+    mode: WatchMode;
+    status: "loading" | "error" | "done";
+    ids: number[];
+  } | null>(null);
   const [aiSearchAttempt, setAiSearchAttempt] = useState<{
     query: string;
     mode: WatchMode;
@@ -83,6 +89,10 @@ export default function Catalog({
     ids: number[];
   } | null>(null);
   const trimmedQuery = deferredQ.trim();
+  const semanticSearch =
+    semanticSearchAttempt?.query === trimmedQuery && semanticSearchAttempt.mode === mode
+      ? semanticSearchAttempt
+      : null;
   const aiSearch =
     aiSearchAttempt?.query === trimmedQuery && aiSearchAttempt.mode === mode
       ? aiSearchAttempt
@@ -127,15 +137,15 @@ export default function Catalog({
 
   // Released from the hold: they assemble out of pixels, the way a card
   // dissolves on its way out of the other half.
-  const [appearingIds, setAppearingIds] = useState<CatalogTitle["id"][]>([]);
+  const appearingIds = useRef<CatalogTitle["id"][]>([]);
   useLayoutEffect(() => {
-    if (appearingIds.length === 0) return;
-    for (const id of appearingIds) {
+    if (appearingIds.current.length === 0) return;
+    for (const id of appearingIds.current) {
       const card = cardElement(id);
       if (card) void pixelAppear(card);
     }
-    setAppearingIds([]);
-  }, [appearingIds]);
+    appearingIds.current = [];
+  });
 
   function handleAdded(added: CatalogTitle) {
     setCatalog((prev) => [added, ...prev]);
@@ -394,10 +404,14 @@ export default function Catalog({
 
   const filtered = useMemo(() => {
     const words = searchWords(deferredQ);
-    // A finished AI search stands in for the title match below: it already
-    // decided which rows the query is about, and by more than their text.
-    const aiIds =
-      mode === "watched" && aiSearch?.status === "done" ? new Set(aiSearch.ids) : null;
+    // A finished semantic/AI search stands in for the title match below: it
+    // already decided which rows the query is about, beyond their title.
+    const searchIds =
+      aiSearch?.status === "done"
+        ? new Set(aiSearch.ids)
+        : semanticSearch?.status === "done"
+          ? new Set(semanticSearch.ids)
+          : null;
     return catalog.filter((t) => {
       if (t.inWatchlist !== (mode === "watchlist")) return false;
       if (platform && t.platform !== platform) return false;
@@ -405,14 +419,14 @@ export default function Catalog({
       if (genre && !splitGenres(t.genres).includes(genre)) {
         return false;
       }
-      if (aiIds) return aiIds.has(t.id);
+      if (searchIds) return searchIds.has(t.id);
       // Search the current half of the catalog; discovery lives in Add title.
       if (words.length && !matchesSearchWords(t.searchTitle, words)) {
         return false;
       }
       return true;
     });
-  }, [catalog, deferredQ, mode, platform, mediaType, genre, aiSearch]);
+  }, [catalog, deferredQ, mode, platform, mediaType, genre, semanticSearch, aiSearch]);
 
   // Every genre actually present in the catalog, alphabetized — not a fixed
   // list like platforms, since which genres exist depends entirely on what
@@ -430,6 +444,29 @@ export default function Catalog({
   // Deliberately leaves the filter pickers alone: having a search quietly
   // switch the platform or genre chips underneath you is disorienting, and
   // it also narrows whatever you search next.
+  const runSemanticSearch = useCallback(
+    async (query: string) => {
+      const pending = { query, mode, ids: [] };
+      setSemanticSearchAttempt({ ...pending, status: "loading" });
+      try {
+        const res = await fetch("/api/search/semantic", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query, mode }),
+        });
+        if (!res.ok) {
+          setSemanticSearchAttempt({ ...pending, status: "error" });
+          return;
+        }
+        const data = (await res.json()) as { ids?: number[] };
+        setSemanticSearchAttempt({ ...pending, status: "done", ids: data.ids ?? [] });
+      } catch {
+        setSemanticSearchAttempt({ ...pending, status: "error" });
+      }
+    },
+    [mode],
+  );
+
   const runAiSearch = useCallback(
     async (query: string) => {
       const pending = { query, mode, ids: [] };
@@ -492,6 +529,8 @@ export default function Catalog({
   // the filters, the search or the sort and the key stops matching, which is
   // itself the reset back to the first page.
   const resultKey = `${mode}|${platform}|${mediaType}|${genre}|${sort}|${trimmedQuery}|${
+    semanticSearch?.status === "done" ? semanticSearch.ids.join(",") : ""
+  }|${
     aiSearch?.status === "done" ? aiSearch.ids.join(",") : ""
   }`;
   const [page, setPage] = useState({ key: resultKey, count: PAGE_SIZE });
@@ -532,13 +571,11 @@ export default function Catalog({
     },
     [resultKey],
   );
-  // AI search is a fallback for Watched. Watchlist searches stay local;
-  // new titles are found through the Add title dialog.
-  const showAiSearchHint =
-    aiSearchEnabled &&
-    mode === "watched" &&
-    trimmedQuery !== "" &&
-    shownTitles.length === 0;
+  // Natural-language search is local and works in either saved half. Claude
+  // remains a second pass for Watched when configured; discovery still lives
+  // in Add title rather than changing watchlist search into TMDB search.
+  const showSemanticSearchHint = trimmedQuery !== "" && shownTitles.length === 0;
+  const semanticFoundNothing = semanticSearch?.status === "done" && shownTitles.length === 0;
   const aiFoundNothing = aiSearch?.status === "done" && shownTitles.length === 0;
   const modeTotal = useMemo(
     () => catalog.filter((t) => t.inWatchlist === (mode === "watchlist")).length,
@@ -570,17 +607,24 @@ export default function Catalog({
         availableGenres={availableGenres}
         sort={sort}
         onSortChange={setSort}
-        aiSearchHint={
-          showAiSearchHint
+        semanticSearchHint={
+          showSemanticSearchHint
             ? {
                 status:
                   aiSearch?.status === "loading" || aiSearch?.status === "error"
                     ? aiSearch.status
-                    : "idle",
-                tried: aiFoundNothing === true,
+                    : semanticSearch?.status === "loading" || semanticSearch?.status === "error"
+                      ? semanticSearch.status
+                      : "idle",
+                source:
+                  aiSearch?.status === "loading" || aiSearch?.status === "error" ? "ai" : "local",
+                semanticTried: semanticFoundNothing,
+                aiTried: aiFoundNothing,
+                canTryAi: aiSearchEnabled && mode === "watched" && semanticFoundNothing,
               }
             : null
         }
+        onSemanticSearch={() => runSemanticSearch(trimmedQuery)}
         onAiSearch={() => runAiSearch(trimmedQuery)}
         onAddTitle={() => setAddTitle({ open: true, initialQuery: "", initialDestination: null })}
       />
@@ -591,7 +635,7 @@ export default function Catalog({
           onOpenChange={(open) => {
             setAddTitle((current) => ({ ...current, open }));
             if (!open) {
-              setAppearingIds([...heldRef.current]);
+              appearingIds.current = [...heldRef.current];
               heldRef.current = new Set();
               setHeldIds(new Set());
             }

@@ -34,6 +34,7 @@ const stored = async () =>
 
 before(async () => {
   ({ prisma } = await import("@/lib/prisma"));
+  await prisma.settings.create({ data: { id: 1 } });
   ({ POST } = await import("@/app/api/settings/login-background/route"));
   original = await stored();
 });

@@ -134,6 +134,8 @@ export default function AddTitleCard({
   const autoCloseTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
+    // Portals require document.body, which is available only after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     return () => {
       if (autoCloseTimerRef.current !== null) window.clearTimeout(autoCloseTimerRef.current);

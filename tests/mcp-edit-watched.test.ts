@@ -69,7 +69,15 @@ test("only the field given is touched", async () => {
   await editWatched(`${MARK} Solaris`, "Netflix");
   const row = await prisma.title.findFirst({ where: { title: `${MARK} Solaris` } });
   assert.equal(row!.platform, "Netflix");
-  assert.equal(row!.lastWatchedAt?.toISOString().slice(0, 10), "2023-07-14");
+  assert.equal(row!.lastWatchedAt?.getTime(), new Date(2023, 6, 14).getTime());
+});
+
+test("MCP lists and statistics preserve the edited local calendar day", async () => {
+  const { recentlyWatched, catalogStats } = await import("@/lib/mcp-catalog");
+  const titles = await recentlyWatched();
+  assert.equal(titles.find((title) => title.title === `${MARK} Solaris`)?.watchedOn, "2023-07-14");
+  const stats = await catalogStats();
+  assert.equal(stats.lastWatched?.on, "2023-07-14");
 });
 
 test("an exact name wins over the longer ones that contain it", async () => {
@@ -132,7 +140,7 @@ test("a date the engine would happily invent is refused", async () => {
   assert.equal(out.changed, false);
   assert.match(out.reason ?? "", /not a date/);
   const row = await prisma.title.findFirst({ where: { title: `${MARK} Solaris` } });
-  assert.equal(row!.lastWatchedAt?.toISOString().slice(0, 10), "2023-07-14");
+  assert.equal(row!.lastWatchedAt?.getTime(), new Date(2023, 6, 14).getTime());
 });
 
 test("a call with nothing to change is refused rather than counted as done", async () => {

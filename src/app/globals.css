@@ -65,7 +65,8 @@
   --muted: #8b8b90;
   --accent: #6b7280;
   --accent-2: #22c55e;
-  /* Marks everything Claude does — the recommendations and the AI search.
+  /* Marks everything Claude does — recommendations and the optional AI
+     fallback after local semantic search.
      Magenta, pulled back from a neon hue 300 to something that sits in a
      near-black, mostly grey UI without glowing out of it. */
   --accent-ai: #df68df;
@@ -220,7 +221,7 @@ body:has(.title-grid--context-open) .watch-mode-pill {
   pointer-events: none;
 }
 
-/* The tooltip under the search field (AiSearchHint): a short rise and fade,
+/* The tooltip under the search field (SemanticSearchHint): a short rise and fade,
    so it reads as dropping out of the field rather than blinking into place. */
 @keyframes tooltip-in {
   from {
