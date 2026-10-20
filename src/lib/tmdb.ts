@@ -7,11 +7,13 @@
 // src/lib/settings.ts.
 
 import { getSettings } from "@/lib/settings";
+import type { EpisodeDetail, SeasonSummary } from "@/lib/episodes";
 
 const API_KEY = process.env.TMDB_API_KEY;
 const ACCESS_TOKEN = process.env.TMDB_ACCESS_TOKEN;
 const IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
 const BACKDROP_BASE = "https://image.tmdb.org/t/p/w780";
+const STILL_BASE = "https://image.tmdb.org/t/p/w300";
 
 export function isTmdbConfigured(): boolean {
   return Boolean(API_KEY || ACCESS_TOKEN);
@@ -492,6 +494,99 @@ export async function lookupTotalSeasons(tmdbId: number): Promise<SeasonLookup> 
 export async function totalSeasonsFromTmdb(tmdbId: number): Promise<number | null> {
   const r = await lookupTotalSeasons(tmdbId);
   return r.status === "ok" ? r.totalSeasons : null;
+}
+
+/**
+ * The seasons of a series with how many episodes each has and how many are
+ * out, for the episode picker. Specials (season 0) are left out, as they are
+ * from the season count above.
+ *
+ * "Out" comes from TMDB's last aired episode: seasons before it are complete,
+ * its own season stops at it and later ones have nothing yet. Without one,
+ * a season counts as out once its air date has passed.
+ *
+ * Null when TMDB cannot answer, so callers can tell that from "no seasons".
+ */
+export async function fetchSeasonSummary(tmdbId: number): Promise<SeasonSummary[] | null> {
+  if (!isTmdbConfigured() || !(tmdbId > 0)) return null;
+
+  const language = (await getSettings()).language;
+  const url = withKey(new URL(`https://api.themoviedb.org/3/tv/${tmdbId}`));
+  url.searchParams.set("language", language);
+
+  const res = await fetch(url, { headers: authHeaders() }).catch(() => null);
+  if (!res?.ok) return null;
+  const data = (await res.json().catch(() => null)) as {
+    seasons?: {
+      season_number?: number;
+      name?: string;
+      air_date?: string | null;
+      episode_count?: number;
+    }[];
+    last_episode_to_air?: { season_number?: number; episode_number?: number } | null;
+  } | null;
+  if (!data || !Array.isArray(data.seasons)) return null;
+
+  const last = data.last_episode_to_air;
+  const today = new Date().toISOString().slice(0, 10);
+  return data.seasons
+    .filter((s) => (s.season_number ?? 0) > 0)
+    .map((s) => {
+      const season = s.season_number as number;
+      const episodeCount = Math.max(0, s.episode_count ?? 0);
+      let airedCount: number;
+      if (last?.season_number && last.episode_number) {
+        airedCount =
+          season < last.season_number
+            ? episodeCount
+            : season === last.season_number
+              ? Math.min(episodeCount, last.episode_number)
+              : 0;
+      } else {
+        airedCount = s.air_date && s.air_date <= today ? episodeCount : 0;
+      }
+      return { season, name: s.name || `Season ${season}`, airDate: s.air_date || null, episodeCount, airedCount };
+    })
+    .sort((a, b) => a.season - b.season);
+}
+
+/** The episodes of one season, with title, synopsis, runtime and air date.
+ *  Null when TMDB cannot answer. */
+export async function fetchSeasonEpisodes(
+  tmdbId: number,
+  season: number,
+): Promise<EpisodeDetail[] | null> {
+  if (!isTmdbConfigured() || !(tmdbId > 0) || !(season > 0)) return null;
+
+  const language = (await getSettings()).language;
+  const url = withKey(new URL(`https://api.themoviedb.org/3/tv/${tmdbId}/season/${season}`));
+  url.searchParams.set("language", language);
+
+  const res = await fetch(url, { headers: authHeaders() }).catch(() => null);
+  if (!res?.ok) return null;
+  const data = (await res.json().catch(() => null)) as {
+    episodes?: {
+      episode_number?: number;
+      name?: string;
+      overview?: string;
+      runtime?: number | null;
+      air_date?: string | null;
+      still_path?: string | null;
+    }[];
+  } | null;
+  if (!data || !Array.isArray(data.episodes)) return null;
+
+  return data.episodes
+    .filter((e) => (e.episode_number ?? 0) > 0)
+    .map((e) => ({
+      episode: e.episode_number as number,
+      name: e.name || `Episode ${e.episode_number}`,
+      overview: e.overview || null,
+      runtime: e.runtime && e.runtime > 0 ? e.runtime : null,
+      airDate: e.air_date || null,
+      stillUrl: e.still_path ? `${STILL_BASE}${e.still_path}` : null,
+    }))
+    .sort((a, b) => a.episode - b.episode);
 }
 
 /**

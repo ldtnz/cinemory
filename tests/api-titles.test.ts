@@ -218,6 +218,22 @@ test("moving back to the watchlist drops the platform and the date", async () =>
   assert.equal(after.lastWatchedAt, null);
 });
 
+test("pinning stamps the title and unpinning clears it, touching nothing else", async () => {
+  const seeded = await seed("pinned");
+  const pinned = await patch(seeded.id, { pinned: true });
+  assert.equal(pinned.status, 200);
+  const afterPin = await prisma.title.findUniqueOrThrow({ where: { id: seeded.id } });
+  assert.ok(afterPin.pinnedAt instanceof Date);
+  assert.equal(afterPin.platform, "Netflix");
+  assert.equal(afterPin.lastWatchedAt?.toISOString(), "2024-01-02T00:00:00.000Z");
+
+  assert.equal((await patch(seeded.id, { pinned: false })).status, 200);
+  const afterUnpin = await prisma.title.findUniqueOrThrow({ where: { id: seeded.id } });
+  assert.equal(afterUnpin.pinnedAt, null);
+
+  assert.equal((await patch(999999999, { pinned: true })).status, 404);
+});
+
 test("correcting a title that was never watched is refused", async () => {
   const seeded = await seed("still planned", { inWatchlist: true, status: "To watch", platform: "", lastWatchedAt: null });
   const res = await patch(seeded.id, { editWatched: { platform: "Netflix" } });

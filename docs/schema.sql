@@ -50,6 +50,12 @@ CREATE INDEX "Title_status_idx" ON "Title"("status");
 -- CreateIndex
 CREATE INDEX "Title_searchTitle_idx" ON "Title"("searchTitle");
 
+-- ----- 10_pinned -----
+
+-- Titles pinned to the top of the catalog, most recently pinned first.
+-- Null when not pinned.
+ALTER TABLE "Title" ADD COLUMN "pinnedAt" DATETIME;
+
 -- ----- 1_settings -----
 
 -- CreateTable
@@ -132,3 +138,9 @@ ALTER TABLE "Settings" ADD COLUMN "loginBackground" TEXT NOT NULL DEFAULT 'auto'
 -- What the app calls its user, chosen in the setup wizard and shown on the
 -- sign-in screen. Empty until one is chosen.
 ALTER TABLE "Settings" ADD COLUMN "displayName" TEXT NOT NULL DEFAULT '';
+
+-- ----- 9_watched_episodes -----
+
+-- Per-episode progress for series (src/lib/episodes.ts): JSON keyed by season
+-- number. Null until episodes are picked, and watchedSeasons stays as it was.
+ALTER TABLE "Title" ADD COLUMN "watchedEpisodes" TEXT;

@@ -25,8 +25,10 @@ export type RestorableTitle = {
   lastWatchedAt: Date | null;
   totalSeasons: number | null;
   watchedSeasons: number | null;
+  watchedEpisodes: string | null;
   newSeasonAvailable: boolean;
   inWatchlist: boolean;
+  pinnedAt: Date | null;
   link: string | null;
   tmdbId: number | null;
   posterUrl: string | null;
@@ -135,8 +137,10 @@ export function parseBackup(payload: unknown): ParsedBackup {
       lastWatchedAt: asDate(row.lastWatchedAt),
       totalSeasons: asInteger(row.totalSeasons),
       watchedSeasons: asInteger(row.watchedSeasons),
+      watchedEpisodes: asString(row.watchedEpisodes),
       newSeasonAvailable: row.newSeasonAvailable === true,
       inWatchlist,
+      pinnedAt: asDate(row.pinnedAt),
       link: asString(row.link),
       tmdbId: asInteger(row.tmdbId),
       posterUrl: asString(row.posterUrl),

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isValidPlatform } from "@/lib/platforms";
 import { dismissNewSeason } from "@/lib/season-check";
 import { clampWatchedSeasons } from "@/lib/season-counts";
+import { episodeColumns, episodesForSeasonCount } from "@/lib/episode-progress";
 import { parseWatchedDate } from "@/lib/watched-date";
 
 /**
@@ -60,7 +61,7 @@ export async function DELETE(
 }
 
 /**
- * Five edits, told apart by the body:
+ * Six edits, told apart by the body:
  *  - { markWatched: { platform } } moves a watchlist entry into the watched
  *    half, recording where it was finally watched.
  *  - { moveToWatchlist: true } is the way back: it drops the platform and the
@@ -68,10 +69,14 @@ export async function DELETE(
  *  - { editWatched: { platform, lastWatchedAt, watchedSeasons } } corrects an
  *    already-watched title from the edit dialog (edit mode). How many seasons
  *    exist is not among them: that is TMDB's answer, fetched automatically.
+ *    A series can send watchedEpisodes instead of watchedSeasons, and the
+ *    season count is then derived from it (src/lib/episode-progress.ts).
  *  - { watchedSeasons } updates a series' progress (the +/- controls in
  *    edit mode).
  *  - { dismissNewSeason: true } clears the "new season available" badge set
  *    by the automatic sweep in src/lib/season-check.ts.
+ *  - { pinned: boolean } pins the title to the top of the catalog, or unpins
+ *    it. Re-pinning moves it back to the front.
  */
 export async function PATCH(
   request: NextRequest,
@@ -94,11 +99,28 @@ export async function PATCH(
           platform?: string;
           lastWatchedAt?: string | null;
           watchedSeasons?: number | null;
+          watchedEpisodes?: unknown;
         };
         moveToWatchlist?: boolean;
         dismissNewSeason?: boolean;
+        pinned?: boolean;
       }
     | null;
+
+  if (typeof body?.pinned === "boolean") {
+    const updated = await prisma.title.updateMany({
+      where: { id },
+      data: { pinnedAt: body.pinned ? new Date() : null },
+    });
+    if (updated.count === 0) {
+      return NextResponse.json({ error: "Title not found." }, { status: 404 });
+    }
+    const title = await prisma.title.findUnique({
+      where: { id },
+      select: { id: true, pinnedAt: true },
+    });
+    return NextResponse.json({ title });
+  }
 
   if (body?.dismissNewSeason) {
     await dismissNewSeason(id);
@@ -162,7 +184,7 @@ export async function PATCH(
   }
 
   if (body?.editWatched) {
-    const { platform, lastWatchedAt, watchedSeasons } = body.editWatched;
+    const { platform, lastWatchedAt, watchedSeasons, watchedEpisodes } = body.editWatched;
     if (!isValidPlatform(platform)) {
       return NextResponse.json({ error: "Invalid platform." }, { status: 400 });
     }
@@ -178,7 +200,13 @@ export async function PATCH(
     // that is what "mark as watched" is for.
     const current = await prisma.title.findUnique({
       where: { id },
-      select: { mediaType: true, inWatchlist: true, watchedSeasons: true, totalSeasons: true },
+      select: {
+        mediaType: true,
+        inWatchlist: true,
+        watchedSeasons: true,
+        totalSeasons: true,
+        tmdbId: true,
+      },
     });
     if (!current) {
       return NextResponse.json({ error: "Title not found." }, { status: 404 });
@@ -190,10 +218,13 @@ export async function PATCH(
     // Progress travels with the rest of the dialog rather than in a second
     // request, so one Save is one edit. A movie has none, and a body that left
     // it out changes nothing — which is what stops a platform edit clearing it.
+    const series = current.mediaType === "Series";
     const seasons =
-      current.mediaType === "Series" && watchedSeasons !== undefined
-        ? { watchedSeasons: clampWatchedSeasons(watchedSeasons, current.totalSeasons) }
-        : null;
+      series && watchedEpisodes !== undefined
+        ? await episodeColumns(current.tmdbId, watchedEpisodes)
+        : series && watchedSeasons !== undefined
+          ? { watchedSeasons: clampWatchedSeasons(watchedSeasons, current.totalSeasons) }
+          : null;
 
     const title = await prisma.title.update({
       where: { id },
@@ -209,7 +240,14 @@ export async function PATCH(
 
   const existing = await prisma.title.findUnique({
     where: { id },
-    select: { mediaType: true, totalSeasons: true, watchedSeasons: true, inWatchlist: true },
+    select: {
+      mediaType: true,
+      totalSeasons: true,
+      watchedSeasons: true,
+      inWatchlist: true,
+      tmdbId: true,
+      watchedEpisodes: true,
+    },
   });
   if (!existing) {
     return NextResponse.json({ error: "Title not found." }, { status: 404 });
@@ -233,11 +271,18 @@ export async function PATCH(
   // Same rule as the dialog uses, from the same place: zero means "none
   // watched", and the ceiling is the known total.
   const watchedSeasons = clampWatchedSeasons(value, existing.totalSeasons);
+  // A series tracked per episode keeps its episodes in step, or the next
+  // episode edit would derive the old count straight back.
+  const watchedEpisodes = await episodesForSeasonCount(
+    existing.tmdbId,
+    existing.watchedEpisodes,
+    watchedSeasons ?? 0,
+  );
 
   const title = await prisma.title.update({
     where: { id },
-    data: { watchedSeasons },
-    select: { id: true, watchedSeasons: true, totalSeasons: true },
+    data: { watchedSeasons, ...(watchedEpisodes !== undefined ? { watchedEpisodes } : {}) },
+    select: { id: true, watchedSeasons: true, totalSeasons: true, watchedEpisodes: true },
   });
 
   return NextResponse.json({ title });
