@@ -3,9 +3,9 @@
 import type { TitleIdentityIndex } from "@/lib/title-identity";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Check, Plus, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import type { Title } from "@prisma/client";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import type { WatchMode } from "@/lib/watch-mode";
@@ -37,6 +37,89 @@ type BrowseSuggestions = {
   popular: TmdbCandidate[];
   newReleases: TmdbCandidate[];
 };
+
+/** How many suggestions each row holds once the catalog is filtered out. */
+const SUGGESTIONS_PER_ROW = 30;
+
+/**
+ * One sideways-scrolling row of suggestion posters. Six fit at once on a wide
+ * screen and the rest wait to the right; the arrows page through them a
+ * screenful at a time and only show while there is somewhere to go.
+ */
+function SuggestionRow({ children }: { children: ReactNode }) {
+  const wheel = useHorizontalWheel<HTMLDivElement>();
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const [canScroll, setCanScroll] = useState({ left: false, right: false });
+
+  const update = useCallback(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    const room = el.scrollWidth - el.clientWidth;
+    // A pixel of slack: fractional widths leave scrollLeft just short of room.
+    setCanScroll({ left: el.scrollLeft > 1, right: el.scrollLeft < room - 1 });
+  }, []);
+
+  const ref = useCallback(
+    (element: HTMLDivElement | null) => {
+      rowRef.current = element;
+      const detachWheel = wheel(element);
+      if (!element) return;
+      update();
+      const observer = new ResizeObserver(update);
+      observer.observe(element);
+      element.addEventListener("scroll", update, { passive: true });
+      return () => {
+        detachWheel?.();
+        observer.disconnect();
+        element.removeEventListener("scroll", update);
+      };
+    },
+    [wheel, update],
+  );
+
+  function page(direction: 1 | -1) {
+    const el = rowRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * el.clientWidth * 0.9, behavior: "smooth" });
+  }
+
+  const arrow =
+    "absolute top-1/2 z-10 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/70 text-white backdrop-blur-sm transition hover:bg-black/85 sm:flex";
+
+  return (
+    <div className="relative">
+      {/* The negative margin lets the row bleed to the dialog's edges on a
+          phone, so the last poster is visibly cut rather than sitting in a
+          gutter looking like the end of the list. */}
+      <div
+        ref={ref}
+        className="-mx-4 flex snap-x gap-2 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 pb-1 sm:mx-0 sm:scroll-px-0 sm:px-0 sm:pb-0"
+      >
+        {children}
+      </div>
+      {canScroll.left && (
+        <button
+          type="button"
+          onClick={() => page(-1)}
+          aria-label="Scroll left"
+          className={`${arrow} left-0 -translate-x-1/3`}
+        >
+          <ChevronLeft className="h-5 w-5" strokeWidth={2} />
+        </button>
+      )}
+      {canScroll.right && (
+        <button
+          type="button"
+          onClick={() => page(1)}
+          aria-label="Scroll right"
+          className={`${arrow} right-0 translate-x-1/3`}
+        >
+          <ChevronRight className="h-5 w-5" strokeWidth={2} />
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function AddTitleCardTrigger({ onClick }: { onClick: () => void }) {
   return (
@@ -105,11 +188,6 @@ export default function AddTitleCard({
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [browseSuggestions, setBrowseSuggestions] = useState<BrowseSuggestions | null>(null);
-  // A row each, so a wheel over one of them scrolls it rather than the
-  // dialog behind it. Declared here because suggestionSection runs twice
-  // and a hook cannot.
-  const popularRow = useHorizontalWheel<HTMLDivElement>();
-  const newReleasesRow = useHorizontalWheel<HTMLDivElement>();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Focus the field where a keyboard costs nothing, and not where it costs
@@ -320,31 +398,18 @@ export default function AddTitleCard({
       return status === "added" || status === "duplicate";
     });
   const visiblePopular =
-    browseSuggestions?.popular.filter((candidate) => !alreadyInCatalog(candidate)).slice(0, 6) ?? [];
+    browseSuggestions?.popular.filter((candidate) => !alreadyInCatalog(candidate))
+      .slice(0, SUGGESTIONS_PER_ROW) ?? [];
   const visibleNewReleases =
     browseSuggestions?.newReleases
       .filter((candidate) => !alreadyInCatalog(candidate))
-      .slice(0, 6) ?? [];
+      .slice(0, SUGGESTIONS_PER_ROW) ?? [];
 
-  function suggestionSection(
-    label: string,
-    candidates: TmdbCandidate[],
-    scroller: (element: HTMLDivElement | null) => void,
-  ) {
+  function suggestionSection(label: string, candidates: TmdbCandidate[]) {
     return (
       <section className="space-y-2.5">
         <h3 className="text-xs font-semibold text-foreground">{label}</h3>
-        {/* A phone has no room for two grids of six: at three across they
-            were two rows each, and stacked the dialog ran past the bottom of
-            the screen. One scrolling row each holds it to a single poster's
-            height, and the grid comes back as soon as all six fit at once.
-            The negative margin lets the row bleed to the dialog's edges, so
-            the last poster is visibly cut rather than sitting in a gutter
-            looking like the end of the list. */}
-        <div
-          ref={scroller}
-          className="-mx-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-6 sm:overflow-visible sm:px-0 sm:pb-0"
-        >
+        <SuggestionRow>
           {candidates.map((candidate) => {
             const key = candidateKey(candidate);
             const isSelected = selected.has(key);
@@ -361,7 +426,7 @@ export default function AddTitleCard({
                     ? `${candidate.title} is already in your catalog`
                     : `Select ${candidate.title}`
                 }
-                className={`group relative aspect-[2/3] w-[28vw] flex-none overflow-hidden rounded-xl bg-surface-2 text-left outline-none ring-white/40 transition sm:w-auto ${
+                className={`group relative aspect-[2/3] w-[28vw] flex-none snap-start overflow-hidden rounded-xl bg-surface-2 text-left outline-none ring-white/40 transition sm:w-[calc((100%-2.5rem)/6)] ${
                   inCatalog
                     ? "cursor-default opacity-55"
                     : `hover:ring-1 ${isSelected ? "ring-1 ring-accent-2/70" : ""}`
@@ -397,7 +462,7 @@ export default function AddTitleCard({
               </button>
             );
           })}
-        </div>
+        </SuggestionRow>
       </section>
     );
   }
@@ -408,11 +473,11 @@ export default function AddTitleCard({
         <div className="h-3 w-24 animate-pulse rounded bg-surface-3" />
         {/* Same shape as the row it stands in for, or the dialog resizes
             under the reader the moment the answer arrives. */}
-        <div className="-mx-4 flex gap-2 overflow-hidden px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-6 sm:px-0 sm:pb-0">
+        <div className="-mx-4 flex gap-2 overflow-hidden px-4 pb-1 sm:mx-0 sm:px-0 sm:pb-0">
           {Array.from({ length: 6 }, (_, index) => (
             <div
               key={`${label}-${index}`}
-              className="aspect-[2/3] w-[28vw] flex-none animate-pulse rounded-xl bg-surface-2 sm:w-auto"
+              className="aspect-[2/3] w-[28vw] flex-none animate-pulse rounded-xl bg-surface-2 sm:w-[calc((100%-2.5rem)/6)]"
             />
           ))}
         </div>
@@ -504,8 +569,8 @@ export default function AddTitleCard({
                     <div className="space-y-5">
                       {browseSuggestions ? (
                         <>
-                          {suggestionSection("Popular now", visiblePopular, popularRow)}
-                          {suggestionSection("New releases", visibleNewReleases, newReleasesRow)}
+                          {suggestionSection("Popular now", visiblePopular)}
+                          {suggestionSection("New releases", visibleNewReleases)}
                         </>
                       ) : browseError ? (
                         <p className="py-6 text-center text-xs text-muted">
