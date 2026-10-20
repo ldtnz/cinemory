@@ -9,8 +9,12 @@ import PlatformPicker from "@/components/PlatformPicker";
 import { toDateInputValue, fromDateInputValue } from "@/lib/date-input";
 import { hasSeasonTotal } from "@/lib/season-counts";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
+import EpisodePicker from "@/components/EpisodePicker";
+import { parseWatchedEpisodes, type WatchedEpisodes } from "@/lib/episodes";
 
-export type SeasonEdit = { watchedSeasons: number };
+/** A series' progress as the dialog saves it: a plain season count, or the
+ *  episodes picked, from which the server derives the count. */
+export type SeasonEdit = { watchedSeasons: number } | { watchedEpisodes: WatchedEpisodes };
 
 /** The −/value/+ row for how many seasons are watched. */
 function Stepper({
@@ -79,6 +83,14 @@ export default function EditWatchedDialog({
   // Read, never set: how many seasons exist is TMDB's answer, and the app
   // fetches it by itself. Here it is only the ceiling.
   const total = hasSeasonTotal(title.totalSeasons) ? (title.totalSeasons as number) : null;
+  // Episodes for a series TMDB knows; the plain season stepper otherwise.
+  const byEpisode = series && (title.tmdbId ?? 0) > 0;
+  const [episodes, setEpisodes] = useState<WatchedEpisodes>(() =>
+    parseWatchedEpisodes(title.watchedEpisodes),
+  );
+  // Only sent once actually changed: saving before TMDB has answered, or
+  // after it failed, must not turn "3 seasons watched" into nothing.
+  const [episodesTouched, setEpisodesTouched] = useState(false);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -99,7 +111,7 @@ export default function EditWatchedDialog({
         aria-modal="true"
         aria-label={`Edit ${title.title}`}
         onClick={(e) => e.stopPropagation()}
-        className="app-modal-panel dialog-in flex w-[min(94vw,460px)] flex-col gap-5 rounded-3xl p-6"
+        className="app-modal-panel dialog-in flex max-h-[92dvh] w-[min(94vw,460px)] flex-col gap-5 overflow-y-auto overscroll-contain rounded-3xl p-6"
       >
         <div className="flex gap-4">
           <div className="relative h-36 w-24 flex-none overflow-hidden rounded-xl bg-surface-2 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]">
@@ -147,7 +159,25 @@ export default function EditWatchedDialog({
             for it on its own, so a number typed here would only be a second
             answer to disagree with. It is shown because it is the ceiling —
             the plus stops on it. */}
-        {series && (
+        {byEpisode && (
+          <div className="space-y-2">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
+              Episodes
+            </span>
+            <EpisodePicker
+              tmdbId={title.tmdbId as number}
+              value={episodes}
+              onChange={(next) => {
+                setEpisodes(next);
+                setEpisodesTouched(true);
+              }}
+              seedSeasons={title.watchedEpisodes ? 0 : (title.watchedSeasons ?? 0)}
+              onSeed={setEpisodes}
+            />
+          </div>
+        )}
+
+        {series && !byEpisode && (
           <div className="space-y-2">
             <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
               Seasons
@@ -184,7 +214,13 @@ export default function EditWatchedDialog({
               onConfirm(
                 platform,
                 fromDateInputValue(dateValue),
-                series ? { watchedSeasons: watched } : null,
+                byEpisode
+                  ? episodesTouched
+                    ? { watchedEpisodes: episodes }
+                    : null
+                  : series
+                    ? { watchedSeasons: watched }
+                    : null,
               );
             }}
             className="flex-1 rounded-2xl bg-foreground py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"

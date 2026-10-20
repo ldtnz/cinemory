@@ -7,6 +7,7 @@ import { normalizeTitle } from "@/lib/title-key";
 import { parseWatchedDate } from "@/lib/watched-date";
 import { isValidPlatform } from "@/lib/platforms";
 import { ensureFreshSeasonCheckInBackground } from "@/lib/season-check";
+import { episodeColumns } from "@/lib/episode-progress";
 
 // ensureFreshSeasonCheckInBackground's after() job (one TMDB call per series
 // in the catalog) shares this request's execution budget even though it
@@ -22,6 +23,9 @@ type RequestBody = {
   /** When it was actually watched — defaults to now when omitted. Ignored
    *  for a watchlist entry, which has no watched date yet. */
   lastWatchedAt?: string;
+  /** Series only, watched: the episodes picked, as src/lib/episodes.ts
+   *  stores them. Ignored for a watchlist entry, which has none yet. */
+  watchedEpisodes?: unknown;
 };
 
 /** Creates a new catalog entry from a TMDB candidate picked by the user (used
@@ -76,6 +80,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const episodes =
+    !watchlist && candidate.mediaType === "Series" && body.watchedEpisodes !== undefined
+      ? await episodeColumns(candidate.tmdbId, body.watchedEpisodes)
+      : null;
+
   const title = await prisma.title.create({
     data: {
       title: candidate.title,
@@ -94,6 +103,7 @@ export async function POST(request: NextRequest) {
       tmdbRating: candidate.tmdbRating,
       year: candidate.year,
       genres: candidate.genres,
+      ...(episodes ?? {}),
     },
   });
 

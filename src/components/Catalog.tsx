@@ -190,11 +190,15 @@ export default function Catalog({
     // Read it back from the response rather than trusting what was sent: the
     // server clamps to zero and to the known total, so it may have adjusted it.
     const { title: saved } = (await res.json()) as {
-      title: { id: number; watchedSeasons: number | null };
+      title: { id: number; watchedSeasons: number | null; watchedEpisodes: string | null };
     };
+    // Episodes too: on a series tracked per episode the server moves them
+    // with the count (src/lib/episode-progress.ts).
     setCatalog((prev) =>
       prev.map((t) =>
-        t.id === saved.id ? { ...t, watchedSeasons: saved.watchedSeasons } : t,
+        t.id === saved.id
+          ? { ...t, watchedSeasons: saved.watchedSeasons, watchedEpisodes: saved.watchedEpisodes }
+          : t,
       ),
     );
   }, []);

@@ -26,6 +26,9 @@ export const CATALOG_TITLE_SELECT = {
   lastWatchedAt: true,
   totalSeasons: true,
   watchedSeasons: true,
+  // Small, and only on series tracked per episode: the edit dialog and the
+  // card's progress line read it.
+  watchedEpisodes: true,
   newSeasonAvailable: true,
   inWatchlist: true,
   tmdbId: true,

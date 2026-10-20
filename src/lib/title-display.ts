@@ -1,4 +1,5 @@
 import type { CatalogTitle } from "@/lib/catalog-title";
+import { lastEpisodeLabel, parseWatchedEpisodes } from "@/lib/episodes";
 
 /**
  * How a title is spelled out wherever it is shown: the card's hover overlay
@@ -52,6 +53,13 @@ export function platformStyle(platform: string): { color: string; label: string 
  */
 export function seasonsLabel(title: CatalogTitle): string | null {
   if (title.mediaType !== "Series") return null;
+  const seasons = seasonCountLabel(title);
+  // A series tracked per episode also says how far into it the watching got.
+  const last = lastEpisodeLabel(parseWatchedEpisodes(title.watchedEpisodes));
+  return [seasons, last].filter(Boolean).join(" · ") || null;
+}
+
+function seasonCountLabel(title: CatalogTitle): string | null {
   const watched = title.watchedSeasons;
   const total = title.totalSeasons ?? 0;
   if (watched != null && total > 0) return `${watched} of ${total} seasons`;

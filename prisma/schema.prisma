@@ -28,6 +28,11 @@ model Title {
   // watched (derived from the imported history, editable by hand afterwards).
   totalSeasons   Int?
   watchedSeasons Int?
+  // Series only: which episodes have been watched, as JSON keyed by season
+  // number ({"1":[1,2,3],"2":[1]}) — see src/lib/episodes.ts. Null means
+  // progress was never tracked per episode, only as watchedSeasons above.
+  // When set, watchedSeasons is derived from it: the seasons fully watched.
+  watchedEpisodes String?
   // Set by the automatic season check (src/lib/season-check.ts) when TMDB's
   // season count comes back higher than totalSeasons above — cleared when
   // the badge it drives on the card is dismissed. Series only.

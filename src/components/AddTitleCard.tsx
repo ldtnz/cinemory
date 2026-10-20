@@ -10,6 +10,8 @@ import type { Title } from "@prisma/client";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import type { WatchMode } from "@/lib/watch-mode";
 import PlatformPicker from "@/components/PlatformPicker";
+import EpisodePicker from "@/components/EpisodePicker";
+import { countWatchedEpisodes, type WatchedEpisodes } from "@/lib/episodes";
 import { useTmdbSearch } from "@/lib/use-tmdb-search";
 import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
 import { hasHoverPointer } from "@/lib/pointer";
@@ -128,6 +130,9 @@ export default function AddTitleCard({
     Map<string, { platform?: string; date?: string }>
   >(new Map());
   const [focusKey, setFocusKey] = useState<string | null>(null);
+  // Series only: the episodes picked for each, keyed like `selected`. A
+  // series left without any is added as it always was, with no progress.
+  const [episodePicks, setEpisodePicks] = useState<Map<string, WatchedEpisodes>>(new Map());
   const [saving, setSaving] = useState(false);
   const [browseSuggestions, setBrowseSuggestions] = useState<BrowseSuggestions | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -221,6 +226,11 @@ export default function AddTitleCard({
 
   function removeSelected(key: string) {
     setFocusKey((prev) => (prev === key ? null : prev));
+    setEpisodePicks((prev) => {
+      const next = new Map(prev);
+      next.delete(key);
+      return next;
+    });
     setOverrides((prev) => {
       const next = new Map(prev);
       next.delete(key);
@@ -259,6 +269,7 @@ export default function AddTitleCard({
     const outcomes = await Promise.all(
       toSubmit.map(async ([key, candidate]): Promise<[string, ItemStatus]> => {
         const watchedAt = fromDateInputValue(dateFor(key));
+        const episodes = episodePicks.get(key);
         try {
           const res = await fetch("/api/titles", {
             method: "POST",
@@ -269,6 +280,8 @@ export default function AddTitleCard({
               platform: watchlist ? "" : platformFor(key),
               lastWatchedAt:
                 !watchlist && watchedAt ? watchedAt.toISOString() : undefined,
+              watchedEpisodes:
+                !watchlist && episodes && countWatchedEpisodes(episodes) > 0 ? episodes : undefined,
             }),
           });
           // Already in the catalog: not a failure, the outcome wanted is
@@ -323,6 +336,17 @@ export default function AddTitleCard({
   // Only meaningful with several titles; a lone one just uses the defaults.
   const focused =
     selectedList.length > 1 && focusKey && selected.has(focusKey) ? focusKey : null;
+  // The series whose episodes the picker shows: the only title, or the
+  // poster clicked among several.
+  const episodeKey = focused ?? (selectedList.length === 1 ? selectedList[0][0] : null);
+  const episodeCandidate = episodeKey ? selected.get(episodeKey) : undefined;
+  const pickEpisodesFor =
+    episodeKey && episodeCandidate?.mediaType === "Series" && episodeCandidate.tmdbId > 0
+      ? { key: episodeKey, candidate: episodeCandidate }
+      : null;
+  const hasSeriesSelected = selectedList.some(
+    ([, c]) => c.mediaType === "Series" && c.tmdbId > 0,
+  );
   const missingPlatform = selectedList.some(
     ([key]) =>
       itemStatus.get(key) !== "added" &&
@@ -895,6 +919,32 @@ export default function AddTitleCard({
                         </p>
                       )}
                     </div>
+                  )}
+
+                  {destination === "watched" && pickEpisodesFor && (
+                    <div className="space-y-2">
+                      <span className="text-[11px] font-medium uppercase tracking-wide text-muted/80">
+                        {selectedList.length > 1
+                          ? `Which episodes of ${pickEpisodesFor.candidate.title}?`
+                          : "Which episodes did you watch?"}
+                      </span>
+                      <EpisodePicker
+                        key={pickEpisodesFor.key}
+                        tmdbId={pickEpisodesFor.candidate.tmdbId}
+                        value={episodePicks.get(pickEpisodesFor.key) ?? {}}
+                        onChange={(next) =>
+                          setEpisodePicks((prev) => new Map(prev).set(pickEpisodesFor.key, next))
+                        }
+                      />
+                      <p className="text-[11px] text-muted/80">
+                        Optional. Ticking a season or an episode ticks everything before it too.
+                      </p>
+                    </div>
+                  )}
+                  {destination === "watched" && !pickEpisodesFor && hasSeriesSelected && (
+                    <p className="text-[11px] text-muted/80">
+                      Click a series poster above to pick which of its episodes you watched.
+                    </p>
                   )}
 
                   {failedCount > 0 && (
