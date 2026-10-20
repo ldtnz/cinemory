@@ -281,9 +281,9 @@ function TitleCard({
         <span
           title="Pinned"
           aria-label="Pinned"
-          className="pointer-events-none absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white shadow-[0_4px_12px_-2px_rgba(0,0,0,0.5)] backdrop-blur-sm"
+          className="pointer-events-none absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/40 text-white/75 backdrop-blur-sm"
         >
-          <Pin className="h-3.5 w-3.5 fill-current" strokeWidth={2} />
+          <Pin className="h-3 w-3 rotate-[30deg] fill-current" strokeWidth={2} />
         </span>
       )}
 

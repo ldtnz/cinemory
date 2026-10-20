@@ -31,11 +31,15 @@ export default function ConfirmDialog({
   const dialogRef = useDialogFocus<HTMLDivElement>();
 
   useEffect(() => {
+    // Captured and stopped here, so Escape over a dialog that opened this one
+    // (the edit dialog's "Clear episodes") answers only the confirmation.
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onCancel();
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      onCancel();
     }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
   }, [onCancel]);
 
   return createPortal(
