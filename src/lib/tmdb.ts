@@ -225,7 +225,19 @@ export async function browseTmdb(): Promise<{
     path: "movie/popular" | "tv/popular" | "discover/movie" | "discover/tv",
     mediaType: "Movie" | "Series",
   ): Promise<TmdbCandidate[]> {
+    // TMDB pages hold twenty results; two keep the scrolling rows long even
+    // after the client drops what is already in the catalog.
+    const pages = await Promise.all([1, 2].map((page) => listPage(path, mediaType, page)));
+    return pages.flat();
+  }
+
+  async function listPage(
+    path: "movie/popular" | "tv/popular" | "discover/movie" | "discover/tv",
+    mediaType: "Movie" | "Series",
+    page: number,
+  ): Promise<TmdbCandidate[]> {
     const url = withKey(new URL(`https://api.themoviedb.org/3/${path}`));
+    url.searchParams.set("page", String(page));
     url.searchParams.set("language", language);
     url.searchParams.set("include_adult", "false");
     if (mediaType === "Movie") url.searchParams.set("region", region);
@@ -282,8 +294,8 @@ export async function browseTmdb(): Promise<{
       if (!excluded.has(key)) unique.set(key, candidate);
     }
     // Return a larger pool because the client removes titles already present
-    // in this user's catalog before displaying the first six.
-    return [...unique.values()].slice(0, 16);
+    // in this user's catalog before filling its scrolling row.
+    return [...unique.values()].slice(0, 48);
   }
 
   const popular = mix(popularMovies, popularSeries);
