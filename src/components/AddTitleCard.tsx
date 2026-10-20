@@ -3,9 +3,9 @@
 import type { TitleIdentityIndex } from "@/lib/title-identity";
 
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { ArrowLeft, Check, Plus, X } from "lucide-react";
 import type { Title } from "@prisma/client";
 import type { TmdbCandidate } from "@/lib/tmdb";
 import type { WatchMode } from "@/lib/watch-mode";
@@ -43,80 +43,22 @@ const SUGGESTIONS_PER_ROW = 30;
 
 /**
  * One sideways-scrolling row of suggestion posters. Six fit at once on a wide
- * screen and the rest wait to the right; the arrows page through them a
- * screenful at a time and only show while there is somewhere to go.
+ * screen and the rest wait to the right.
  */
 function SuggestionRow({ children }: { children: ReactNode }) {
   const wheel = useHorizontalWheel<HTMLDivElement>();
-  const rowRef = useRef<HTMLDivElement | null>(null);
-  const [canScroll, setCanScroll] = useState({ left: false, right: false });
-
-  const update = useCallback(() => {
-    const el = rowRef.current;
-    if (!el) return;
-    const room = el.scrollWidth - el.clientWidth;
-    // A pixel of slack: fractional widths leave scrollLeft just short of room.
-    setCanScroll({ left: el.scrollLeft > 1, right: el.scrollLeft < room - 1 });
-  }, []);
-
-  const ref = useCallback(
-    (element: HTMLDivElement | null) => {
-      rowRef.current = element;
-      const detachWheel = wheel(element);
-      if (!element) return;
-      update();
-      const observer = new ResizeObserver(update);
-      observer.observe(element);
-      element.addEventListener("scroll", update, { passive: true });
-      return () => {
-        detachWheel?.();
-        observer.disconnect();
-        element.removeEventListener("scroll", update);
-      };
-    },
-    [wheel, update],
-  );
-
-  function page(direction: 1 | -1) {
-    const el = rowRef.current;
-    if (!el) return;
-    el.scrollBy({ left: direction * el.clientWidth * 0.9, behavior: "smooth" });
-  }
-
-  const arrow =
-    "absolute top-1/2 z-10 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/70 text-white backdrop-blur-sm transition hover:bg-black/85 sm:flex";
-
+  // A scroller clips whatever spills past its padding box, and the selection
+  // ring is drawn just outside each poster: a pixel of padding on every side,
+  // taken back by an equal negative margin, gives the ring room without
+  // moving the row. The phone's wider bleed to the dialog's edges keeps the
+  // last poster visibly cut rather than sitting in a gutter looking like the
+  // end of the list.
   return (
-    <div className="relative">
-      {/* The negative margin lets the row bleed to the dialog's edges on a
-          phone, so the last poster is visibly cut rather than sitting in a
-          gutter looking like the end of the list. */}
-      <div
-        ref={ref}
-        className="-mx-4 flex snap-x gap-2 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 pb-1 sm:mx-0 sm:scroll-px-0 sm:px-0 sm:pb-0"
-      >
-        {children}
-      </div>
-      {canScroll.left && (
-        <button
-          type="button"
-          onClick={() => page(-1)}
-          aria-label="Scroll left"
-          className={`${arrow} left-0 -translate-x-1/3`}
-        >
-          <ChevronLeft className="h-5 w-5" strokeWidth={2} />
-        </button>
-      )}
-      {canScroll.right && (
-        <button
-          type="button"
-          onClick={() => page(1)}
-          aria-label="Scroll right"
-          className={`${arrow} right-0 translate-x-1/3`}
-        >
-          <ChevronRight className="h-5 w-5" strokeWidth={2} />
-        </button>
-      )}
+    <div
+      ref={wheel}
+      className="-mx-4 -my-1 flex snap-x gap-2 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 py-1 sm:-mx-1 sm:scroll-px-1 sm:px-1"
+    >
+      {children}
     </div>
   );
 }
@@ -473,7 +415,7 @@ export default function AddTitleCard({
         <div className="h-3 w-24 animate-pulse rounded bg-surface-3" />
         {/* Same shape as the row it stands in for, or the dialog resizes
             under the reader the moment the answer arrives. */}
-        <div className="-mx-4 flex gap-2 overflow-hidden px-4 pb-1 sm:mx-0 sm:px-0 sm:pb-0">
+        <div className="-mx-4 flex gap-2 overflow-hidden px-4 sm:mx-0 sm:px-0">
           {Array.from({ length: 6 }, (_, index) => (
             <div
               key={`${label}-${index}`}
