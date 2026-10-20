@@ -61,7 +61,7 @@ export async function DELETE(
 }
 
 /**
- * Five edits, told apart by the body:
+ * Six edits, told apart by the body:
  *  - { markWatched: { platform } } moves a watchlist entry into the watched
  *    half, recording where it was finally watched.
  *  - { moveToWatchlist: true } is the way back: it drops the platform and the
@@ -75,6 +75,8 @@ export async function DELETE(
  *    edit mode).
  *  - { dismissNewSeason: true } clears the "new season available" badge set
  *    by the automatic sweep in src/lib/season-check.ts.
+ *  - { pinned: boolean } pins the title to the top of the catalog, or unpins
+ *    it. Re-pinning moves it back to the front.
  */
 export async function PATCH(
   request: NextRequest,
@@ -101,8 +103,24 @@ export async function PATCH(
         };
         moveToWatchlist?: boolean;
         dismissNewSeason?: boolean;
+        pinned?: boolean;
       }
     | null;
+
+  if (typeof body?.pinned === "boolean") {
+    const updated = await prisma.title.updateMany({
+      where: { id },
+      data: { pinnedAt: body.pinned ? new Date() : null },
+    });
+    if (updated.count === 0) {
+      return NextResponse.json({ error: "Title not found." }, { status: 404 });
+    }
+    const title = await prisma.title.findUnique({
+      where: { id },
+      select: { id: true, pinnedAt: true },
+    });
+    return NextResponse.json({ title });
+  }
 
   if (body?.dismissNewSeason) {
     await dismissNewSeason(id);

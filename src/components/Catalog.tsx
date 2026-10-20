@@ -309,6 +309,30 @@ export default function Catalog({
     );
   }, []);
 
+  // Pins a title to the top of its half, or unpins it. Only pinnedAt
+  // changes, so it is applied from the response alone.
+  const togglePin = useCallback(async (title: CatalogTitle) => {
+    const res = await send(`/api/titles/${title.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pinned: !title.pinnedAt }),
+    });
+    if (!res?.ok) {
+      notifyWriteFailed("Could not update the title.");
+      return;
+    }
+    const { title: saved } = (await res.json()) as {
+      title: { id: number; pinnedAt: string | null };
+    };
+    setCatalog((prev) =>
+      prev.map((t) =>
+        t.id === saved.id
+          ? { ...t, pinnedAt: saved.pinnedAt ? new Date(saved.pinnedAt) : null }
+          : t,
+      ),
+    );
+  }, []);
+
   /** Sends watched titles back to the watchlist — the way back from
    *  markWatched, which is why it drops the same two fields that one set. */
   const moveToWatchlist = useCallback(async (rows: CatalogTitle[]) => {
@@ -526,6 +550,13 @@ export default function Catalog({
           return dateB - dateA || a.title.localeCompare(b.title);
         });
     }
+    // Pinned titles lead whatever the sort, most recently pinned first; the
+    // sort is stable, so everything else keeps the order chosen above.
+    arr.sort((a, b) => {
+      const pinB = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
+      const pinA = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
+      return pinB - pinA;
+    });
     return arr;
   }, [filtered, sort]);
 
@@ -704,6 +735,7 @@ export default function Catalog({
               onEditWatched={editWatched}
               onDismissNewSeason={dismissNewSeason}
               onMoveToWatchlist={moveOneToWatchlist}
+              onTogglePin={togglePin}
               selected={selectedIds.has(t.id)}
               selectionActive={selectedTitles.length > 0}
               onToggleSelect={toggleSelect}

@@ -31,6 +31,7 @@ export const CATALOG_TITLE_SELECT = {
   watchedEpisodes: true,
   newSeasonAvailable: true,
   inWatchlist: true,
+  pinnedAt: true,
   tmdbId: true,
   posterUrl: true,
   tmdbRating: true,

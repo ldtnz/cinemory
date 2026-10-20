@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { Check, Film, Minus, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Check, Film, Minus, Pencil, Pin, Plus, Sparkles, Trash2 } from "lucide-react";
 import type { CatalogTitle } from "@/lib/catalog-title";
 import { useCardContextMenu } from "@/lib/use-card-context-menu";
 import { formatDate, platformStyle, seasonsLabel } from "@/lib/title-display";
@@ -28,6 +28,7 @@ function TitleCard({
   onEditWatched,
   onDismissNewSeason,
   onMoveToWatchlist,
+  onTogglePin,
   selected = false,
   selectionActive = false,
   onToggleSelect,
@@ -53,6 +54,8 @@ function TitleCard({
   onDismissNewSeason?: (title: CatalogTitle) => void;
   /** Sends an already-watched title back to the watchlist. */
   onMoveToWatchlist?: (title: CatalogTitle) => void;
+  /** Pins the title to the top of the catalog, or unpins it. */
+  onTogglePin?: (title: CatalogTitle) => void;
   /** Part of the standing shift-click selection (see SelectionBar). */
   selected?: boolean;
   /** Something is already selected, so a plain click adds to the selection
@@ -271,6 +274,19 @@ function TitleCard({
         </div>
       )}
 
+      {/* Pinned: always visible, like the new-season badge across from it.
+          Off in edit mode and while selected, which use this corner for
+          the delete button and the selection tick. */}
+      {title.pinnedAt && !editing && !selected && (
+        <span
+          title="Pinned"
+          aria-label="Pinned"
+          className="pointer-events-none absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white shadow-[0_4px_12px_-2px_rgba(0,0,0,0.5)] backdrop-blur-sm"
+        >
+          <Pin className="h-3.5 w-3.5 fill-current" strokeWidth={2} />
+        </span>
+      )}
+
       {/* A new season landed since totalSeasons was last checked (see
           src/lib/season-check.ts) — persistently visible, not hover-gated
           like the rest of the card's overlays, since the point is to catch
@@ -421,6 +437,8 @@ function TitleCard({
           // phone there is no hover to reveal that button, so the menu is
           // the only way to reach it.
           onEdit={title.inWatchlist ? undefined : () => setEditingWatched(true)}
+          pinned={Boolean(title.pinnedAt)}
+          onTogglePin={onTogglePin ? () => onTogglePin(title) : undefined}
           onDelete={requestDelete}
           onClose={closeContextMenu}
         />

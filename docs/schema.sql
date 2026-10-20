@@ -50,6 +50,12 @@ CREATE INDEX "Title_status_idx" ON "Title"("status");
 -- CreateIndex
 CREATE INDEX "Title_searchTitle_idx" ON "Title"("searchTitle");
 
+-- ----- 10_pinned -----
+
+-- Titles pinned to the top of the catalog, most recently pinned first.
+-- Null when not pinned.
+ALTER TABLE "Title" ADD COLUMN "pinnedAt" DATETIME;
+
 -- ----- 1_settings -----
 
 -- CreateTable

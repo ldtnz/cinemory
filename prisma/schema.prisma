@@ -38,6 +38,9 @@ model Title {
   // the badge it drives on the card is dismissed. Series only.
   newSeasonAvailable Boolean @default(false)
   inWatchlist        Boolean @default(false)
+  // When the title was pinned to the top of its half of the catalog (the
+  // ones being watched right now), most recent first. Null when not pinned.
+  pinnedAt           DateTime?
   link               String?
 
   // Enriched from TMDB
