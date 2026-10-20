@@ -3,6 +3,10 @@
 import { useEffect, useRef } from "react";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 
+/** Open dialogs, oldest first. A confirmation can open over another dialog,
+ *  and only the one on top may hold the keyboard. */
+const openDialogs: HTMLElement[] = [];
+
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -32,6 +36,7 @@ export function useDialogFocus<T extends HTMLElement>() {
     // Where to give it back. A dialog opened from a card returns the keyboard
     // to that card, so the grid does not start again from the top.
     const opener = document.activeElement as HTMLElement | null;
+    openDialogs.push(dialog);
 
     function focusable(): HTMLElement[] {
       return Array.from(dialog!.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
@@ -51,6 +56,9 @@ export function useDialogFocus<T extends HTMLElement>() {
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "Tab") return;
+      // Otherwise the dialog underneath would see focus "outside" it and
+      // pull it back out of the one stacked on top.
+      if (openDialogs.at(-1) !== dialog) return;
       const items = focusable();
       if (items.length === 0) {
         e.preventDefault();
@@ -82,6 +90,7 @@ export function useDialogFocus<T extends HTMLElement>() {
     document.addEventListener("keydown", onKeyDown, true);
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
+      openDialogs.splice(openDialogs.indexOf(dialog!), 1);
       // Only if it is still there: the card a dialog was opened from may have
       // been deleted by what the dialog did.
       if (opener && document.contains(opener)) opener.focus();

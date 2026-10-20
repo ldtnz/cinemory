@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Check, ChevronDown, Minus } from "lucide-react";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import {
   countWatchedEpisodes,
   isEpisodeWatched,
@@ -77,6 +78,7 @@ export default function EpisodePicker({
   const [seasons, setSeasons] = useState<SeasonSummary[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState<number | null>(null);
+  const [confirmingClear, setConfirmingClear] = useState(false);
   const [episodes, setEpisodes] = useState<Map<number, EpisodeDetail[] | "error">>(new Map());
 
   useEffect(() => {
@@ -159,13 +161,29 @@ export default function EpisodePicker({
         {watchedCount > 0 && (
           <button
             type="button"
-            onClick={() => onChange({})}
+            onClick={() => setConfirmingClear(true)}
             className="font-medium text-foreground underline underline-offset-2"
           >
             Clear
           </button>
         )}
       </div>
+
+      {confirmingClear && (
+        <ConfirmDialog
+          title="Clear all episodes?"
+          description={`All ${watchedCount} ticked ${
+            watchedCount === 1 ? "episode" : "episodes"
+          } of this series will be unticked.`}
+          confirmLabel="Clear"
+          danger
+          onConfirm={() => {
+            setConfirmingClear(false);
+            onChange({});
+          }}
+          onCancel={() => setConfirmingClear(false)}
+        />
+      )}
 
       <ul className="max-h-[22rem] space-y-1.5 overflow-y-auto overscroll-contain rounded-2xl">
         {seasons.map((s) => {
